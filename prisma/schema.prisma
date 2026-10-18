@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  CUSTOMER
+  STAFF
+  STOCKER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  ASSIGNED
+  LOADING
+  LOADED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+enum PaymentMode {
+  BANK_TRANSFER
+  UPI
+  CASH
+  CHEQUE
+}
+
+enum StockType {
+  IN
+  OUT
+}
+
+model User {
+  id              String          @id @default(cuid())
+  role            Role            @default(CUSTOMER)
+  name            String
+  mobile          String          @unique
+  email           String          @unique
+  passwordHash    String
+  companyName     String?
+  gstin           String?
+  billingAddress  String?
+  deliveryAddress String?
+  city            String?
+  state           String?         @default("Gujarat")
+  pincode         String?
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  customerOrders  Order[]         @relation("CustomerOrders")
+  assignedOrders  Order[]         @relation("StaffAssignedOrders")
+  stockMovements  StockMovement[]
+  paymentsCreated Payment[]
+  orderEvents     OrderEvent[]
+  messageLogs     MessageLog[]
+
+  @@index([role])
+  @@index([mobile])
+}
+
+model Product {
+  id           String          @id @default(cuid())
+  name         String          @default("AAC Block")
+  sizeLabel    String          // e.g. "4 Inch", "6 Inch", "8 Inch", "9 Inch"
+  dimensions   String          // e.g. "600 × 200 × 100 mm"
+  lengthMm     Int             @default(600)
+  heightMm     Int             @default(200)
+  widthMm      Int             // 75, 100, 125, 150, 175, 200, 225, 230, 300
+  cbmPerBlock  Decimal         @db.Decimal(10, 4) // (L * H * W) / 1,000,000,000
+  blocksPerCbm Decimal         @db.Decimal(10, 2) // 1 / cbmPerBlock
+  price        Decimal         @default(0) @db.Decimal(12, 2)
+  gstRate      Decimal         @default(18.00) @db.Decimal(5, 2)
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  orders       Order[]
+  movements    StockMovement[]
+
+  @@index([sizeLabel])
+  @@index([active])
+}
+
+model Order {
+  id              String          @id @default(cuid())
+  orderNo         String          @unique // e.g. "ORD-2026-1001"
+  customerId      String
+  customer        User            @relation("CustomerOrders", fields: [customerId], references: [id])
+  productId       String
+  product         Product         @relation(fields: [productId], references: [id])
+  quantity        Int
+  loadedQuantity  Int             @default(0)
+  rate            Decimal         @db.Decimal(12, 2)
+  gstRate         Decimal         @default(18.00) @db.Decimal(5, 2)
+  subtotal        Decimal         @db.Decimal(14, 2)
+  gstAmount       Decimal         @db.Decimal(14, 2)
+  totalAmount     Decimal         @db.Decimal(14, 2)
+  deliveryAddress String
+  requestedDate   DateTime?
+  notes           String?
+  status          OrderStatus     @default(PENDING)
+  invoiceNo       String?         @unique // e.g. "INV-2026-0001"
+  shareToken      String?         @unique // Secure public token for WhatsApp
+  paymentStatus   PaymentStatus   @default(PENDING)
+  paidAmount      Decimal         @default(0) @db.Decimal(14, 2)
+  
+  assignedStaffId String?
+  assignedStaff   User?           @relation("StaffAssignedOrders", fields: [assignedStaffId], references: [id])
+
+  confirmedAt     DateTime?
+  dispatchedAt    DateTime?
+  deliveredAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  transport       Transport?
+  events          OrderEvent[]
+  payments        Payment[]
+  movements       StockMovement[]
+  messageLogs     MessageLog[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([assignedStaffId])
+}
+
+model Transport {
+  id               String    @id @default(cuid())
+  orderId          String    @unique
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  transporterName  String?
+  truckNumber      String
+  driverName       String
+  driverMobile     String
+  expectedDelivery DateTime?
+  assignedAt       DateTime  @default(now())
+}
+
+model OrderEvent {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      OrderStatus
+  title       String
+  note        String?
+  createdById String?
+  createdBy   User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount      Decimal     @db.Decimal(14, 2)
+  mode        PaymentMode
+  referenceNo String?
+  paidAt      DateTime    @default(now())
+  createdById String?
+  createdBy   User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+
+  @@index([orderId])
+}
+
+model StockMovement {
+  id            String    @id @default(cuid())
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id])
+  orderId       String?
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  type          StockType // IN or OUT
+  quantityDelta Int       // Positive for IN, Negative for OUT
+  referenceNo   String?
+  note          String?
+  createdById   String?
+  createdBy     User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model MessageLog {
+  id          String    @id @default(cuid())
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  messageType String    // invoice, confirmed, assigned, loading, loaded, dispatched, delivered, payment
+  mobile      String
+  messageText String
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  @@index([orderId])
+}
