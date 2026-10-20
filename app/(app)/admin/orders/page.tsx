@@ -306,7 +306,7 @@ export default async function AdminOrdersPage({
                 <th className="py-3.5 px-4">Block Size</th>
                 <th className="py-3.5 px-4 text-right">Block Quantity</th>
                 <th className="py-3.5 px-4 text-right">Total CBM</th>
-                <th className="py-3.5 px-4 text-center">Adhesive (40 KG Bags)</th>
+                <th className="py-3.5 px-4 text-center">Block Jointing Morter (40 KG Bags)</th>
                 <th className="py-3.5 px-4">Transport</th>
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
@@ -439,7 +439,7 @@ export default async function AdminOrdersPage({
                   <p className="font-bold text-navy truncate">{o.product?.sizeLabel || "AAC Blocks"}</p>
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Adhesive (40 KG)</span>
+                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Jointing Morter (40 KG)</span>
                   <p className="font-bold text-navy truncate">{o.adhesiveBags ?? 0} Bags</p>
                 </div>
                 <div className="min-w-0">

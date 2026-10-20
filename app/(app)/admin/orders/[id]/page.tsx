@@ -262,10 +262,12 @@ export default async function AdminOrderDetailPage({
           </p>
         </div>
 
-        <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-4 shadow-xs border-l-4 border-l-emerald-600 min-w-0">
-          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate block">Order Status</span>
-          <div className="mt-1 text-xl sm:text-2xl font-black text-emerald-700 truncate">
-            {ORDER_STATUS_LABEL[order.status]}
+        <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-4 shadow-xs border-l-4 border-l-emerald-600 min-w-0 flex flex-col justify-between">
+          <div>
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Order Status</span>
+            <div className="mt-1 text-base sm:text-lg lg:text-xl font-black text-emerald-700 leading-tight">
+              {ORDER_STATUS_LABEL[order.status]}
+            </div>
           </div>
           <p className="mt-1 text-xs text-slate-500 truncate">
             Booked: {formatDate(order.createdAt)}
@@ -430,8 +432,8 @@ export default async function AdminOrderDetailPage({
                 </div>
                 <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-bold text-[#13789B]">GOLD (G100) TILE & STONE ADHESIVE</span>
-                    <span className="block text-[11px] text-slate-500">40 KG Bag Packaging</span>
+                    <span className="font-bold text-[#13789B]">Block Jointing Morter</span>
+                    <span className="block text-[11px] text-slate-500">40 KG Bag Packaging Only</span>
                   </div>
                   <span className="font-mono font-black text-navy text-sm">
                     {order.adhesiveBags ?? 0} Bags

@@ -19,28 +19,26 @@ async function run() {
     console.log(`✅ Size ${spec.size.padEnd(4)}: ${spec.lengthMm}x${spec.heightMm}x${spec.widthMm}mm | CBM/blk: ${metrics.cbmDisplay} m³ | SqFt/blk: ${expectedSqft.toFixed(2)}`);
   }
 
-  // 2. Verify GOLD (G100) 40 KG Adhesive product in DB
-  console.log("\n--- TEST 2: Verifying GOLD (G100) 40 KG Adhesive ---");
-  const adhesive = await prisma.product.findFirst({
-    where: { category: "ADHESIVE", active: true },
-  });
-  if (!adhesive) {
-    throw new Error("Active GOLD (G100) ADHESIVE product not found!");
-  }
-  if (Number(adhesive.bagWeightKg) !== 40) {
-    throw new Error(`Expected bagWeightKg=40, got ${adhesive.bagWeightKg}`);
-  }
-  console.log(`✅ GOLD (G100) Adhesive verified: "${adhesive.name}", Bag Weight: ${adhesive.bagWeightKg} KG`);
-
-  // Verify separate mortar is deactivated
+  // 2. Verify Block Jointing Morter (40 KG) product in DB
+  console.log("\n--- TEST 2: Verifying Block Jointing Morter (40 KG) ---");
   const mortar = await prisma.product.findFirst({
-    where: { category: "MORTAR", active: true },
+    where: {
+      OR: [
+        { name: "Block Jointing Morter" },
+        { category: "MORTAR" },
+        { category: "ADHESIVE" },
+      ],
+      active: true,
+      deletedAt: null,
+    },
   });
-  if (mortar) {
-    console.warn("⚠️ Warning: A separate MORTAR product is still active!");
-  } else {
-    console.log("✅ Verified: Separate 'Joining Mortar' product is deactivated.");
+  if (!mortar) {
+    throw new Error("Active Block Jointing Morter product not found!");
   }
+  if (Number(mortar.bagWeightKg) !== 40) {
+    throw new Error(`Expected bagWeightKg=40, got ${mortar.bagWeightKg}`);
+  }
+  console.log(`✅ Block Jointing Morter verified: "${mortar.name}", Bag Weight: ${mortar.bagWeightKg} KG`);
 
   // 3. Test Order Creation with Adhesive Quantity = 0
   console.log("\n--- TEST 3: Order Placement with 0 Adhesive Bags ---");
@@ -101,7 +99,7 @@ async function run() {
         create: {
           status: OrderStatus.PENDING,
           title: "Order Placed",
-          note: "Order booked: 1,000 AAC Blocks (18.00 CBM) + 0 Bags GOLD (G100) 40 KG",
+          note: "Order booked: 1,000 AAC Blocks (18.00 CBM) + 0 Bags Block Jointing Morter (40 KG)",
           createdById: testCustomer.id,
         },
       },
@@ -182,9 +180,9 @@ async function run() {
             totalAmount: 0,
           },
           {
-            productId: adhesive.id,
-            productType: "ADHESIVE",
-            productName: adhesive.name,
+            productId: mortar.id,
+            productType: "MORTAR",
+            productName: mortar.name,
             sizeLabel: "40 Kg Bag",
             dimensions: "40 Kg Bag",
             quantity: 15,
@@ -204,7 +202,7 @@ async function run() {
         create: {
           status: OrderStatus.PENDING,
           title: "Order Placed",
-          note: `Order booked: ${combinedBlocks.toLocaleString()} AAC Blocks (${combinedCbm.toFixed(2)} CBM) + 15 Bags GOLD (G100) 40 KG`,
+          note: `Order booked: ${combinedBlocks.toLocaleString()} AAC Blocks (${combinedCbm.toFixed(2)} CBM) + 15 Bags Block Jointing Morter (40 KG)`,
           createdById: testCustomer.id,
         },
       },

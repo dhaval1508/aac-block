@@ -75,33 +75,26 @@ async function seed() {
     }
   }
 
-  // 2. Separate "Joining Mortar" product deactivated per user requirement (only GOLD G100 40 KG is used)
-  const existingMortar = await prisma.product.findFirst({
-    where: { category: "MORTAR" },
+  // 2. Ensure exactly one active mortar product: "Block Jointing Morter" (40 KG Bag Only)
+  // First, deactivate and soft-delete any old or duplicate mortar / adhesive products
+  const allOldMortarOrAdhesives = await prisma.product.findMany({
+    where: {
+      category: { in: ["MORTAR", "ADHESIVE"] },
+    },
   });
 
-  if (existingMortar) {
-    console.log("Deactivating separate mortar product...");
+  let primaryMortarId: string | null = null;
+  if (allOldMortarOrAdhesives.length > 0) {
+    // Pick the first one to be the canonical "Block Jointing Morter"
+    primaryMortarId = allOldMortarOrAdhesives[0].id;
     await prisma.product.update({
-      where: { id: existingMortar.id },
-      data: { active: false },
-    });
-  }
-
-  // 3. Verified GOLD (G100) TILE & STONE ADHESIVE (Only 40 Kg Bag)
-  const existingAdhesive = await prisma.product.findFirst({
-    where: { category: "ADHESIVE" },
-  });
-
-  if (!existingAdhesive) {
-    console.log("Creating GOLD (G100) TILE & STONE ADHESIVE (40 Kg Bag)...");
-    const adhesive = await prisma.product.create({
+      where: { id: primaryMortarId },
       data: {
-        name: "GOLD (G100) TILE & STONE ADHESIVE",
+        name: "Block Jointing Morter",
         brand: "Swarnim",
-        category: "ADHESIVE",
-        sizeLabel: "40 Kg Bag",
-        dimensions: "40 Kg Bag",
+        category: "MORTAR",
+        sizeLabel: "40 KG Bag",
+        dimensions: "40 KG Bag",
         lengthMm: 0,
         heightMm: 0,
         widthMm: 0,
@@ -111,35 +104,58 @@ async function seed() {
         price: 0,
         gstRate: 0,
         active: true,
+        deletedAt: null,
       },
     });
+    console.log(`Updated canonical mortar product ${primaryMortarId} to 'Block Jointing Morter' (40 KG Bag).`);
+
+    // Deactivate/soft-delete any other duplicates
+    for (let i = 1; i < allOldMortarOrAdhesives.length; i++) {
+      const dup = allOldMortarOrAdhesives[i];
+      await prisma.product.update({
+        where: { id: dup.id },
+        data: {
+          active: false,
+          deletedAt: new Date(),
+        },
+      });
+      console.log(`Deactivated and soft-deleted duplicate mortar/adhesive product: ${dup.id} (${dup.name})`);
+    }
+  } else {
+    console.log("Creating new Block Jointing Morter (40 KG Bag)...");
+    const mortar = await prisma.product.create({
+      data: {
+        name: "Block Jointing Morter",
+        brand: "Swarnim",
+        category: "MORTAR",
+        sizeLabel: "40 KG Bag",
+        dimensions: "40 KG Bag",
+        lengthMm: 0,
+        heightMm: 0,
+        widthMm: 0,
+        cbmPerBlock: 0,
+        blocksPerCbm: 0,
+        bagWeightKg: 40.0,
+        price: 0,
+        gstRate: 0,
+        active: true,
+        deletedAt: null,
+      },
+    });
+    primaryMortarId = mortar.id;
 
     await prisma.stockMovement.create({
       data: {
-        productId: adhesive.id,
+        productId: mortar.id,
         type: StockType.IN,
         quantityDelta: 1000,
         referenceNo: "MASTER-INIT",
-        note: "Master seed stock for GOLD (G100) Tile & Stone Adhesive (40 Kg)",
-      },
-    });
-  } else {
-    console.log("Updating existing Adhesive product to 40 Kg Bag...");
-    await prisma.product.update({
-      where: { id: existingAdhesive.id },
-      data: {
-        name: "GOLD (G100) TILE & STONE ADHESIVE",
-        brand: "Swarnim",
-        category: "ADHESIVE",
-        sizeLabel: "40 Kg Bag",
-        dimensions: "40 Kg Bag",
-        bagWeightKg: 40.0,
-        active: true,
+        note: "Master seed stock for Block Jointing Morter (40 KG Bag)",
       },
     });
   }
 
-  console.log("Master seed completed successfully!");
+  console.log("Master seed completed successfully! Only 9 AAC Block sizes and 1 Block Jointing Morter (40 KG Bag) active.");
 }
 
 seed()

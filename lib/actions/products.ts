@@ -144,3 +144,36 @@ export async function toggleProductActiveAction(formData: FormData) {
   revalidatePath("/customer/new-order");
   redirect("/admin/products");
 }
+
+export async function deleteProductAction(id: string) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    return { success: false, error: "Unauthorized. Super Admin permission required." };
+  }
+
+  if (!id) {
+    return { success: false, error: "Product ID is required." };
+  }
+
+  const existing = await prisma.product.findUnique({ where: { id } });
+  if (!existing || existing.deletedAt) {
+    return { success: false, error: "Product not found or already deleted." };
+  }
+
+  // Soft delete: sets deletedAt timestamp and active: false
+  // Protects existing order history and related inventory records
+  await prisma.product.update({
+    where: { id },
+    data: {
+      active: false,
+      deletedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/customer/new-order");
+  revalidatePath("/stock");
+
+  return { success: true };
+}

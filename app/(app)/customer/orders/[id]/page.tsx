@@ -339,7 +339,7 @@ export default async function CustomerOrderDetailPage({
               </strong>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>GOLD (G100) 40 KG Adhesive:</span>
+              <span>Block Jointing Morter (40 KG):</span>
               <strong className="text-navy font-mono">{order.adhesiveBags ?? 0} Bags</strong>
             </div>
             <div className="flex justify-between text-xs border-t border-slate-100 pt-2">

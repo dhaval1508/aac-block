@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { getStockBySize, getStockSummary } from "@/lib/data";
+import { getStockBySize, getStockSummary, getMortarStock } from "@/lib/data";
 import {
   formatDate,
   formatNumber,
@@ -52,6 +52,7 @@ export default async function AdminDashboardPage({
   const [
     stockSummary,
     products,
+    mortarStock,
     totalCustomers,
     totalStaff,
     totalProducts,
@@ -68,6 +69,7 @@ export default async function AdminDashboardPage({
   ] = await Promise.all([
     getStockSummary(),
     getStockBySize(),
+    getMortarStock(),
     prisma.user.count({ where: { role: Role.CUSTOMER } }),
     prisma.user.count({ where: { role: { in: [Role.STAFF, Role.STOCKER] } } }),
     prisma.product.count(),
@@ -373,11 +375,11 @@ export default async function AdminDashboardPage({
             <span className="text-[10px] text-slate-400 truncate block">Total cubic meters</span>
           </div>
 
-          {/* 7. Total Adhesive/Mortar Bags */}
+          {/* 7. Total Block Jointing Morter Bags */}
           <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-orange-500">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 truncate block">Adhesive / Mortar Bags</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 truncate block">Block Jointing Morter</span>
             <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(totalMortarBags)}</div>
-            <span className="text-[10px] text-slate-400 truncate block">Bags ordered</span>
+            <span className="text-[10px] text-slate-400 truncate block">40 KG bags ordered</span>
           </div>
 
           {/* 8. Available Factory Stock */}
@@ -537,6 +539,41 @@ export default async function AdminDashboardPage({
               </div>
             );
           })}
+        </div>
+
+        {/* Dedicated Live Block Jointing Morter Stock Specification Card */}
+        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-xl bg-[#13789B] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+              40 KG
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-navy text-xs sm:text-sm">Block Jointing Morter</span>
+                <span className="rounded-md bg-sky-100 border border-sky-200 text-sky-800 px-2 py-0.5 text-[10px] font-bold">
+                  40 KG Bag Only
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                Pre-mixed thin bed jointing mortar formulation for AAC masonry. Packaging: 40 KG Bag only.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 self-end sm:self-auto shrink-0">
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Available Stack</span>
+              <span className="text-base sm:text-lg font-black text-navy">
+                {formatNumber(mortarStock.stock)} <span className="text-xs font-semibold text-slate-400">Bags</span>
+              </span>
+            </div>
+            <span
+              className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-bold ${
+                mortarStock.stock < 100 ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+              }`}
+            >
+              {mortarStock.stock < 100 ? "Low Stock" : "In Stock"}
+            </span>
+          </div>
         </div>
       </div>
 

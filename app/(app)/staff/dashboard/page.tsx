@@ -392,13 +392,13 @@ export default async function StaffDashboardPage({
 
                 <div>
                   <span className="text-[11px] font-semibold text-slate-400 uppercase">
-                    Order Quantity & Adhesive
+                    Order Quantity & Morter
                   </span>
                   <p className="mt-0.5 font-black text-navy font-mono">
                     {formatNumber(o.quantity)} blocks
                   </p>
                   <span className="text-[11px] font-bold text-sky-800 block mt-0.5">
-                    GOLD (G100): {o.adhesiveBags ?? 0} Bags (40 KG)
+                    Block Jointing Morter: {o.adhesiveBags ?? 0} Bags (40 KG)
                   </span>
                   <span className="text-[10px] text-slate-500 font-semibold">
                     Physical Count

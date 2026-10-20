@@ -25,6 +25,16 @@ textarea {
   font: inherit;
 }
 
+/* Remove spin buttons from number inputs across webkit and firefox */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 @layer components {
   .card {
     @apply rounded-2xl border border-slate-200/80 bg-white shadow-card transition-all;

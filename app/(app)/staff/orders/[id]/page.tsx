@@ -318,8 +318,8 @@ export default async function StaffOrderDetailPage({
 
         <div className="mt-3 rounded-2xl bg-sky-50 border border-sky-200 p-3.5 flex items-center justify-between text-xs">
           <div>
-            <strong className="text-navy text-sm block">GOLD (G100) TILE & STONE ADHESIVE</strong>
-            <span className="text-slate-500 text-[11px]">Factory Specification: 40 KG Bag Packaging</span>
+            <strong className="text-navy text-sm block">Block Jointing Morter</strong>
+            <span className="text-slate-500 text-[11px]">Factory Specification: 40 KG Bag Packaging Only</span>
           </div>
           <span className="font-mono font-black text-navy text-base">
             {order.adhesiveBags ?? 0} Bags

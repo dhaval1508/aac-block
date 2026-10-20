@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -19,10 +19,13 @@ import {
   ShoppingBag,
   UserX,
   Calendar,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { ROLE_LABEL, formatDate } from "@/lib/utils";
-import { toggleUserAction } from "@/lib/actions/users";
+import { toggleUserAction, deleteUserAction } from "@/lib/actions/users";
 import { AddStaffModal } from "@/components/add-staff-modal";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 
 type InternalUser = {
   id: string;
@@ -59,6 +62,19 @@ export function UsersManager({
   customers: CustomerUser[];
   currentUserId: string;
 }) {
+  const [staffList, setStaffList] = useState<InternalUser[]>(internalUsers);
+  const [customerList, setCustomerList] = useState<CustomerUser[]>(customers);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+    type: "STAFF" | "CUSTOMER";
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
   const [activeTab, setActiveTab] = useState<"STAFF" | "CUSTOMERS">("STAFF");
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [staffSearch, setStaffSearch] = useState("");
@@ -67,17 +83,64 @@ export function UsersManager({
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerStatusFilter, setCustomerStatusFilter] = useState<"ALL" | "ACTIVE" | "DISABLED">("ALL");
 
+  useEffect(() => {
+    setStaffList(internalUsers);
+  }, [internalUsers]);
+
+  useEffect(() => {
+    setCustomerList(customers);
+  }, [customers]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteUserAction(deleteTarget.id);
+      if (res?.success) {
+        if (deleteTarget.type === "STAFF") {
+          setStaffList((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+        } else {
+          setCustomerList((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+        }
+        setNotification({
+          type: "success",
+          message: `${deleteTarget.type === "STAFF" ? "Staff member" : "Customer account"} "${deleteTarget.name}" deleted successfully.`,
+        });
+        setDeleteTarget(null);
+      } else {
+        setNotification({
+          type: "error",
+          message: res?.error || "Failed to delete user.",
+        });
+      }
+    } catch (err: any) {
+      setNotification({
+        type: "error",
+        message: err?.message || "An unexpected error occurred during user deletion.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Summary Metrics (All 6 KPIs from Section 8)
-  const totalStaff = internalUsers.length;
-  const activeStaff = internalUsers.filter((u) => u.active).length;
+  const totalStaff = staffList.length;
+  const activeStaff = staffList.filter((u) => u.active).length;
   const disabledStaff = totalStaff - activeStaff;
-  const totalCustomers = customers.length;
-  const activeCustomers = customers.filter((c) => c.active).length;
-  const totalOrders = customers.reduce((sum, c) => sum + c._count.customerOrders, 0);
+  const totalCustomers = customerList.length;
+  const activeCustomers = customerList.filter((c) => c.active).length;
+  const totalOrders = customerList.reduce((sum, c) => sum + c._count.customerOrders, 0);
 
   // Filtered Staff
   const filteredStaff = useMemo(() => {
-    return internalUsers.filter((u) => {
+    return staffList.filter((u) => {
       const matchesRole =
         staffRoleFilter === "ALL" ? true : u.role === staffRoleFilter;
       const matchesStatus =
@@ -95,11 +158,11 @@ export function UsersManager({
 
       return matchesRole && matchesStatus && matchesSearch;
     });
-  }, [internalUsers, staffRoleFilter, staffStatusFilter, staffSearch]);
+  }, [staffList, staffRoleFilter, staffStatusFilter, staffSearch]);
 
   // Filtered Customers
   const filteredCustomers = useMemo(() => {
-    return customers.filter((c) => {
+    return customerList.filter((c) => {
       const matchesStatus =
         customerStatusFilter === "ALL"
           ? true
@@ -118,10 +181,36 @@ export function UsersManager({
 
       return matchesStatus && matchesSearch;
     });
-  }, [customers, customerStatusFilter, customerSearch]);
+  }, [customerList, customerStatusFilter, customerSearch]);
 
   return (
     <div className="space-y-4 sm:space-y-6 min-w-0 max-w-full">
+      {/* Success / Error Notification */}
+      {notification && (
+        <div
+          className={`rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm font-bold flex items-center justify-between gap-3 shadow-xs transition-all ${
+            notification.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-rose-50 text-rose-800 border border-rose-200"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            className="text-xs hover:underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* =========================================================================
           TOP METRIC KPI CARDS (6 Comprehensive Metrics)
       ========================================================================= */}
@@ -345,27 +434,39 @@ export function UsersManager({
                 <div className="flex items-center justify-between pt-1 text-xs">
                   <span className="text-[10px] text-slate-400">Joined: {formatDate(u.createdAt)}</span>
                   {u.id !== currentUserId ? (
-                    <form
-                      action={toggleUserAction}
-                      onSubmit={(e) => {
-                        const action = u.active ? "disable" : "enable";
-                        if (!window.confirm(`Are you sure you want to ${action} login access for ${u.name}?`)) {
-                          e.preventDefault();
-                        }
-                      }}
-                    >
-                      <input type="hidden" name="id" value={u.id} />
-                      <button
-                        type="submit"
-                        className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                          u.active
-                            ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
-                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                        }`}
+                    <div className="flex items-center gap-1.5">
+                      <form
+                        action={toggleUserAction}
+                        onSubmit={(e) => {
+                          const action = u.active ? "disable" : "enable";
+                          if (!window.confirm(`Are you sure you want to ${action} login access for ${u.name}?`)) {
+                            e.preventDefault();
+                          }
+                        }}
                       >
-                        {u.active ? "Disable Login" : "Enable Login"}
+                        <input type="hidden" name="id" value={u.id} />
+                        <button
+                          type="submit"
+                          className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                            u.active
+                              ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                          }`}
+                        >
+                          {u.active ? "Disable Login" : "Enable Login"}
+                        </button>
+                      </form>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget({ id: u.id, name: u.name, type: "STAFF" })}
+                        className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer shadow-2xs"
+                        title="Delete staff account"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>Delete</span>
                       </button>
-                    </form>
+                    </div>
                   ) : (
                     <span className="text-[10px] text-slate-400 font-semibold italic">Current Admin</span>
                   )}
@@ -436,27 +537,39 @@ export function UsersManager({
 
                     <td className="py-3 px-4 text-right">
                       {u.id !== currentUserId ? (
-                        <form
-                          action={toggleUserAction}
-                          onSubmit={(e) => {
-                            const action = u.active ? "disable" : "enable";
-                            if (!window.confirm(`Are you sure you want to ${action} login access for ${u.name}?`)) {
-                              e.preventDefault();
-                            }
-                          }}
-                        >
-                          <input type="hidden" name="id" value={u.id} />
-                          <button
-                            type="submit"
-                            className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                              u.active
-                                ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
-                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                            }`}
+                        <div className="inline-flex items-center gap-1.5">
+                          <form
+                            action={toggleUserAction}
+                            onSubmit={(e) => {
+                              const action = u.active ? "disable" : "enable";
+                              if (!window.confirm(`Are you sure you want to ${action} login access for ${u.name}?`)) {
+                                e.preventDefault();
+                              }
+                            }}
                           >
-                            {u.active ? "Disable Login" : "Enable Login"}
+                            <input type="hidden" name="id" value={u.id} />
+                            <button
+                              type="submit"
+                              className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                                u.active
+                                  ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                              }`}
+                            >
+                              {u.active ? "Disable Login" : "Enable Login"}
+                            </button>
+                          </form>
+
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget({ id: u.id, name: u.name, type: "STAFF" })}
+                            className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer shadow-2xs"
+                            title="Delete staff account"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
                           </button>
-                        </form>
+                        </div>
                       ) : (
                         <span className="text-[11px] text-slate-400 font-semibold italic">Current Admin</span>
                       )}
@@ -567,27 +680,39 @@ export function UsersManager({
 
                 <div className="flex items-center justify-between pt-1 text-xs">
                   <span className="text-[10px] text-slate-400 truncate max-w-[150px]">{c.email}</span>
-                  <form
-                    action={toggleUserAction}
-                    onSubmit={(e) => {
-                      const action = c.active ? "disable" : "enable";
-                      if (!window.confirm(`Are you sure you want to ${action} account for ${c.name} (${c.companyName || "Builder"})?`)) {
-                        e.preventDefault();
-                      }
-                    }}
-                  >
-                    <input type="hidden" name="id" value={c.id} />
-                    <button
-                      type="submit"
-                      className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                        c.active
-                          ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                      }`}
+                  <div className="flex items-center gap-1.5">
+                    <form
+                      action={toggleUserAction}
+                      onSubmit={(e) => {
+                        const action = c.active ? "disable" : "enable";
+                        if (!window.confirm(`Are you sure you want to ${action} account for ${c.name} (${c.companyName || "Builder"})?`)) {
+                          e.preventDefault();
+                        }
+                      }}
                     >
-                      {c.active ? "Disable Account" : "Enable Account"}
+                      <input type="hidden" name="id" value={c.id} />
+                      <button
+                        type="submit"
+                        className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                          c.active
+                            ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                        }`}
+                      >
+                        {c.active ? "Disable Account" : "Enable Account"}
+                      </button>
+                    </form>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget({ id: c.id, name: c.name, type: "CUSTOMER" })}
+                      className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer shadow-2xs"
+                      title="Delete customer account"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      <span>Delete</span>
                     </button>
-                  </form>
+                  </div>
                 </div>
               </div>
             ))}
@@ -649,27 +774,39 @@ export function UsersManager({
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <form
-                        action={toggleUserAction}
-                        onSubmit={(e) => {
-                          const action = c.active ? "disable" : "enable";
-                          if (!window.confirm(`Are you sure you want to ${action} account for ${c.name} (${c.companyName || "Builder"})?`)) {
-                            e.preventDefault();
-                          }
-                        }}
-                      >
-                        <input type="hidden" name="id" value={c.id} />
-                        <button
-                          type="submit"
-                          className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                            c.active
-                              ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
-                              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                          }`}
+                      <div className="inline-flex items-center gap-1.5">
+                        <form
+                          action={toggleUserAction}
+                          onSubmit={(e) => {
+                            const action = c.active ? "disable" : "enable";
+                            if (!window.confirm(`Are you sure you want to ${action} account for ${c.name} (${c.companyName || "Builder"})?`)) {
+                              e.preventDefault();
+                            }
+                          }}
                         >
-                          {c.active ? "Disable" : "Enable"}
+                          <input type="hidden" name="id" value={c.id} />
+                          <button
+                            type="submit"
+                            className={`rounded-xl px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                              c.active
+                                ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                            }`}
+                          >
+                            {c.active ? "Disable" : "Enable"}
+                          </button>
+                        </form>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget({ id: c.id, name: c.name, type: "CUSTOMER" })}
+                          className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer shadow-2xs"
+                          title="Delete customer account"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Delete</span>
                         </button>
-                      </form>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -691,6 +828,19 @@ export function UsersManager({
       {staffModalOpen && (
         <AddStaffModal onClose={() => setStaffModalOpen(false)} />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        title={deleteTarget?.type === "STAFF" ? "Delete Staff Member" : "Delete Customer Account"}
+        itemName={deleteTarget?.name}
+        message="Are you sure you want to delete this? This action cannot be undone."
+        isDeleting={isDeleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

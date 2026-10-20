@@ -68,3 +68,38 @@ export async function toggleUserAction(formData: FormData) {
   revalidatePath("/admin/users");
   redirect("/admin/users");
 }
+
+export async function deleteUserAction(id: string) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    return { success: false, error: "Unauthorized. Super Admin access required." };
+  }
+
+  if (!id) {
+    return { success: false, error: "Missing user ID." };
+  }
+
+  if (id === session.id) {
+    return { success: false, error: "You cannot delete your own admin account." };
+  }
+
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (!existing || existing.deletedAt) {
+    return { success: false, error: "User already deleted or not found." };
+  }
+
+  // Soft delete: sets deletedAt timestamp and active: false
+  // Protects past orders, delivery dispatches, audit events, and payments
+  await prisma.user.update({
+    where: { id },
+    data: {
+      active: false,
+      deletedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/dashboard");
+
+  return { success: true };
+}

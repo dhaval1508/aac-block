@@ -232,7 +232,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
           create: {
             status: OrderStatus.PENDING,
             title: "Order Placed",
-            note: `Order booked: ${totalBlocks.toLocaleString()} AAC Blocks (${combinedCbm.toFixed(2)} CBM) + ${adhesiveBags} Bags GOLD (G100) 40 KG`,
+            note: `Order booked: ${totalBlocks.toLocaleString()} AAC Blocks (${combinedCbm.toFixed(2)} CBM) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)`,
             createdById: session.id,
           },
         },
@@ -251,11 +251,21 @@ export async function placeCustomerOrderAction(formData: FormData) {
 
   await dispatchNotification({
     role: "ADMIN",
-    title: "New AAC Block Order",
-    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nQuantity: ${totalBlocks.toLocaleString()}\nTotal CBM: ${combinedCbm.toFixed(2)}\nGOLD (G100) 40 KG: ${adhesiveBags} Bags\nCustomer: ${customerName}`,
+    title: "New AAC Block Order Received",
+    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nQuantity: ${totalBlocks.toLocaleString()} Blocks\nTotal CBM: ${combinedCbm.toFixed(2)}\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}`,
     link: `/admin/orders/${order.id}`,
     orderId: order.id,
     type: "NEW_ORDER",
+  });
+
+  // Also notify the placing customer
+  await dispatchNotification({
+    userId: session.id,
+    title: "Order Placed Successfully",
+    message: `Your order ${order.orderNo} for ${totalBlocks.toLocaleString()} AAC Blocks has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
+    link: `/customer/orders/${order.id}`,
+    orderId: order.id,
+    type: "STATUS_CHANGE",
   });
 
   revalidatePath("/customer/dashboard");
@@ -434,7 +444,7 @@ export async function assignTransportAction(formData: FormData) {
   await dispatchNotification({
     userId: staffId,
     title: "New Loading Task Assigned",
-    message: `Order ID: ${order.orderNo}\nQuantity: ${formatNumber(order.quantity)} Blocks\nTotal CBM: ${Number(order.totalCbm || 0).toFixed(2)}\nGOLD (G100) 40 KG: ${order.adhesiveBags ?? 0} Bags\nTruck: ${truckNumber}`,
+    message: `Order ID: ${order.orderNo}\nQuantity: ${formatNumber(order.quantity)} Blocks\nTotal CBM: ${Number(order.totalCbm || 0).toFixed(2)}\nBlock Jointing Morter: ${order.adhesiveBags ?? 0} Bags (40 KG)\nTruck: ${truckNumber}`,
     link: `/staff/orders/${orderId}`,
     orderId,
     type: "ORDER_ASSIGNED",

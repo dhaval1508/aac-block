@@ -385,8 +385,8 @@ export async function GET(
         <div class="metric-val">${totalSqft.toFixed(1)} Sq.Ft.</div>
       </div>
       <div>
-        <div class="metric-label">Adhesive (40 KG)</div>
-        <div class="metric-val">${adhesiveBags} Bags</div>
+        <div class="metric-label">Block Jointing Morter</div>
+        <div class="metric-val">${adhesiveBags} Bags (40 KG)</div>
       </div>
     </div>
 
@@ -419,11 +419,11 @@ export async function GET(
       </tbody>
     </table>
 
-    <!-- Compulsory Adhesive Details Card -->
+    <!-- Compulsory Mortar Details Card -->
     <div class="adhesive-card">
       <div>
-        <div class="adhesive-title">GOLD (G100) TILE & STONE ADHESIVE</div>
-        <div class="adhesive-sub">Plant Specification: 40 KG Bag Packaging Only</div>
+        <div class="adhesive-title">Block Jointing Morter</div>
+        <div class="adhesive-sub">Plant Specification: 40 KG Bag Only</div>
       </div>
       <div class="adhesive-qty">${adhesiveBags} Bags ${adhesiveBags > 0 ? `(${adhesiveBags * 40} KG)` : "(0 Bags)"}</div>
     </div>

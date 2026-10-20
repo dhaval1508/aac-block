@@ -202,7 +202,7 @@ export default async function CustomerOrdersPage({
               </div>
 
               <p className="text-xs font-semibold text-slate-700">
-                {formatNumber(o.quantity)} blocks {o.product ? `· ${o.product.sizeLabel} (${o.product.dimensions})` : o.totalCbm ? `· ${Number(o.totalCbm).toFixed(2)} m³` : ""} · {o.adhesiveBags ?? 0} Bags GOLD (G100) 40 KG
+                {formatNumber(o.quantity)} blocks {o.product ? `· ${o.product.sizeLabel} (${o.product.dimensions})` : o.totalCbm ? `· ${Number(o.totalCbm).toFixed(2)} m³` : ""} · {o.adhesiveBags ?? 0} Bags Block Jointing Morter (40 KG)
               </p>
 
               <p className="text-[11px] text-slate-400">

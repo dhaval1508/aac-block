@@ -20,12 +20,14 @@ export default async function AdminUsersPage({
     prisma.user.findMany({
       where: {
         role: { in: [Role.ADMIN, Role.STOCKER, Role.STAFF] },
+        deletedAt: null,
       },
       orderBy: { createdAt: "asc" },
     }),
     prisma.user.findMany({
       where: {
         role: Role.CUSTOMER,
+        deletedAt: null,
       },
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { customerOrders: true } } },

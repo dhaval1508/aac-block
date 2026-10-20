@@ -83,7 +83,7 @@ export function CustomerOrderForm({
     },
   ]);
 
-  // Section B: GOLD (G100) Adhesive (40 KG Bag only, default 0, compulsory field)
+  // Section B: Block Jointing Morter (40 KG Bag only, default 0, compulsory field)
   const [adhesiveBags, setAdhesiveBags] = useState<number | "">(defaultAdhesiveBags);
 
   // Section C: Customer Details
@@ -275,7 +275,7 @@ export function CustomerOrderForm({
                     <label className="block text-xs font-bold text-slate-700">
                       Number of Blocks
                     </label>
-                    <div className="relative">
+                    <div className="relative flex items-center">
                       <input
                         type="number"
                         min="1"
@@ -289,9 +289,9 @@ export function CustomerOrderForm({
                           })
                         }
                         placeholder="e.g. 1000"
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono font-bold text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-16 text-xs sm:text-sm font-mono font-bold text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
-                      <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">
+                      <span className="pointer-events-none absolute right-3 text-xs font-bold text-slate-400 select-none">
                         Blocks
                       </span>
                     </div>
@@ -336,7 +336,7 @@ export function CustomerOrderForm({
         <button
           type="button"
           onClick={addBlockSizeRow}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-[#13789B] bg-teal-50/50 hover:bg-teal-50 px-4 py-2.5 text-xs font-bold text-[#13789B] transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[#13789B] bg-teal-50/50 hover:bg-teal-50 px-4 py-2.5 text-xs font-bold text-[#13789B] transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           <span>Add Another Block Size</span>
@@ -382,7 +382,7 @@ export function CustomerOrderForm({
       </div>
 
       {/* =========================================================================
-          SECTION B: ADHESIVE DETAILS (GOLD G100 TILE & STONE ADHESIVE - 40 KG BAG ONLY)
+          SECTION B: BLOCK JOINTING MORTER (40 KG BAG ONLY)
       ========================================================================= */}
       <div className="rounded-3xl border border-sky-200 bg-sky-50/40 p-4 sm:p-7 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sky-100 pb-3">
@@ -392,11 +392,11 @@ export function CustomerOrderForm({
                 B
               </span>
               <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
-                Adhesive Details
+                Block Jointing Morter
               </h2>
             </div>
             <p className="text-xs text-slate-600 mt-0.5">
-              Compulsory specification section. Verified packaging: 40 KG bag only.
+              High-adhesion thin bed mortar for AAC blocks. Packaging: 40 KG Bag only.
             </p>
           </div>
           <span className="self-start sm:self-auto rounded-full bg-sky-100 border border-sky-300 px-3 py-1 text-[11px] font-black text-sky-900">
@@ -411,10 +411,10 @@ export function CustomerOrderForm({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-black text-navy">
-                GOLD (G100) TILE & STONE ADHESIVE (40 KG)
+                Block Jointing Morter (40 KG)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                High-polymer modified thin-bed adhesive engineered for heavy-duty AAC masonry & tile bonding. Standard plant packaging: <strong>40 KG Bag</strong>.
+                Specially formulated pre-mixed thin-bed jointing mortar designed for high-strength AAC block wall masonry. Packaging: <strong>40 KG Bag</strong>.
               </p>
             </div>
           </div>
@@ -440,7 +440,7 @@ export function CustomerOrderForm({
                       setAdhesiveBags(isNaN(parsed) || parsed < 0 ? 0 : parsed);
                     }
                   }}
-                  className="w-32 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-mono font-black text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 text-center"
+                  className="w-32 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-mono font-black text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <span className="text-xs font-bold text-slate-600">
                   Bags (40 KG each)
@@ -454,7 +454,7 @@ export function CustomerOrderForm({
                 <span>Quantity 0 is completely valid</span>
               </div>
               <p className="text-[11px] text-slate-500 leading-snug">
-                If you already have adhesive or only require AAC blocks for this consignment, leave quantity as 0.
+                If you already have mortar or only require AAC blocks for this consignment, leave quantity as 0.
               </p>
             </div>
           </div>
@@ -640,10 +640,10 @@ export function CustomerOrderForm({
           <div className="border-t border-slate-200 pt-2 flex items-center justify-between text-xs">
             <div>
               <strong className="text-navy">
-                GOLD (G100) TILE & STONE ADHESIVE
+                Block Jointing Morter
               </strong>
               <span className="text-slate-500 text-[11px] block">
-                Standard Bag Size: 40 KG
+                Packaging: 40 KG Bag Only
               </span>
             </div>
             <div className="text-right">
@@ -651,7 +651,7 @@ export function CustomerOrderForm({
                 {numAdhesiveBags} Bags
               </span>
               <span className="text-[11px] text-slate-500">
-                {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG Total` : "None"}
+                {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG Total` : "0 Bags"}
               </span>
             </div>
           </div>

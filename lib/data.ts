@@ -27,6 +27,10 @@ export async function getStockSummary() {
 
 export async function getStockBySize() {
   const products = await prisma.product.findMany({
+    where: {
+      category: "AAC_BLOCK",
+      deletedAt: null,
+    },
     orderBy: { widthMm: "asc" },
     include: {
       movements: {
@@ -46,6 +50,30 @@ export async function getStockBySize() {
       currentStock,
     };
   });
+}
+
+export async function getMortarStock() {
+  const mortar = await prisma.product.findFirst({
+    where: {
+      category: "MORTAR",
+      deletedAt: null,
+      active: true,
+    },
+    include: {
+      movements: {
+        select: { quantityDelta: true },
+      },
+    },
+  });
+
+  if (!mortar) return { name: "Block Jointing Morter", sizeLabel: "40 KG Bag", stock: 0 };
+  const stock = mortar.movements.reduce((acc, m) => acc + m.quantityDelta, 0);
+  return {
+    id: mortar.id,
+    name: mortar.name,
+    sizeLabel: mortar.sizeLabel,
+    stock,
+  };
 }
 
 export async function getAdminDashboardStats() {

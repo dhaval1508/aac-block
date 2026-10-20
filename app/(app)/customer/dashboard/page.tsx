@@ -285,7 +285,7 @@ export default async function CustomerDashboardPage() {
                     ) : null}
                   </div>
                   <p className="mt-1 text-xs text-slate-600">
-                    {formatNumber(o.quantity)} blocks · {o.product?.sizeLabel || "Consignment"} · {o.adhesiveBags ?? 0} Bags Adhesive · {formatDate(o.createdAt)}
+                    {formatNumber(o.quantity)} blocks · {o.product?.sizeLabel || "Consignment"} · {o.adhesiveBags ?? 0} Bags Morter · {formatDate(o.createdAt)}
                   </p>
                   {o.transport ? (
                     <p className="mt-0.5 text-xs text-indigo-700 font-semibold truncate">
@@ -322,7 +322,7 @@ export default async function CustomerDashboardPage() {
         </div>
       </div>
 
-      {/* Available Factory Products (AAC Blocks + Mortars) */}
+      {/* Available Factory Products (AAC Blocks + Block Jointing Morter) */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div>
@@ -331,7 +331,7 @@ export default async function CustomerDashboardPage() {
               Swarnim Production Catalog
             </h2>
             <p className="text-xs text-slate-400">
-              All 9 BIS certified AAC block sizes and verified masonry & tiling solutions
+              All 9 BIS certified AAC block sizes and Block Jointing Morter (40 KG Bags)
             </p>
           </div>
           <span className="self-start sm:self-auto rounded-full bg-sky-50 border border-sky-200 px-3 py-1 text-xs font-bold text-[#13789B]">
@@ -376,24 +376,24 @@ export default async function CustomerDashboardPage() {
           </div>
         </div>
 
-        {/* 2. Adhesive Section (Strictly 40 KG Bag Only, Zero Prices) */}
+        {/* 2. Block Jointing Morter Section (Strictly 40 KG Bag Only, Zero Prices) */}
         <div>
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">
-            Plant Masonry & Tiling Adhesive
+            Block Jointing Morter
           </h3>
           <div className="rounded-2xl border border-sky-200 bg-sky-50/40 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-sky-200 text-sky-900 text-[10px] font-black px-2.5 py-0.5 uppercase tracking-wide">
-                  Standard Plant Packaging: 40 KG Bag
+                  Packaging: 40 KG Bag Only
                 </span>
-                <span className="text-xs text-slate-400 font-semibold">• High-Polymer Modified</span>
+                <span className="text-xs text-slate-400 font-semibold">• High Polymer Modified</span>
               </div>
               <h4 className="text-sm sm:text-base font-black text-navy mt-1">
-                GOLD (G100) TILE & STONE ADHESIVE (40 KG)
+                Block Jointing Morter (40 KG)
               </h4>
               <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
-                Factory-certified thin-bed adhesive engineered for heavy-duty AAC block masonry jointing and tile/stone installations. Net Weight: 40 Kg Bag.
+                Factory-certified thin-bed jointing mortar engineered for high-strength AAC block wall masonry. Standard Packaging: <strong>40 KG Bag</strong>.
               </p>
             </div>
             <Link

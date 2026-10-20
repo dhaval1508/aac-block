@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Layers,
   Plus,
@@ -12,10 +12,13 @@ import {
   List,
   Filter,
   Boxes,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { ProductFormModal } from "@/components/product-form-modal";
-import { toggleProductActiveAction } from "@/lib/actions/products";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { toggleProductActiveAction, deleteProductAction } from "@/lib/actions/products";
 
 type ProductWithStock = {
   id: string;
@@ -40,21 +43,40 @@ export function ProductsManager({
   products: ProductWithStock[];
   role: "ADMIN" | "STOCKER";
 }) {
+  const [items, setItems] = useState<ProductWithStock[]>(products);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductWithStock | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductWithStock | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("GRID");
 
+  useEffect(() => {
+    setItems(products);
+  }, [products]);
+
+  // Auto-dismiss notification after 4s
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   const isAdmin = role === "ADMIN";
 
-  const totalSizes = products.length;
-  const activeSizes = products.filter((p) => p.active).length;
-  const inactiveSizes = products.filter((p) => !p.active).length;
-  const totalStock = products.reduce((sum, p) => sum + p.currentStock, 0);
+  const totalSizes = items.length;
+  const activeSizes = items.filter((p) => p.active).length;
+  const inactiveSizes = items.filter((p) => !p.active).length;
+  const totalStock = items.reduce((sum, p) => sum + p.currentStock, 0);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+    return items.filter((p) => {
       const matchesStatus =
         statusFilter === "ALL" ? true : statusFilter === "ACTIVE" ? p.active : !p.active;
       const q = search.toLowerCase().trim();
@@ -65,7 +87,7 @@ export function ProductsManager({
 
       return matchesStatus && matchesSearch;
     });
-  }, [products, statusFilter, search]);
+  }, [items, statusFilter, search]);
 
   const handleOpenCreate = () => {
     setEditingProduct(null);
@@ -75,6 +97,34 @@ export function ProductsManager({
   const handleOpenEdit = (p: ProductWithStock) => {
     setEditingProduct(p);
     setModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteProductAction(deleteTarget.id);
+      if (res?.success) {
+        setItems((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+        setNotification({
+          type: "success",
+          message: `Product size "${deleteTarget.sizeLabel}" deleted successfully.`,
+        });
+        setDeleteTarget(null);
+      } else {
+        setNotification({
+          type: "error",
+          message: res?.error || "Failed to delete product.",
+        });
+      }
+    } catch (err: any) {
+      setNotification({
+        type: "error",
+        message: err?.message || "An error occurred while deleting the product.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -103,6 +153,33 @@ export function ProductsManager({
           <span>Add New Size</span>
         </button>
       </div>
+
+      {/* Success / Error Notification */}
+      {notification && (
+        <div
+          className={`rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm font-bold flex items-center justify-between gap-3 shadow-xs transition-all ${
+            notification.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-rose-50 text-rose-800 border border-rose-200"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            className="text-xs hover:underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* =========================================================================
           TOP 4 SPECIFICATION KPI CARDS
@@ -252,15 +329,27 @@ export function ProductsManager({
 
                   <div className="flex items-center gap-1.5">
                     {isAdmin && (
-                      <form action={toggleProductActiveAction}>
-                        <input type="hidden" name="id" value={p.id} />
+                      <>
+                        <form action={toggleProductActiveAction}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            {p.active ? "Deactivate" : "Activate"}
+                          </button>
+                        </form>
+
                         <button
-                          type="submit"
-                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+                          type="button"
+                          onClick={() => setDeleteTarget(p)}
+                          className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer shadow-2xs"
+                          title="Delete specification"
                         >
-                          {p.active ? "Deactivate" : "Activate"}
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Delete</span>
                         </button>
-                      </form>
+                      </>
                     )}
 
                     <button
@@ -321,15 +410,27 @@ export function ProductsManager({
                   <td className="py-3 px-4 text-right">
                     <div className="inline-flex items-center gap-1.5">
                       {isAdmin && (
-                        <form action={toggleProductActiveAction}>
-                          <input type="hidden" name="id" value={p.id} />
+                        <>
+                          <form action={toggleProductActiveAction}>
+                            <input type="hidden" name="id" value={p.id} />
+                            <button
+                              type="submit"
+                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                            >
+                              {p.active ? "Deactivate" : "Activate"}
+                            </button>
+                          </form>
+
                           <button
-                            type="submit"
-                            className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                            type="button"
+                            onClick={() => setDeleteTarget(p)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 cursor-pointer"
+                            title="Delete specification"
                           >
-                            {p.active ? "Disable" : "Enable"}
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
                           </button>
-                        </form>
+                        </>
                       )}
                       <button
                         onClick={() => handleOpenEdit(p)}
@@ -364,6 +465,19 @@ export function ProductsManager({
           onClose={() => setModalOpen(false)}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        title="Delete Block Size Specification"
+        itemName={deleteTarget ? `${deleteTarget.sizeLabel} (${deleteTarget.dimensions})` : undefined}
+        message="Are you sure you want to delete this? This action cannot be undone."
+        isDeleting={isDeleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }

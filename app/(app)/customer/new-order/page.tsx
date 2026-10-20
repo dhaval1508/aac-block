@@ -80,7 +80,7 @@ export default async function CustomerNewOrderPage({
               Place AAC Block Order
             </h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Select AAC block sizes, quantities, and GOLD (G100) 40 KG adhesive.
+              Select AAC block sizes, quantities, and Block Jointing Morter (40 KG Bags).
             </p>
           </div>
         </div>
