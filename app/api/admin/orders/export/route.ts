@@ -58,10 +58,37 @@ export async function GET(req: Request) {
     return `"${str}"`;
   };
 
-  const rows = orders.map((o) => {
+  type ExportOrderItem = {
+    productType?: string | null;
+    quantity?: number;
+    sizeLabel?: string | null;
+    product?: { sizeLabel?: string | null } | null;
+  };
+
+  type ExportOrder = {
+    orderNo: string;
+    createdAt: Date | string;
+    customer: { name: string; companyName?: string | null; mobile: string };
+    deliveryAddress: string;
+    status: string;
+    invoiceNo?: string | null;
+    product?: { sizeLabel?: string | null; cbmPerBlock?: unknown } | null;
+    quantity: number;
+    totalCbm?: unknown;
+    totalSqft?: unknown;
+    adhesiveBags?: number | null;
+    transport?: {
+      truckNumber?: string | null;
+      driverName?: string | null;
+      driverMobile?: string | null;
+    } | null;
+    items?: ExportOrderItem[];
+  };
+
+  const rows = (orders as unknown as ExportOrder[]).map((o) => {
     const cbm = o.totalCbm
       ? Number(o.totalCbm).toFixed(2)
-      : o.product
+      : o.product?.cbmPerBlock
       ? (Number(o.product.cbmPerBlock) * o.quantity).toFixed(2)
       : "0";
 
@@ -79,11 +106,13 @@ export async function GET(req: Request) {
         blockSizeDesc = blockItems
           .map(
             (it) =>
-              `${formatBlockSizeName(it.product?.sizeLabel || it.sizeLabel)} (${it.quantity})`
+              `${formatBlockSizeName(it.product?.sizeLabel || it.sizeLabel)} (${it.quantity ?? 0})`
           )
           .join("; ");
       }
     }
+
+    const mortarBags = o.adhesiveBags ?? 0;
 
     return [
       escapeCsv(o.orderNo),
@@ -98,7 +127,7 @@ export async function GET(req: Request) {
       escapeCsv(o.quantity),
       escapeCsv(cbm),
       escapeCsv(sqft),
-      escapeCsv(o.adhesiveBags ?? 0),
+      escapeCsv(mortarBags),
       escapeCsv(o.transport?.truckNumber || ""),
       escapeCsv(o.transport?.driverName || ""),
       escapeCsv(o.transport?.driverMobile || ""),
