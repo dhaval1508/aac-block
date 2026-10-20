@@ -128,16 +128,16 @@ export default async function StockerOrderDetailPage({
           <div className="space-y-3 text-xs sm:text-sm">
             <div className="flex justify-between">
               <span className="text-slate-500">Block Size</span>
-              <strong className="text-navy">{order.product.sizeLabel}</strong>
+              <strong className="text-navy">{order.product?.sizeLabel || "Standard"}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Dimensions</span>
-              <strong className="text-navy">{order.product.dimensions}</strong>
+              <strong className="text-navy">{order.product?.dimensions || "-"}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">CBM / Block</span>
               <strong className="text-navy">
-                {Number(order.product.cbmPerBlock).toFixed(4)} m³
+                {order.product ? `${Number(order.product.cbmPerBlock).toFixed(4)} m³` : "-"}
               </strong>
             </div>
             <div className="flex justify-between">

@@ -7,13 +7,14 @@ import { OrderStatus, PaymentMode, PaymentStatus, StockType } from "@prisma/clie
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getProductStock } from "@/lib/actions/stock";
+import { dispatchNotification } from "@/lib/push-dispatcher";
+import { formatNumber } from "@/lib/utils";
 
 async function nextOrderNo() {
   const year = new Date().getFullYear();
-  const prefix = `ORD-${year}-`;
   const count = await prisma.order.count();
   const nextNum = 1001 + count;
-  return `${prefix}${String(nextNum).padStart(4, "0")}`;
+  return `SWA-${year}-${String(nextNum).padStart(4, "0")}`;
 }
 
 async function nextInvoiceNo() {
@@ -25,59 +26,234 @@ async function nextInvoiceNo() {
   return `${prefix}${String(count + 1).padStart(4, "0")}`;
 }
 
-// 1. Customer places order
+export interface OrderItemInput {
+  productId: string;
+  quantity: number;
+}
+
+// 1. Customer places order (Supports single product, multi-product, mortar & adhesive addons)
 export async function placeCustomerOrderAction(formData: FormData) {
   const session = await getSession();
   if (!session || !["CUSTOMER", "ADMIN"].includes(session.role)) {
     redirect("/login");
   }
 
-  const productId = String(formData.get("productId") ?? "");
-  const quantity = Math.floor(Number(formData.get("quantity") ?? 0));
   const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
   const requestedDateRaw = String(formData.get("requestedDate") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const itemsJson = String(formData.get("itemsJson") ?? "").trim();
 
-  if (!productId || quantity <= 0 || !deliveryAddress) {
-    redirect("/customer/new-order?error=Select%20block%20size,%20quantity%20and%20address");
+  // Backward-compatible individual fields
+  const primaryProductId = String(formData.get("productId") ?? "").trim();
+  const primaryQuantity = Math.floor(Number(formData.get("quantity") ?? 0));
+  const mortarProductId = String(formData.get("mortarProductId") ?? "").trim();
+  const mortarQuantity = Math.floor(Number(formData.get("mortarQuantity") ?? 0));
+  const adhesiveProductId = String(formData.get("adhesiveProductId") ?? "").trim();
+  const adhesiveQuantity = Math.floor(Number(formData.get("adhesiveQuantity") ?? 0));
+
+  if (!deliveryAddress) {
+    redirect("/customer/new-order?error=Delivery%20site%20address%20is%20required");
   }
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product || !product.active) {
-    redirect("/customer/new-order?error=Selected%20block%20size%20is%20not%20available");
+  const orderItemsToProcess: OrderItemInput[] = [];
+
+  if (itemsJson) {
+    try {
+      const parsed = JSON.parse(itemsJson) as OrderItemInput[];
+      if (Array.isArray(parsed)) {
+        for (const it of parsed) {
+          if (it.productId && it.quantity > 0) {
+            orderItemsToProcess.push({
+              productId: it.productId,
+              quantity: Math.floor(it.quantity),
+            });
+          }
+        }
+      }
+    } catch {
+      // Fallback to individual fields if JSON parse fails
+    }
   }
 
-  const rate = Number(product.price) > 0 ? Number(product.price) : 50;
-  const subtotal = quantity * rate;
-  const gstAmount = subtotal * (Number(product.gstRate) / 100);
-  const totalAmount = subtotal + gstAmount;
+  if (orderItemsToProcess.length === 0) {
+    if (primaryProductId && primaryQuantity > 0) {
+      orderItemsToProcess.push({ productId: primaryProductId, quantity: primaryQuantity });
+    }
+    if (mortarProductId && mortarQuantity > 0) {
+      orderItemsToProcess.push({ productId: mortarProductId, quantity: mortarQuantity });
+    }
+    if (adhesiveProductId && adhesiveQuantity > 0) {
+      orderItemsToProcess.push({ productId: adhesiveProductId, quantity: adhesiveQuantity });
+    }
+  }
 
-  const orderNo = await nextOrderNo();
+  if (orderItemsToProcess.length === 0) {
+    redirect("/customer/new-order?error=Please%20select%20at%20least%20one%20product%20with%20valid%20quantity");
+  }
 
-  const order = await prisma.order.create({
-    data: {
-      orderNo,
-      customerId: session.id,
-      productId,
-      quantity,
+  // Fetch all selected products
+  const productIds = orderItemsToProcess.map((it) => it.productId);
+  const dbProducts = await prisma.product.findMany({
+    where: { id: { in: productIds }, active: true },
+  });
+
+  const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+  let orderSubtotal = 0;
+  let orderGstAmount = 0;
+  let orderTotalAmount = 0;
+  let combinedCbm = 0;
+  let combinedSqft = 0;
+  let hasMortar = false;
+  let hasAdhesive = false;
+
+  const resolvedItems: Array<{
+    productId: string;
+    productType: string;
+    productName: string;
+    sizeLabel: string;
+    dimensions: string;
+    quantity: number;
+    cbmPerUnit: number;
+    totalCbm: number;
+    sqftPerUnit: number;
+    totalSqft: number;
+    rate: number;
+    gstRate: number;
+    subtotal: number;
+    gstAmount: number;
+    totalAmount: number;
+  }> = [];
+
+  for (const it of orderItemsToProcess) {
+    const prod = productMap.get(it.productId);
+    if (!prod) continue;
+
+    const rate = Number(prod.price) > 0 ? Number(prod.price) : 50;
+    const gstRate = Number(prod.gstRate) || 18;
+    const subtotal = Number((it.quantity * rate).toFixed(2));
+    const gstAmount = Number((subtotal * (gstRate / 100)).toFixed(2));
+    const totalAmount = Number((subtotal + gstAmount).toFixed(2));
+
+    let cbmPerUnit = 0;
+    let totalCbm = 0;
+    let sqftPerUnit = 0;
+    let totalSqft = 0;
+
+    if (prod.category === "AAC_BLOCK") {
+      cbmPerUnit = Number(prod.cbmPerBlock) || 0;
+      totalCbm = Number((it.quantity * cbmPerUnit).toFixed(4));
+      sqftPerUnit = 1.29;
+      totalSqft = Number((it.quantity * 1.29).toFixed(2));
+      combinedCbm += totalCbm;
+      combinedSqft += totalSqft;
+    } else if (prod.category === "MORTAR") {
+      hasMortar = true;
+    } else if (prod.category === "ADHESIVE") {
+      hasAdhesive = true;
+    }
+
+    orderSubtotal += subtotal;
+    orderGstAmount += gstAmount;
+    orderTotalAmount += totalAmount;
+
+    resolvedItems.push({
+      productId: prod.id,
+      productType: prod.category,
+      productName: prod.name,
+      sizeLabel: prod.sizeLabel,
+      dimensions: prod.dimensions,
+      quantity: it.quantity,
+      cbmPerUnit,
+      totalCbm,
+      sqftPerUnit,
+      totalSqft,
       rate,
-      gstRate: product.gstRate,
+      gstRate,
       subtotal,
       gstAmount,
       totalAmount,
-      deliveryAddress,
-      requestedDate: requestedDateRaw ? new Date(requestedDateRaw) : null,
-      notes,
-      status: OrderStatus.PENDING,
-      events: {
-        create: {
-          status: OrderStatus.PENDING,
-          title: "Order Placed",
-          note: "Waiting for admin confirmation",
-          createdById: session.id,
+    });
+  }
+
+  if (resolvedItems.length === 0) {
+    redirect("/customer/new-order?error=Selected%20products%20are%20not%20available");
+  }
+
+  const orderNo = await nextOrderNo();
+  const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
+
+  const order = await prisma.$transaction(async (tx) => {
+    const ord = await tx.order.create({
+      data: {
+        orderNo,
+        customerId: session.id,
+        productId: primaryItem.productId,
+        quantity: primaryItem.quantity,
+        rate: primaryItem.rate,
+        gstRate: primaryItem.gstRate,
+        subtotal: orderSubtotal,
+        gstAmount: orderGstAmount,
+        totalAmount: orderTotalAmount,
+        totalCbm: combinedCbm > 0 ? combinedCbm : null,
+        totalSqft: combinedSqft > 0 ? combinedSqft : null,
+        hasMortar,
+        hasAdhesive,
+        deliveryAddress,
+        requestedDate: requestedDateRaw ? new Date(requestedDateRaw) : null,
+        notes,
+        status: OrderStatus.PENDING,
+        items: {
+          create: resolvedItems.map((it) => ({
+            productId: it.productId,
+            productType: it.productType,
+            productName: it.productName,
+            sizeLabel: it.sizeLabel,
+            dimensions: it.dimensions,
+            quantity: it.quantity,
+            cbmPerUnit: it.cbmPerUnit,
+            totalCbm: it.totalCbm,
+            sqftPerUnit: it.sqftPerUnit,
+            totalSqft: it.totalSqft,
+            rate: it.rate,
+            gstRate: it.gstRate,
+            subtotal: it.subtotal,
+            gstAmount: it.gstAmount,
+            totalAmount: it.totalAmount,
+          })),
+        },
+        events: {
+          create: {
+            status: OrderStatus.PENDING,
+            title: "Order Placed",
+            note: `Order booked with ${resolvedItems.length} item(s) • Total: ₹${orderTotalAmount.toLocaleString()}${
+              combinedCbm > 0 ? ` • ${combinedCbm.toFixed(2)} CBM` : ""
+            }`,
+            createdById: session.id,
+          },
         },
       },
-    },
+    });
+
+    return ord;
+  });
+
+  // Real-Time Notification to Admin
+  const customer = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { name: true, companyName: true },
+  });
+  const customerName = customer?.companyName || customer?.name || session.name;
+
+  await dispatchNotification({
+    role: "ADMIN",
+    title: "New AAC Block Order Received",
+    message: `Order ID: ${order.orderNo} • Customer: ${customerName} • ${primaryItem.quantity.toLocaleString()} Blocks${
+      combinedCbm > 0 ? ` (${combinedCbm.toFixed(2)} CBM)` : ""
+    }${hasMortar ? " + Mortar" : ""}${hasAdhesive ? " + Adhesive" : ""}`,
+    link: `/admin/orders/${order.id}`,
+    orderId: order.id,
+    type: "NEW_ORDER",
   });
 
   revalidatePath("/customer/dashboard");
@@ -99,7 +275,7 @@ export async function confirmOrderAction(formData: FormData) {
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { product: true },
+    include: { product: true, items: true, customer: true },
   });
 
   if (!order || order.status !== OrderStatus.PENDING) {
@@ -109,9 +285,17 @@ export async function confirmOrderAction(formData: FormData) {
   const finalQty = quantity > 0 ? quantity : order.quantity;
   const finalRate = rate > 0 ? rate : Number(order.rate);
 
-  const subtotal = finalQty * finalRate;
-  const gstAmount = subtotal * (Number(order.gstRate) / 100);
-  const totalAmount = subtotal + gstAmount;
+  let subtotal = order.subtotal;
+  let gstAmount = order.gstAmount;
+  let totalAmount = order.totalAmount;
+
+  if (quantity > 0 || rate > 0) {
+    const s = finalQty * finalRate;
+    const g = s * (Number(order.gstRate) / 100);
+    subtotal = s as any;
+    gstAmount = g as any;
+    totalAmount = (s + g) as any;
+  }
 
   const invoiceNo = await nextInvoiceNo();
   const shareToken = crypto.randomBytes(24).toString("hex");
@@ -132,11 +316,21 @@ export async function confirmOrderAction(formData: FormData) {
         create: {
           status: OrderStatus.CONFIRMED,
           title: "Order Confirmed",
-          note: "Order approved by Super Admin and GST invoice generated",
+          note: `Order approved by Super Admin and Delivery Challan ${invoiceNo} generated`,
           createdById: session.id,
         },
       },
     },
+  });
+
+  // Notify customer
+  await dispatchNotification({
+    userId: order.customerId,
+    title: "Order Confirmed by Factory",
+    message: `Order ${order.orderNo} has been confirmed. Challan: ${invoiceNo}`,
+    link: `/customer/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
   });
 
   revalidatePath(`/admin/orders/${orderId}`);
@@ -153,7 +347,7 @@ export async function rejectOrderAction(formData: FormData) {
   const orderId = String(formData.get("orderId") ?? "");
   const reason = String(formData.get("reason") ?? "").trim() || "Rejected by Super Admin";
 
-  await prisma.order.update({
+  const order = await prisma.order.update({
     where: { id: orderId },
     data: {
       status: OrderStatus.REJECTED,
@@ -168,12 +362,21 @@ export async function rejectOrderAction(formData: FormData) {
     },
   });
 
+  await dispatchNotification({
+    userId: order.customerId,
+    title: "Order Update",
+    message: `Order ${order.orderNo} was not approved: ${reason}`,
+    link: `/customer/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
+  });
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   redirect(`/admin/orders/${orderId}`);
 }
 
-// 4. Admin assigns transport & loading staff
+// 4. Admin assigns transport & loading staff (Sends push to Loader)
 export async function assignTransportAction(formData: FormData) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/login");
@@ -209,7 +412,7 @@ export async function assignTransportAction(formData: FormData) {
     },
   });
 
-  await prisma.order.update({
+  const order = await prisma.order.update({
     where: { id: orderId },
     data: {
       assignedStaffId: staffId,
@@ -223,6 +426,26 @@ export async function assignTransportAction(formData: FormData) {
         },
       },
     },
+  });
+
+  // Push notification to Assigned Loader
+  await dispatchNotification({
+    userId: staffId,
+    title: "New Loading Task Assigned",
+    message: `Order ${order.orderNo} assigned for staging. Truck: ${truckNumber} • ${formatNumber(order.quantity)} Blocks`,
+    link: `/staff/orders/${orderId}`,
+    orderId,
+    type: "ORDER_ASSIGNED",
+  });
+
+  // Notify customer
+  await dispatchNotification({
+    userId: order.customerId,
+    title: "Transport Vehicle Allocated",
+    message: `Truck ${truckNumber} (Driver: ${driverName}) allocated for order ${order.orderNo}`,
+    link: `/customer/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
   });
 
   revalidatePath(`/admin/orders/${orderId}`);
@@ -266,6 +489,16 @@ export async function startLoadingAction(formData: FormData) {
     },
   });
 
+  // Notify Admin
+  await dispatchNotification({
+    role: "ADMIN",
+    title: "Physical Loading Started",
+    message: `Staff ${session.name} started loading Order ${order.orderNo}`,
+    link: `/admin/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
+  });
+
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
   revalidatePath(`/admin/orders/${orderId}`);
@@ -296,7 +529,6 @@ export async function completeLoadingAction(formData: FormData) {
     redirect(`/staff/orders/${orderId}?error=Order%20is%20not%20in%20loading%20state`);
   }
 
-  // Strict Validation: Never allow zero, negative or blank quantities
   if (loadedQuantity <= 0) {
     redirect(`/staff/orders/${orderId}?error=Please%20enter%20a%20valid%20positive%20loaded%20quantity`);
   }
@@ -330,6 +562,16 @@ export async function completeLoadingAction(formData: FormData) {
     },
   });
 
+  // Notify Admin
+  await dispatchNotification({
+    role: "ADMIN",
+    title: "Loading Completed — Ready for Dispatch",
+    message: `Order ${order.orderNo} loaded (${loadedQuantity.toLocaleString()} blocks counted). Ready for gate out.`,
+    link: `/admin/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
+  });
+
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
   revalidatePath(`/admin/orders/${orderId}`);
@@ -345,36 +587,55 @@ export async function dispatchOrderAction(formData: FormData) {
   const orderId = String(formData.get("orderId") ?? "");
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { product: true },
+    include: { product: true, items: true, transport: true },
   });
 
   if (!order || order.status !== OrderStatus.LOADED) {
     redirect(`/admin/orders/${orderId}?error=Order%20must%20be%20loaded%20before%20dispatch`);
   }
 
-  const outQty = order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity;
-  const currentStock = await getProductStock(order.productId);
+  // Deduct stock for all items
+  const itemsToDeduct = order.items.length > 0
+    ? order.items.map((it) => ({
+        productId: it.productId,
+        qty: it.loadedQuantity > 0 ? it.loadedQuantity : it.quantity,
+      }))
+    : order.productId
+    ? [
+        {
+          productId: order.productId,
+          qty: order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity,
+        },
+      ]
+    : [];
 
-  if (currentStock < outQty) {
-    redirect(
-      `/admin/orders/${orderId}?error=Not%20enough%20stock%20to%20dispatch.%20Available:%20${currentStock}%20blocks,%20required:%20${outQty}.`
-    );
+  // Check stock for each
+  for (const it of itemsToDeduct) {
+    const currentStock = await getProductStock(it.productId);
+    if (currentStock < it.qty) {
+      redirect(
+        `/admin/orders/${orderId}?error=Not%20enough%20stock%20for%20product.%20Available:%20${currentStock},%20required:%20${it.qty}.`
+      );
+    }
   }
 
-  // Automatic Stock Out
-  await prisma.$transaction([
-    prisma.stockMovement.create({
-      data: {
-        productId: order.productId,
-        orderId: order.id,
-        type: StockType.OUT,
-        quantityDelta: -outQty,
-        referenceNo: order.orderNo,
-        note: `Automatic stock out on dispatch of ${order.orderNo}`,
-        createdById: session.id,
-      },
-    }),
-    prisma.order.update({
+  // Automatic Stock Out movements in transaction
+  await prisma.$transaction(async (tx) => {
+    for (const it of itemsToDeduct) {
+      await tx.stockMovement.create({
+        data: {
+          productId: it.productId,
+          orderId: order.id,
+          type: StockType.OUT,
+          quantityDelta: -it.qty,
+          referenceNo: order.orderNo,
+          note: `Automatic stock out on dispatch of ${order.orderNo}`,
+          createdById: session.id,
+        },
+      });
+    }
+
+    await tx.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.DISPATCHED,
@@ -383,13 +644,23 @@ export async function dispatchOrderAction(formData: FormData) {
           create: {
             status: OrderStatus.DISPATCHED,
             title: "Order Dispatched",
-            note: `Truck left the yard • ${outQty.toLocaleString()} blocks deducted from stock`,
+            note: `Truck ${order.transport?.truckNumber || ""} left the factory yard • Deducted from inventory`,
             createdById: session.id,
           },
         },
       },
-    }),
-  ]);
+    });
+  });
+
+  // Notify customer of dispatch
+  await dispatchNotification({
+    userId: order.customerId,
+    title: "Order Dispatched from Factory",
+    message: `Order ${order.orderNo} has been dispatched. Truck ${order.transport?.truckNumber || ""} is on its way.`,
+    link: `/customer/orders/${orderId}`,
+    orderId,
+    type: "DISPATCH",
+  });
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/stock");
@@ -405,7 +676,7 @@ export async function deliverOrderAction(formData: FormData) {
 
   const orderId = String(formData.get("orderId") ?? "");
 
-  await prisma.order.update({
+  const order = await prisma.order.update({
     where: { id: orderId },
     data: {
       status: OrderStatus.DELIVERED,
@@ -419,6 +690,15 @@ export async function deliverOrderAction(formData: FormData) {
         },
       },
     },
+  });
+
+  await dispatchNotification({
+    userId: order.customerId,
+    title: "Delivery Completed",
+    message: `Order ${order.orderNo} has been marked as delivered at site.`,
+    link: `/customer/orders/${orderId}`,
+    orderId,
+    type: "DELIVERED",
   });
 
   revalidatePath(`/admin/orders/${orderId}`);

@@ -177,8 +177,7 @@ export default async function StockerOrdersPage({
                   </span>
                 </div>
                 <p className="mt-1 text-sm font-semibold text-slate-800">
-                  {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks (
-                  {o.product.sizeLabel})
+                  {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks {o.product ? `(${o.product.sizeLabel})` : ""}
                 </p>
               </div>
 
@@ -206,7 +205,7 @@ export default async function StockerOrdersPage({
               <div>
                 <span className="text-[10px] uppercase text-slate-400 font-semibold">Block Size</span>
                 <p className="font-bold text-navy font-mono">
-                  {o.product.sizeLabel}
+                  {o.product?.sizeLabel || "Standard"}
                 </p>
               </div>
             </div>

@@ -96,13 +96,15 @@ export default async function CustomerInvoicesPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
                 <div>
                   <span className="text-slate-400 font-bold uppercase text-[10px]">Product / Size</span>
-                  <p className="font-bold text-navy mt-0.5">{inv.product.sizeLabel}</p>
-                  <p className="text-[11px] text-slate-500 font-mono">{inv.product.dimensions}</p>
+                  <p className="font-bold text-navy mt-0.5">{inv.product?.sizeLabel || (inv.totalCbm ? `${Number(inv.totalCbm).toFixed(2)} m³` : "Standard")}</p>
+                  <p className="text-[11px] text-slate-500 font-mono">{inv.product?.dimensions || "-"}</p>
                 </div>
                 <div>
                   <span className="text-slate-400 font-bold uppercase text-[10px]">Material Quantity</span>
                   <p className="font-black text-navy mt-0.5 font-mono text-sm">{formatNumber(inv.quantity)} Blocks</p>
-                  <p className="text-[11px] text-slate-500 font-mono">{Number(inv.product.cbmPerBlock).toFixed(4)} m³/block</p>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    {inv.product ? `${Number(inv.product.cbmPerBlock).toFixed(4)} m³/block` : "-"}
+                  </p>
                 </div>
                 <div>
                   <span className="text-slate-400 font-bold uppercase text-[10px]">HSN Classification</span>

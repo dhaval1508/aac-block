@@ -1,4 +1,4 @@
-const CACHE = "acc-block-shell-v5";
+const CACHE = "acc-block-shell-v6";
 const PRECACHE = [
   "/login",
   "/manifest.webmanifest",
@@ -71,5 +71,60 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => caches.match(request).then((cached) => cached || caches.match("/login"))),
+  );
+});
+
+// =========================================================================
+// WEB PUSH NOTIFICATION HANDLERS
+// =========================================================================
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch {
+      data = { title: "Swarnim AAC Alert", body: event.data.text() };
+    }
+  }
+
+  const title = data.title || "Swarnim AAC Block Notification";
+  const options = {
+    body: data.body || "New update available on Swarnim AAC Block portal.",
+    icon: data.icon || "/icons/icon-192.png",
+    badge: data.badge || "/icons/icon-72.png",
+    vibrate: [200, 100, 200],
+    data: data.data || { url: "/" },
+    actions: [
+      { action: "view", title: "View Details" },
+      { action: "close", title: "Dismiss" },
+    ],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  if (event.action === "close") {
+    return;
+  }
+
+  const targetUrl = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url === targetUrl && "focus" in client) {
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
+      })
   );
 });

@@ -110,6 +110,7 @@ export default async function StaffDashboardPage({
       deliveryAddress: true,
       requestedDate: true,
       notes: true,
+      totalCbm: true,
       createdAt: true,
       customer: {
         select: {
@@ -119,9 +120,25 @@ export default async function StaffDashboardPage({
       },
       product: {
         select: {
+          name: true,
           sizeLabel: true,
           dimensions: true,
           cbmPerBlock: true,
+        },
+      },
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          totalCbm: true,
+          product: {
+            select: {
+              name: true,
+              category: true,
+              sizeLabel: true,
+              bagWeightKg: true,
+            },
+          },
         },
       },
       transport: {
@@ -353,10 +370,23 @@ export default async function StaffDashboardPage({
 
                 <div>
                   <span className="text-[11px] font-semibold text-slate-400 uppercase">
-                    Block Size
+                    {o.items && o.items.length > 1 ? "Order Items" : "Block Size"}
                   </span>
-                  <p className="mt-0.5 font-bold text-navy">{o.product.sizeLabel}</p>
-                  <span className="text-[10px] text-slate-500">{o.product.dimensions}</span>
+                  {o.items && o.items.length > 0 ? (
+                    <p className="mt-0.5 font-bold text-navy text-xs">
+                      {o.items.map((it) => it.product.sizeLabel || it.product.name).join(", ")}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-0.5 font-bold text-navy">{o.product?.sizeLabel || "Standard"}</p>
+                      <span className="text-[10px] text-slate-500">{o.product?.dimensions || "-"}</span>
+                    </>
+                  )}
+                  {o.totalCbm ? (
+                    <span className="text-[11px] font-bold text-[#1E72A8] block mt-0.5">
+                      {Number(o.totalCbm).toFixed(3)} m³ CBM
+                    </span>
+                  ) : null}
                 </div>
 
                 <div>
@@ -366,6 +396,11 @@ export default async function StaffDashboardPage({
                   <p className="mt-0.5 font-black text-navy font-mono">
                     {formatNumber(o.quantity)} blocks
                   </p>
+                  {o.items && o.items.some(i => i.product.category !== "AAC_BLOCK") && (
+                    <span className="text-[11px] font-bold text-amber-700 block">
+                      + {o.items.filter(i => i.product.category !== "AAC_BLOCK").reduce((acc, curr) => acc + curr.quantity, 0)} bags
+                    </span>
+                  )}
                   <span className="text-[10px] text-slate-500 font-semibold">
                     Physical Count
                   </span>

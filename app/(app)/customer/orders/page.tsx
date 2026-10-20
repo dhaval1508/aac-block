@@ -202,7 +202,7 @@ export default async function CustomerOrdersPage({
               </div>
 
               <p className="text-xs font-semibold text-slate-700">
-                {formatNumber(o.quantity)} blocks · {o.product.sizeLabel} ({o.product.dimensions})
+                {formatNumber(o.quantity)} blocks {o.product ? `· ${o.product.sizeLabel} (${o.product.dimensions})` : o.totalCbm ? `· ${Number(o.totalCbm).toFixed(2)} m³` : ""}
               </p>
 
               <p className="text-[11px] text-slate-400">
@@ -223,7 +223,7 @@ export default async function CustomerOrdersPage({
               <div className="text-left sm:text-right">
                 <p className="text-base font-black text-navy font-mono">{formatNumber(o.quantity)} blocks</p>
                 <span className="inline-block rounded-md bg-sky-50 border border-sky-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B] tracking-wide">
-                  {o.product.sizeLabel}
+                  {o.product?.sizeLabel || (o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "Order")}
                 </span>
               </div>
               <ChevronRight className="h-5 w-5 text-slate-400 shrink-0" />

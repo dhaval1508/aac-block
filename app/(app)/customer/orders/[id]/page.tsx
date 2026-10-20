@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Phone, FileText, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Phone, FileText, ArrowLeft, CheckCircle2, Layers, Package, Truck, Boxes } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import {
@@ -11,6 +11,7 @@ import {
   ORDER_STATUS_LABEL,
   telHref,
 } from "@/lib/utils";
+import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function CustomerOrderDetailPage({
     where: { id },
     include: {
       product: true,
+      items: { include: { product: true } },
       transport: true,
       events: { orderBy: { createdAt: "asc" } },
       payments: { orderBy: { paidAt: "desc" } },
@@ -64,6 +66,12 @@ export default async function CustomerOrderDetailPage({
 
   const currentStepIdx = statusOrder[order.status] ?? 0;
   const isRejected = order.status === "REJECTED";
+
+  const totalCbm = order.totalCbm
+    ? Number(order.totalCbm)
+    : order.product
+    ? Number(order.product.cbmPerBlock) * order.quantity
+    : 0;
 
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-4xl mx-auto min-w-0 max-w-full">
@@ -104,15 +112,19 @@ export default async function CustomerOrderDetailPage({
           </div>
         </div>
 
-        {order.invoiceNo ? (
-          <Link
-            href={`/invoice/${order.id}`}
-            className="flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 px-4 rounded-2xl bg-[#13789B] text-white hover:bg-[#0F627F] transition-all shadow-xs shrink-0 self-start sm:self-auto"
-          >
-            <FileText className="h-4 w-4" />
-            <span>View Delivery Challan ({order.invoiceNo})</span>
-          </Link>
-        ) : null}
+        {/* Action Buttons: PDF Download + Challan */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <DownloadOrderSummaryButton orderId={order.id} orderNo={order.orderNo} />
+          {order.invoiceNo ? (
+            <Link
+              href={`/invoice/${order.id}`}
+              className="flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 px-4 rounded-2xl bg-[#13789B] text-white hover:bg-[#0F627F] transition-all shadow-xs shrink-0 self-start sm:self-auto"
+            >
+              <FileText className="h-4 w-4" />
+              <span>Challan ({order.invoiceNo})</span>
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       {/* Visual Order Progress Stepper */}
@@ -173,53 +185,93 @@ export default async function CustomerOrderDetailPage({
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Order & Specification Details */}
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-          <h2 className="text-base font-black text-navy">Order Specifications</h2>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Product / Size</span>
-              <strong className="text-navy">{order.product.sizeLabel}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Dimensions</span>
-              <strong className="text-navy font-mono">{order.product.dimensions}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Volume / Block</span>
-              <strong className="text-navy font-mono">
-                {Number(order.product.cbmPerBlock).toFixed(4)} CBM
-              </strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Ordered Quantity</span>
-              <strong className="text-navy font-mono">{formatNumber(order.quantity)} Blocks</strong>
-            </div>
-            <div className="border-t border-slate-100 pt-3">
-              <span className="text-xs text-slate-400">Delivery Address</span>
-              <p className="mt-0.5 font-medium text-navy">{order.deliveryAddress}</p>
-            </div>
-            {order.requestedDate ? (
-              <div className="border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-400">Requested Delivery Date</span>
-                <p className="mt-0.5 text-xs font-semibold text-navy">
-                  {formatDate(order.requestedDate)}
-                </p>
-              </div>
-            ) : null}
-            {order.notes ? (
-              <div className="border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-400">Site Instructions</span>
-                <p className="mt-0.5 text-xs text-slate-600">{order.notes}</p>
-              </div>
-            ) : null}
-          </div>
+      {/* Itemized Order Specifications */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 className="text-base font-black text-navy flex items-center gap-2">
+            <Layers className="h-4 w-4 text-[#13789B]" />
+            <span>Ordered Items & Specifications</span>
+          </h2>
+          {totalCbm > 0 && (
+            <span className="rounded-xl bg-teal-50 border border-teal-200 px-3 py-1 text-xs font-black text-[#13789B] font-mono">
+              Total Volume: {totalCbm.toFixed(2)} CBM
+            </span>
+          )}
         </div>
 
-        {/* Transport & Truck Details */}
+        {order.items && order.items.length > 0 ? (
+          <div className="divide-y divide-slate-100">
+            {order.items.map((it) => (
+              <div key={it.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-navy text-sm">{it.productName}</span>
+                    {it.sizeLabel && (
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                        {it.sizeLabel}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-500 font-mono mt-0.5">
+                    {it.dimensions || it.productType}
+                    {it.totalCbm ? ` • ${Number(it.totalCbm).toFixed(2)} CBM` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 sm:text-right">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Quantity</span>
+                    <span className="font-mono font-bold text-navy text-sm">{formatNumber(it.quantity)} Units</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Line Total</span>
+                    <span className="font-mono font-bold text-[#13789B] text-sm">₹{Number(it.totalAmount).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : order.product ? (
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Product / Size:</span>
+              <strong className="text-navy">{order.product.sizeLabel} ({order.product.dimensions})</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Unit CBM / Block:</span>
+              <strong className="text-navy font-mono">{Number(order.product.cbmPerBlock).toFixed(4)} CBM</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Ordered Quantity:</span>
+              <strong className="text-navy font-mono">{formatNumber(order.quantity)} Blocks</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Calculated Volume:</span>
+              <strong className="text-[#13789B] font-mono font-bold">{totalCbm.toFixed(2)} CBM</strong>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
+          <div>
+            <span className="text-slate-400 uppercase font-bold text-[10px]">Delivery Site Address</span>
+            <p className="mt-0.5 font-medium text-navy">{order.deliveryAddress}</p>
+          </div>
+          {order.requestedDate && (
+            <div className="sm:text-right">
+              <span className="text-slate-400 uppercase font-bold text-[10px]">Requested Date</span>
+              <p className="mt-0.5 font-semibold text-navy">{formatDate(order.requestedDate)}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Logistics & Vehicle Details */}
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-          <h2 className="text-base font-black text-navy">Transport & Logistics</h2>
+          <h2 className="text-base font-black text-navy flex items-center gap-2">
+            <Truck className="h-4 w-4 text-[#13789B]" />
+            <span>Transport & Logistics</span>
+          </h2>
           {order.transport ? (
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -262,30 +314,27 @@ export default async function CustomerOrderDetailPage({
             </div>
           )}
         </div>
-      </div>
 
-      {/* Plant Production & Dispatch Fulfillment Overview */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-        <h2 className="text-base font-black text-navy">Plant Production & Dispatch Fulfillment</h2>
-        <div className="grid gap-3 sm:grid-cols-4 rounded-2xl bg-slate-50 p-4 text-center">
-          <div>
-            <span className="text-xs text-slate-400">Order Reference</span>
-            <p className="mt-1 font-black text-navy font-mono text-sm">{order.orderNo}</p>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400">Delivery Challan</span>
-            <p className="mt-1 font-black text-[#13789B] font-mono text-sm">{order.invoiceNo || "Awaiting Dispatch"}</p>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400">Total Quantity</span>
-            <p className="mt-1 font-black text-navy font-mono text-sm">{formatNumber(order.quantity)} Blocks</p>
-            <span className="text-[10px] text-slate-400">{order.product.sizeLabel}</span>
-          </div>
-          <div className="border-l border-slate-200 pl-2">
-            <span className="text-xs text-slate-400">Loading Verification</span>
-            <p className="mt-1 text-sm font-bold text-emerald-700">
-              {order.loadedQuantity > 0 ? `${formatNumber(order.loadedQuantity)} Blocks Counted` : "Pending Bay Staging"}
-            </p>
+        {/* Financial & Invoicing Summary */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+          <h2 className="text-base font-black text-navy">Financial Summary</h2>
+          <div className="space-y-2.5 text-xs">
+            <div className="flex justify-between text-slate-600">
+              <span>Subtotal (Excl. Tax):</span>
+              <strong className="text-navy font-mono">₹{Number(order.subtotal).toLocaleString()}</strong>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>GST (18.0%):</span>
+              <strong className="text-navy font-mono">₹{Number(order.gstAmount).toLocaleString()}</strong>
+            </div>
+            <div className="flex justify-between text-base font-black text-navy border-t border-slate-200 pt-2">
+              <span>Total Order Amount:</span>
+              <span className="text-[#13789B] font-mono">₹{Number(order.totalAmount).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-xs pt-1">
+              <span className="text-slate-500">Payment Status:</span>
+              <span className="font-bold text-emerald-700 uppercase">{order.paymentStatus}</span>
+            </div>
           </div>
         </div>
       </div>

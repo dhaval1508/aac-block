@@ -33,6 +33,7 @@ import {
 import { logoutAction } from "@/lib/actions/auth";
 import { cn, ROLE_LABEL } from "@/lib/utils";
 import { Logo } from "@/components/logo";
+import { NotificationBell } from "@/components/notification-bell";
 import type { SessionUser } from "@/lib/session";
 
 type NavGroup = {
@@ -657,6 +658,7 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-4">
+            <NotificationBell role={user.role} />
             {/* Quick Profile Pill */}
             <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-1.5 shadow-2xs">
               <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#13789B] text-xs font-black text-white">
@@ -699,6 +701,7 @@ export function AppShell({
           </Link>
 
           <div className="flex items-center gap-2 shrink-0">
+            <NotificationBell role={user.role} />
             <span className="rounded-full bg-slate-100 px-2 sm:px-2.5 py-1 text-[10px] font-bold text-[#13789B] truncate max-w-[130px]">
               {ROLE_LABEL[user.role]}
             </span>

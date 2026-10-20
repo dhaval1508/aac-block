@@ -40,6 +40,7 @@ import {
   dispatchOrderAction,
   deliverOrderAction,
 } from "@/lib/actions/orders";
+import { DownloadOrderSummaryBtn } from "@/components/download-order-summary-btn";
 import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,11 @@ export default async function AdminOrderDetailPage({
         product: true,
         transport: true,
         assignedStaff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
         events: { orderBy: { createdAt: "asc" } },
         payments: { orderBy: { paidAt: "desc" }, include: { createdBy: true } },
       },
@@ -77,7 +83,7 @@ export default async function AdminOrderDetailPage({
 
   if (!order) notFound();
 
-  const currentStock = await getProductStock(order.productId);
+  const currentStock = order.productId ? await getProductStock(order.productId) : 0;
   const outQty = order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity;
   const hasEnoughStock = currentStock >= outQty;
 
@@ -85,8 +91,8 @@ export default async function AdminOrderDetailPage({
   const whatsappInfo = {
     orderNo: order.orderNo,
     customerName: order.customer.companyName || order.customer.name,
-    productName: order.product.name,
-    sizeLabel: order.product.sizeLabel,
+    productName: order.product?.name || order.items[0]?.product.name || "AAC Blocks",
+    sizeLabel: order.product?.sizeLabel || order.items[0]?.product.sizeLabel || "Standard",
     quantity: order.quantity,
     loadedQuantity: order.loadedQuantity,
     totalAmount: Number(order.totalAmount),
@@ -168,6 +174,7 @@ export default async function AdminOrderDetailPage({
 
         {/* Action Button Bar */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <DownloadOrderSummaryBtn orderId={order.id} orderNo={order.orderNo} />
           {order.invoiceNo && (
             <>
               <Link
@@ -251,7 +258,7 @@ export default async function AdminOrderDetailPage({
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate block">Ordered Quantity</span>
           <div className="mt-1 text-xl sm:text-2xl font-black text-navy truncate">{formatNumber(order.quantity)} <span className="text-xs font-semibold text-slate-400">blocks</span></div>
           <p className="mt-1 text-xs text-slate-500 truncate">
-            Standard manufactured blocks
+            {order.totalCbm ? `Total CBM: ${Number(order.totalCbm).toFixed(3)} m³` : "Standard manufactured blocks"}
           </p>
         </div>
 
@@ -352,32 +359,99 @@ export default async function AdminOrderDetailPage({
 
           {/* Product Specifications & CBM Calculations */}
           <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                <Layers className="h-4 w-4" />
-              </span>
-              <h2 className="text-sm sm:text-base font-black text-navy truncate">AAC Block Specification & Volume</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                  <Layers className="h-4 w-4" />
+                </span>
+                <h2 className="text-sm sm:text-base font-black text-navy truncate">Order Items & Volume Breakdown</h2>
+              </div>
+              {order.totalCbm ? (
+                <span className="rounded-xl bg-[#13789B]/10 border border-[#13789B]/30 px-3 py-1 text-xs font-black text-[#13789B]">
+                  Total Volume: {Number(order.totalCbm).toFixed(3)} m³ CBM
+                </span>
+              ) : null}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 rounded-2xl bg-slate-50 p-3 sm:p-4 text-xs min-w-0">
-              <div className="min-w-0">
-                <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Block Size</span>
-                <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{order.product.sizeLabel}</p>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">{order.product.dimensions}</p>
+            {order.items && order.items.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
+                      <th className="p-2.5">Item Description</th>
+                      <th className="p-2.5 text-center">Unit Specs</th>
+                      <th className="p-2.5 text-right">Quantity</th>
+                      <th className="p-2.5 text-right">Unit CBM</th>
+                      <th className="p-2.5 text-right">Total CBM</th>
+                      <th className="p-2.5 text-right">Rate</th>
+                      <th className="p-2.5 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {order.items.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50">
+                        <td className="p-2.5">
+                          <p className="font-bold text-navy">{item.product.name}</p>
+                          <span className="text-[10px] text-slate-400 capitalize">{item.product.category?.replace("_", " ") || "Material"}</span>
+                        </td>
+                        <td className="p-2.5 text-center">
+                          {item.product.sizeLabel ? (
+                            <span className="font-mono text-slate-700">{item.product.sizeLabel} ({item.product.dimensions})</span>
+                          ) : item.product.bagWeightKg ? (
+                            <span className="text-slate-700">{Number(item.product.bagWeightKg)} kg Bag</span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="p-2.5 text-right font-black text-navy">
+                          {formatNumber(item.quantity)} {item.product.category === "AAC_BLOCK" ? "Blocks" : "Bags"}
+                        </td>
+                        <td className="p-2.5 text-right text-slate-600 font-mono">
+                          {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} m³` : "-"}
+                        </td>
+                        <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
+                          {item.totalCbm ? `${Number(item.totalCbm).toFixed(3)} m³` : "-"}
+                        </td>
+                        <td className="p-2.5 text-right text-slate-600">₹{formatNumber(Number(item.rate))}</td>
+                        <td className="p-2.5 text-right font-black text-navy">₹{formatNumber(Number(item.totalAmount))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold">
+                      <td colSpan={4} className="p-2.5 text-slate-700">Combined Totals:</td>
+                      <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
+                        {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} m³` : "-"}
+                      </td>
+                      <td></td>
+                      <td className="p-2.5 text-right font-black text-navy text-sm">
+                        ₹{formatNumber(Number(order.totalAmount))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
+            ) : order.product ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 rounded-2xl bg-slate-50 p-3 sm:p-4 text-xs min-w-0">
+                <div className="min-w-0">
+                  <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Block Size</span>
+                  <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{order.product.sizeLabel}</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">{order.product.dimensions}</p>
+                </div>
 
-              <div className="min-w-0">
-                <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Unit Volume</span>
-                <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{Number(order.product.cbmPerBlock).toFixed(4)} m³</p>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Per block</p>
-              </div>
+                <div className="min-w-0">
+                  <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Unit Volume</span>
+                  <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{Number(order.product.cbmPerBlock).toFixed(4)} m³</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Per block</p>
+                </div>
 
-              <div className="min-w-0">
-                <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Stacking Ratio</span>
-                <p className="mt-1 font-black text-xs sm:text-sm text-[#13789B] truncate">{Number(order.product.blocksPerCbm).toFixed(1)} blk/m³</p>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Yard stacking</p>
+                <div className="min-w-0">
+                  <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Stacking Ratio</span>
+                  <p className="mt-1 font-black text-xs sm:text-sm text-[#13789B] truncate">{Number(order.product.blocksPerCbm).toFixed(1)} blk/m³</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Yard stacking</p>
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
 
           {/* Order Lifecycle Activity Audit Log */}

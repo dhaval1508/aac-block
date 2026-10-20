@@ -32,13 +32,15 @@ export default async function PublicInvoiceSharePage({
     gstAmount: Number(order.gstAmount),
     totalAmount: Number(order.totalAmount),
     paidAmount: Number(order.paidAmount),
-    product: {
-      ...order.product,
-      price: Number(order.product.price),
-      gstRate: Number(order.product.gstRate),
-      cbmPerBlock: Number(order.product.cbmPerBlock),
-      blocksPerCbm: Number(order.product.blocksPerCbm),
-    },
+    product: order.product
+      ? {
+          ...order.product,
+          price: Number(order.product.price),
+          gstRate: Number(order.product.gstRate),
+          cbmPerBlock: Number(order.product.cbmPerBlock),
+          blocksPerCbm: Number(order.product.blocksPerCbm),
+        }
+      : null,
   };
 
   return <TaxInvoiceView order={serializedOrder} isPublic={true} />;

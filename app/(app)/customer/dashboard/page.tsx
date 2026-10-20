@@ -13,10 +13,14 @@ import {
   ArrowRight,
   Receipt,
   Boxes,
+  Calculator,
+  Package,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { formatDate, formatNumber, ORDER_STATUS_CLASS, ORDER_STATUS_LABEL } from "@/lib/utils";
+import { BrochureDownloadButton } from "@/components/brochure-download-btn";
+import { DashboardCalculatorSection } from "@/components/dashboard-calculator-section";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +38,11 @@ export default async function CustomerDashboardPage() {
       where: { customerId: session.id },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { product: true, transport: true },
+      include: {
+        product: true,
+        items: { include: { product: true } },
+        transport: true,
+      },
     }),
     prisma.user.findUnique({
       where: { id: session.id },
@@ -64,8 +72,17 @@ export default async function CustomerDashboardPage() {
 
   const invoiceCount = customer?.customerOrders.filter((o) => o.invoiceNo).length ?? 0;
 
+  const aacProducts = products.filter((p) => p.category === "AAC_BLOCK");
+  const mortarProducts = products.filter((p) => p.category === "MORTAR");
+  const adhesiveProducts = products.filter((p) => p.category === "ADHESIVE");
+
+  const rates: Record<string, number> = {};
+  for (const p of products) {
+    rates[p.sizeLabel] = Number(p.price);
+  }
+
   return (
-    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 min-w-0 max-w-full">
+    <div className="space-y-5 sm:space-y-6 p-3 sm:p-6 lg:p-8 min-w-0 max-w-full">
       {/* Welcome Banner */}
       <div className="flex flex-col gap-4 rounded-3xl bg-[#111827] p-5 sm:p-7 text-white lg:flex-row lg:items-center lg:justify-between shadow-xs border border-slate-800 min-w-0">
         <div className="min-w-0">
@@ -111,6 +128,9 @@ export default async function CustomerDashboardPage() {
         </div>
       </div>
 
+      {/* Brochure Download Banner */}
+      <BrochureDownloadButton variant="card" />
+
       {/* Operational Dispatch Pulse Banner */}
       <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-w-0">
         <div className="flex items-start sm:items-center gap-3 min-w-0">
@@ -144,14 +164,13 @@ export default async function CustomerDashboardPage() {
         </div>
       </div>
 
-      {/* Section B: 6 Clickable Status Metric Cards */}
+      {/* 6 Clickable Status Metric Cards */}
       <div className="min-w-0">
         <div className="flex items-center justify-between mb-2.5">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Order Status Breakdown</h2>
           <span className="text-[11px] text-slate-400 hidden sm:inline">Tap any card to filter bookings</span>
         </div>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6 min-w-0">
-          {/* 1. Total Orders */}
           <Link
             href="/customer/orders"
             className="group rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-xs hover:border-[#1e72a8] hover:shadow-md transition-all min-w-0 flex flex-col justify-between"
@@ -164,7 +183,6 @@ export default async function CustomerDashboardPage() {
             <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">All bookings</p>
           </Link>
 
-          {/* 2. Pending Orders */}
           <Link
             href="/customer/orders?status=PENDING"
             className="group rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-xs hover:border-amber-400 hover:shadow-md transition-all min-w-0 flex flex-col justify-between"
@@ -177,7 +195,6 @@ export default async function CustomerDashboardPage() {
             <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Awaiting admin</p>
           </Link>
 
-          {/* 3. Confirmed Orders */}
           <Link
             href="/customer/orders?status=CONFIRMED"
             className="group rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-xs hover:border-blue-400 hover:shadow-md transition-all min-w-0 flex flex-col justify-between"
@@ -190,7 +207,6 @@ export default async function CustomerDashboardPage() {
             <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Approved & booked</p>
           </Link>
 
-          {/* 4. Loading Orders */}
           <Link
             href="/customer/orders?status=LOADING"
             className="group rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-xs hover:border-purple-400 hover:shadow-md transition-all min-w-0 flex flex-col justify-between"
@@ -203,7 +219,6 @@ export default async function CustomerDashboardPage() {
             <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">At factory bay</p>
           </Link>
 
-          {/* 5. Dispatched Orders */}
           <Link
             href="/customer/orders?status=DISPATCHED"
             className="group rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-xs hover:border-indigo-400 hover:shadow-md transition-all min-w-0 flex flex-col justify-between"
@@ -216,7 +231,6 @@ export default async function CustomerDashboardPage() {
             <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">On the road</p>
           </Link>
 
-          {/* 6. Delivered Orders */}
           <Link
             href="/customer/orders?status=DELIVERED"
             className="group rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-xs hover:border-emerald-400 hover:shadow-md transition-all min-w-0 flex flex-col justify-between"
@@ -230,6 +244,11 @@ export default async function CustomerDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* =========================================================================
+          AAC BLOCK & MORTAR CALCULATOR
+      ========================================================================= */}
+      <DashboardCalculatorSection rates={rates} />
 
       {/* Recent Orders List */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -247,50 +266,58 @@ export default async function CustomerDashboardPage() {
         </div>
 
         <div className="space-y-3">
-          {orders.map((o) => (
-            <Link
-              key={o.id}
-              href={`/customer/orders/${o.id}`}
-              className="flex items-center justify-between rounded-2xl border border-slate-100 p-4 transition-all hover:bg-slate-50 hover:border-slate-200"
-            >
-              <div className="min-w-0 pr-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-navy text-sm">{o.orderNo}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                      ORDER_STATUS_CLASS[o.status]
-                    }`}
-                  >
-                    {ORDER_STATUS_LABEL[o.status]}
-                  </span>
-                  {o.invoiceNo ? (
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
-                      {o.invoiceNo}
+          {orders.map((o) => {
+            const displayCbm = o.totalCbm
+              ? Number(o.totalCbm)
+              : o.product
+              ? Number(o.product.cbmPerBlock) * o.quantity
+              : 0;
+
+            return (
+              <Link
+                key={o.id}
+                href={`/customer/orders/${o.id}`}
+                className="flex items-center justify-between rounded-2xl border border-slate-100 p-4 transition-all hover:bg-slate-50 hover:border-slate-200"
+              >
+                <div className="min-w-0 pr-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-navy text-sm">{o.orderNo}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                        ORDER_STATUS_CLASS[o.status]
+                      }`}
+                    >
+                      {ORDER_STATUS_LABEL[o.status]}
                     </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-xs text-slate-600">
-                  {formatNumber(o.quantity)} blocks · {o.product.sizeLabel} · {formatDate(o.createdAt)}
-                </p>
-                {o.transport ? (
-                  <p className="mt-0.5 text-xs text-indigo-700 font-semibold truncate">
-                    Truck: {o.transport.truckNumber} ({o.transport.driverName})
+                    {o.invoiceNo ? (
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                        {o.invoiceNo}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {formatNumber(o.quantity)} blocks · {o.product?.sizeLabel || "Consignment"} · {formatDate(o.createdAt)}
                   </p>
-                ) : (
-                  <p className="mt-0.5 text-[11px] text-slate-400 truncate">Site: {o.deliveryAddress}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="text-right">
-                  <p className="font-black text-navy text-sm font-mono">{formatNumber(o.quantity)} blocks</p>
-                  <p className="text-[11px] text-[#13789B] font-semibold">
-                    {o.product.sizeLabel}
-                  </p>
+                  {o.transport ? (
+                    <p className="mt-0.5 text-xs text-indigo-700 font-semibold truncate">
+                      Truck: {o.transport.truckNumber} ({o.transport.driverName})
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-[11px] text-slate-400 truncate">Site: {o.deliveryAddress}</p>
+                  )}
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              </div>
-            </Link>
-          ))}
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="font-black text-navy text-sm font-mono">{formatNumber(o.quantity)} blocks</p>
+                    <p className="text-[11px] text-[#13789B] font-black font-mono">
+                      {displayCbm.toFixed(2)} CBM
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </div>
+              </Link>
+            );
+          })}
           {orders.length === 0 ? (
             <div className="py-8 text-center">
               <p className="text-sm text-slate-400">You haven&apos;t placed any orders yet.</p>
@@ -306,49 +333,124 @@ export default async function CustomerDashboardPage() {
         </div>
       </div>
 
-      {/* Available AAC Block Sizes Card */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+      {/* Available Factory Products (AAC Blocks + Mortars) */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-base font-black text-navy flex items-center gap-2">
               <Layers className="h-4 w-4 text-[#13789B]" />
-              Standard Factory AAC Block Specifications
+              Swarnim Production Catalog
             </h2>
-            <p className="text-xs text-slate-400">Precision autoclaved dimensions, block volumes, and stacking density</p>
+            <p className="text-xs text-slate-400">
+              All 9 BIS certified AAC block sizes and verified masonry & tiling solutions
+            </p>
           </div>
           <span className="self-start sm:self-auto rounded-full bg-sky-50 border border-sky-200 px-3 py-1 text-xs font-bold text-[#13789B]">
             BIS / ISI Quality Certified
           </span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((p) => (
-            <div
-              key={p.id}
-              className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-4 hover:border-[#13789B] transition-colors"
-            >
-              <div>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-bold text-navy text-sm">{p.sizeLabel}</h3>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5">{p.dimensions}</p>
-                  </div>
-                  <span className="text-xs font-black text-[#13789B] bg-sky-100/60 border border-sky-200/80 px-2 py-0.5 rounded-lg font-mono">
-                    {Number(p.cbmPerBlock).toFixed(4)} m³
-                  </span>
-                </div>
-                <div className="mt-3 text-[11px] text-slate-500 flex justify-between border-t border-slate-200/60 pt-2">
-                  <span>{Number(p.cbmPerBlock).toFixed(4)} CBM / block</span>
-                  <span className="font-semibold text-slate-700">{Number(p.blocksPerCbm).toFixed(2)} blocks / CBM</span>
-                </div>
-              </div>
-              <Link
-                href={`/customer/new-order?productId=${p.id}`}
-                className="mt-3 block text-center rounded-xl bg-white border border-slate-200 py-2 text-xs font-bold text-[#13789B] hover:bg-[#13789B] hover:text-white transition-all shadow-2xs"
+
+        {/* 1. AAC Blocks Grid */}
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">
+            AAC Lightweight High-Strength Blocks (9 Sizes)
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {aacProducts.map((p) => (
+              <div
+                key={p.id}
+                className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/60 p-4 hover:border-[#13789B] transition-colors"
               >
-                Order This Size →
-              </Link>
-            </div>
-          ))}
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-bold text-navy text-sm">{p.sizeLabel} AAC Block</h4>
+                      <p className="text-xs text-slate-500 font-mono mt-0.5">{p.dimensions}</p>
+                    </div>
+                    <span className="text-xs font-black text-[#13789B] bg-sky-100/60 border border-sky-200/80 px-2 py-0.5 rounded-lg font-mono">
+                      {Number(p.cbmPerBlock).toFixed(4)} m³
+                    </span>
+                  </div>
+                  <div className="mt-3 text-[11px] text-slate-500 flex justify-between border-t border-slate-200/60 pt-2">
+                    <span>{Number(p.cbmPerBlock).toFixed(4)} CBM/blk</span>
+                    <span className="font-semibold text-slate-700">{Number(p.blocksPerCbm).toFixed(2)} blk/CBM</span>
+                  </div>
+                </div>
+                <Link
+                  href={`/customer/new-order?productId=${p.id}`}
+                  className="mt-3 block text-center rounded-xl bg-white border border-slate-200 py-2 text-xs font-bold text-[#13789B] hover:bg-[#13789B] hover:text-white transition-all shadow-2xs"
+                >
+                  Order This Size →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. Mortar & Adhesive Section */}
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">
+            Masonry & Tiling Solutions
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Swarnim Jointing Mortar */}
+            {mortarProducts.map((m) => (
+              <div
+                key={m.id}
+                className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-0.5">
+                      AAC Masonry Jointing
+                    </span>
+                    <span className="text-sm font-black text-amber-950 font-mono">
+                      ₹{Number(m.price)} / 40kg bag
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-navy mt-1.5">{m.name}</h4>
+                  <p className="text-xs text-slate-600 mt-1 leading-snug">
+                    Thin-bed jointing mortar engineered for high bond strength, self-curing, and shrinkage-free joints. Net Weight: 40 Kg.
+                  </p>
+                </div>
+                <Link
+                  href="/customer/new-order"
+                  className="block text-center rounded-xl bg-amber-600 text-white py-2 text-xs font-bold hover:bg-amber-700 transition-colors shadow-2xs"
+                >
+                  Add Jointing Mortar to Order
+                </Link>
+              </div>
+            ))}
+
+            {/* GOLD G100 Adhesive */}
+            {adhesiveProducts.map((a) => (
+              <div
+                key={a.id}
+                className="rounded-2xl border border-sky-200 bg-sky-50/40 p-4 flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-full bg-sky-200 text-sky-900 text-[10px] font-bold px-2 py-0.5">
+                      Tiling Solution
+                    </span>
+                    <span className="text-sm font-black text-sky-950 font-mono">
+                      ₹{Number(a.price)} / 20kg bag
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-navy mt-1.5">{a.name}</h4>
+                  <p className="text-xs text-slate-600 mt-1 leading-snug">
+                    Tile & Stone adhesive. Coverage: ~55–60 Sq.Ft. per 20 kg bag at 3 mm bed thickness for ceramic & vitrified tiles.
+                  </p>
+                </div>
+                <Link
+                  href="/customer/new-order"
+                  className="block text-center rounded-xl bg-[#13789B] text-white py-2 text-xs font-bold hover:bg-[#0F627F] transition-colors shadow-2xs"
+                >
+                  Add Tile Adhesive to Order
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

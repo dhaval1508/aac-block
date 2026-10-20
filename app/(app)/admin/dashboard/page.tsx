@@ -63,6 +63,8 @@ export default async function AdminDashboardPage({
     recentOrders,
     recentMovements,
     recentActivities,
+    periodOrderSums,
+    periodMortarSums,
   ] = await Promise.all([
     getStockSummary(),
     getStockBySize(),
@@ -118,7 +120,24 @@ export default async function AdminDashboardPage({
         createdBy: { select: { name: true } },
       },
     }),
+    // Order totals for AAC blocks and CBM
+    prisma.order.aggregate({
+      where: orderWhere,
+      _sum: { quantity: true, totalCbm: true },
+    }),
+    // Mortar & adhesive bags ordered
+    prisma.orderItem.aggregate({
+      where: {
+        ...(orderDateFilter ? { order: { createdAt: orderDateFilter } } : {}),
+        product: { category: { in: ["MORTAR", "ADHESIVE"] } },
+      },
+      _sum: { quantity: true },
+    }),
   ]);
+
+  const totalOrderedBlocks = Number(periodOrderSums._sum.quantity || 0);
+  const totalOrderedCbm = Number(periodOrderSums._sum.totalCbm || 0);
+  const totalMortarBags = Number(periodMortarSums._sum.quantity || 0);
 
   // Period Orders by Status
   const statusCounts = {
@@ -312,54 +331,60 @@ export default async function AdminDashboardPage({
         </div>
 
         <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate block">Period Orders</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{periodOrders.length}</div>
-            <span className="text-[10px] text-slate-400 truncate block">Total bookings</span>
+          {/* 1. Total Orders */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-[#13789B]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate block">Total Orders</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{isFiltered ? periodOrders.length : allOrdersCount}</div>
+            <span className="text-[10px] text-slate-400 truncate block">{isFiltered ? "Filtered bookings" : "All-time bookings"}</span>
           </div>
 
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 truncate block">Pending Review</span>
+          {/* 2. New / Pending Orders */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-amber-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 truncate block">New / Pending Orders</span>
             <div className="mt-1 text-lg sm:text-xl font-black text-amber-600 truncate">{statusCounts.pending}</div>
-            <span className="text-[10px] text-slate-400 truncate block">Awaiting approval</span>
+            <span className="text-[10px] text-slate-400 truncate block">Awaiting admin review</span>
           </div>
 
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 truncate block">Confirmed</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-blue-600 truncate">{statusCounts.confirmed}</div>
-            <span className="text-[10px] text-slate-400 truncate block">Plant verified</span>
+          {/* 3. Orders Being Loaded */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-purple-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 truncate block">Orders Being Loaded</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-purple-600 truncate">{statusCounts.loading}</div>
+            <span className="text-[10px] text-slate-400 truncate block">Active yard loading</span>
           </div>
 
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 truncate block">Staged / Loading</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-purple-600 truncate">
-              {statusCounts.assigned + statusCounts.loading + statusCounts.loaded}
-            </div>
-            <span className="text-[10px] text-slate-400 truncate block">Active yard tasks</span>
-          </div>
-
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 truncate block">Dispatched</span>
+          {/* 4. Dispatched Orders */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-indigo-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 truncate block">Dispatched Orders</span>
             <div className="mt-1 text-lg sm:text-xl font-black text-indigo-600 truncate">{statusCounts.dispatched}</div>
-            <span className="text-[10px] text-slate-400 truncate block">In truck transit</span>
+            <span className="text-[10px] text-slate-400 truncate block">Trucks in transit</span>
           </div>
 
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 truncate block">Delivered</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-emerald-600 truncate">{statusCounts.delivered}</div>
-            <span className="text-[10px] text-slate-400 truncate block">Site confirmed</span>
+          {/* 5. Total AAC Blocks Ordered */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-blue-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 truncate block">Total Blocks Ordered</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(totalOrderedBlocks)}</div>
+            <span className="text-[10px] text-slate-400 truncate block">AAC physical blocks</span>
           </div>
 
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate block">Available Stock</span>
+          {/* 6. Total AAC Block CBM */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-emerald-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 truncate block">Total AAC Block CBM</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-emerald-700 truncate">{totalOrderedCbm.toFixed(2)} m³</div>
+            <span className="text-[10px] text-slate-400 truncate block">Total cubic meters</span>
+          </div>
+
+          {/* 7. Total Adhesive/Mortar Bags */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-orange-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 truncate block">Adhesive / Mortar Bags</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(totalMortarBags)}</div>
+            <span className="text-[10px] text-slate-400 truncate block">Bags ordered</span>
+          </div>
+
+          {/* 8. Available Factory Stock */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-teal-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 truncate block">Available Yard Stock</span>
             <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(stockSummary.current)}</div>
-            <span className="text-[10px] text-emerald-600 font-bold truncate block">Physical blocks</span>
-          </div>
-
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate block">Active Clients</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{totalCustomers}</div>
-            <span className="text-[10px] text-slate-400 truncate block">Builders registered</span>
+            <span className="text-[10px] text-teal-600 font-bold truncate block">Ready for dispatch</span>
           </div>
         </div>
       </div>
@@ -561,7 +586,7 @@ export default async function AdminDashboardPage({
                     )}
                   </div>
                   <p className="mt-1 text-xs text-slate-700 font-semibold truncate">
-                    {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks ({o.product.sizeLabel})
+                    {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks {o.product ? `(${o.product.sizeLabel})` : ""}
                   </p>
                   {o.transport && (
                     <p className="text-[11px] text-slate-400 mt-0.5 truncate">
@@ -576,7 +601,7 @@ export default async function AdminDashboardPage({
                       {formatNumber(o.quantity)} blk
                     </span>
                     <span className="text-[10px] text-[#13789B] font-bold">
-                      {o.product.sizeLabel}
+                      {o.product?.sizeLabel || "Standard"}
                     </span>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-navy transition-colors shrink-0" />

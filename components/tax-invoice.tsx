@@ -32,7 +32,7 @@ type InvoiceOrder = {
     sizeLabel: string;
     dimensions: string;
     cbmPerBlock: number | { toString(): string };
-  };
+  } | null;
   transport: {
     truckNumber: string;
     transporterName?: string | null;
@@ -56,7 +56,7 @@ export function TaxInvoiceView({
   const waMessage = buildWhatsAppMessage("invoice", {
     orderNo: order.orderNo,
     customerName: order.customer.companyName || order.customer.name,
-    sizeLabel: order.product.sizeLabel,
+    sizeLabel: order.product?.sizeLabel || "Standard",
     quantity: order.quantity,
     invoiceNo: order.invoiceNo,
     shareToken: order.shareToken,
@@ -187,13 +187,13 @@ export function TaxInvoiceView({
                 <tr>
                   <td className="py-3 px-3">
                     <p className="font-bold text-navy text-sm">
-                      {order.product.name} {order.product.sizeLabel}
+                      {order.product?.name || "AAC Blocks"} {order.product?.sizeLabel || ""}
                     </p>
                     <p className="text-[11px] text-slate-400">Standard Autoclaved Aerated Concrete</p>
                   </td>
-                  <td className="py-3 px-3 font-mono text-slate-700 font-semibold">{order.product.dimensions}</td>
+                  <td className="py-3 px-3 font-mono text-slate-700 font-semibold">{order.product?.dimensions || "-"}</td>
                   <td className="py-3 px-3 text-right font-mono text-slate-700 font-semibold">
-                    {Number(order.product.cbmPerBlock).toFixed(4)} m³
+                    {order.product ? `${Number(order.product.cbmPerBlock).toFixed(4)} m³` : "-"}
                   </td>
                   <td className="py-3 px-3 text-right text-slate-600 font-mono">6810</td>
                   <td className="py-3 px-3 text-right font-black text-navy text-sm font-mono">
@@ -221,7 +221,7 @@ export function TaxInvoiceView({
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Block Specification</span>
-                <strong className="text-[#13789B] font-mono text-sm">{order.product.sizeLabel}</strong>
+                <strong className="text-[#13789B] font-mono text-sm">{order.product?.sizeLabel || "Standard"}</strong>
               </div>
               {order.loadedQuantity && order.loadedQuantity > 0 ? (
                 <div className="flex justify-between text-emerald-700 border-t border-slate-200 pt-1">

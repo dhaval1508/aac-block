@@ -53,6 +53,7 @@ export default async function StaffOrderDetailPage({
       requestedDate: true,
       notes: true,
       assignedStaffId: true,
+      totalCbm: true,
       createdAt: true,
       confirmedAt: true,
       dispatchedAt: true,
@@ -70,6 +71,24 @@ export default async function StaffOrderDetailPage({
           sizeLabel: true,
           dimensions: true,
           cbmPerBlock: true,
+        },
+      },
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          cbmPerUnit: true,
+          totalCbm: true,
+          product: {
+            select: {
+              name: true,
+              category: true,
+              sizeLabel: true,
+              dimensions: true,
+              cbmPerBlock: true,
+              bagWeightKg: true,
+            },
+          },
         },
       },
       transport: {
@@ -127,6 +146,11 @@ export default async function StaffOrderDetailPage({
             >
               {ORDER_STATUS_LABEL[order.status]}
             </span>
+            {order.totalCbm ? (
+              <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-bold text-[#1E72A8]">
+                {Number(order.totalCbm).toFixed(3)} m³ CBM
+              </span>
+            ) : null}
           </div>
           <p className="text-xs text-slate-500 truncate mt-0.5">
             Customer: {order.customer.companyName || order.customer.name}
@@ -224,29 +248,72 @@ export default async function StaffOrderDetailPage({
 
       {/* Material Specifications & Physical Quantity */}
       <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex items-center gap-2 text-navy font-bold text-sm border-b border-slate-100 pb-3">
-          <Package className="h-4 w-4 text-[#1E72A8]" />
-          AAC Block Specification
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2 text-navy font-bold text-sm">
+            <Package className="h-4 w-4 text-[#1E72A8]" />
+            Loading Manifest & Physical Items
+          </div>
+          {order.totalCbm ? (
+            <span className="text-xs font-black text-[#1E72A8] bg-blue-50 px-2.5 py-1 rounded-lg">
+              Total CBM: {Number(order.totalCbm).toFixed(3)} m³
+            </span>
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase">
-              Block Size
-            </span>
-            <p className="mt-1 text-base font-bold text-navy">{order.product.sizeLabel}</p>
-            <span className="text-xs text-slate-500">{order.product.dimensions}</span>
+        {order.items && order.items.length > 0 ? (
+          <div className="space-y-3">
+            {order.items.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 gap-2"
+              >
+                <div>
+                  <p className="font-bold text-sm text-navy">{item.product.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {item.product.sizeLabel
+                      ? `Size: ${item.product.sizeLabel} (${item.product.dimensions})`
+                      : item.product.bagWeightKg
+                      ? `Bag Weight: ${item.product.bagWeightKg} kg`
+                      : "Accessory"}
+                  </p>
+                  {item.totalCbm ? (
+                    <span className="inline-block mt-1 text-[11px] font-semibold text-[#1E72A8] bg-blue-100/60 px-2 py-0.5 rounded">
+                      Volume: {Number(item.totalCbm).toFixed(3)} m³
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-slate-400 block font-medium uppercase">Quantity</span>
+                  <span className="text-lg font-black text-navy font-mono">
+                    {formatNumber(item.quantity)}{" "}
+                    <span className="text-xs font-normal text-slate-600">
+                      {item.product.category === "AAC_BLOCK" ? "Blocks" : "Bags"}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase">
+                Block Size
+              </span>
+              <p className="mt-1 text-base font-bold text-navy">{order.product?.sizeLabel || "Standard"}</p>
+              <span className="text-xs text-slate-500">{order.product?.dimensions || "-"}</span>
+            </div>
 
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase">
-              Order Quantity
-            </span>
-            <p className="mt-1 text-xl font-black text-navy">
-              {formatNumber(order.quantity)} <span className="text-xs font-normal">Blocks</span>
-            </p>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase">
+                Order Quantity
+              </span>
+              <p className="mt-1 text-xl font-black text-navy">
+                {formatNumber(order.quantity)} <span className="text-xs font-normal">Blocks</span>
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Loading Action Area */}

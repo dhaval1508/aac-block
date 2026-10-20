@@ -50,3 +50,6 @@ prisma/migrations_backup*
 # logs & scratch
 *.log
 scratch/
+
+.vercel
+.env*

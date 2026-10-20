@@ -17,6 +17,7 @@ import {
   CreditCard,
   ArrowUpDown,
   RotateCcw,
+  FileDown,
 } from "lucide-react";
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -114,6 +115,7 @@ export default async function AdminOrdersPage({
         product: { select: { sizeLabel: true, dimensions: true, cbmPerBlock: true } },
         transport: true,
         assignedStaff: { select: { name: true } },
+        items: { select: { id: true } },
       },
     }),
     prisma.order.count({ where: whereClause }),
@@ -191,6 +193,15 @@ export default async function AdminOrdersPage({
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 shrink-0">
           <DateRangeFilter />
+
+          <a
+            href={status !== "all" ? `/api/admin/orders/export?status=${status}` : "/api/admin/orders/export"}
+            download
+            className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3.5 sm:px-4 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition-all cursor-pointer"
+          >
+            <FileDown className="h-4 w-4 text-[#13789B]" />
+            <span>Export CSV</span>
+          </a>
 
           <Link
             href="/customer/new-order"
@@ -324,8 +335,8 @@ export default async function AdminOrdersPage({
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <span className="font-bold text-slate-800">{o.product.sizeLabel}</span>
-                    <span className="text-[11px] text-slate-400 block font-mono">{o.product.dimensions}</span>
+                    <span className="font-bold text-slate-800">{o.product?.sizeLabel || (o.items && o.items.length > 0 ? `${o.items.length} items` : "Standard")}</span>
+                    <span className="text-[11px] text-slate-400 block font-mono">{o.product?.dimensions || (o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "-")}</span>
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -356,7 +367,7 @@ export default async function AdminOrdersPage({
                   <td className="py-3.5 px-4 text-right">
                     <p className="font-black text-navy">{formatNumber(o.quantity)} blocks</p>
                     <span className="text-[10px] font-bold text-slate-500">
-                      {o.product.sizeLabel}
+                      {o.product?.sizeLabel || (o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "Standard")}
                     </span>
                   </td>
 
@@ -405,7 +416,7 @@ export default async function AdminOrdersPage({
                     {formatNumber(o.quantity)} blocks
                   </p>
                   <span className="text-[10px] font-bold text-[#13789B]">
-                    {o.product.sizeLabel}
+                    {o.product?.sizeLabel || (o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "Standard")}
                   </span>
                 </div>
               </div>
@@ -413,7 +424,7 @@ export default async function AdminOrdersPage({
               <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Size</span>
-                  <p className="font-bold text-navy truncate">{o.product.sizeLabel}</p>
+                  <p className="font-bold text-navy truncate">{o.product?.sizeLabel || "Standard"}</p>
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Quantity</span>

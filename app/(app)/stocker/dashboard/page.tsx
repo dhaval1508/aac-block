@@ -390,8 +390,7 @@ export default async function StockerDashboardPage() {
                 </div>
                 <div className="mt-1 flex items-center justify-between text-slate-600">
                   <span>
-                    {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks (
-                    {o.product.sizeLabel})
+                    {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks {o.product ? `(${o.product.sizeLabel})` : ""}
                   </span>
                   <span className="text-[10px] text-slate-400">{formatDate(o.createdAt)}</span>
                 </div>
