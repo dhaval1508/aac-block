@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { formatBlockSizeName } from "@/lib/utils";
+import { OrderStatus, Prisma } from "@prisma/client";
 
 export async function GET(req: Request) {
   const session = await getSession();
@@ -11,9 +13,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
 
-  const where: any = {};
+  const where: Prisma.OrderWhereInput = {};
   if (status && status !== "all") {
-    where.status = status;
+    where.status = status as OrderStatus;
   }
 
   const orders = await prisma.order.findMany({
@@ -22,7 +24,11 @@ export async function GET(req: Request) {
     include: {
       customer: true,
       product: true,
-      items: true,
+      items: {
+        include: {
+          product: true,
+        },
+      },
       transport: true,
     },
   });
@@ -40,13 +46,13 @@ export async function GET(req: Request) {
     "Block Quantity",
     "Total CBM",
     "Total Sq.Ft.",
-    "Adhesive Quantity (40 KG Bags)",
+    "Block Jointing Morter (40 KG Bags)",
     "Truck Number",
     "Driver Name",
     "Driver Mobile",
   ];
 
-  const escapeCsv = (val: any) => {
+  const escapeCsv = (val: unknown) => {
     if (val === null || val === undefined) return '""';
     const str = String(val).replace(/"/g, '""');
     return `"${str}"`;
@@ -63,6 +69,22 @@ export async function GET(req: Request) {
       ? Number(o.totalSqft).toFixed(1)
       : (o.quantity * 1.29).toFixed(1);
 
+    // Format block size(s) cleanly
+    let blockSizeDesc = formatBlockSizeName(o.product?.sizeLabel) || "Standard";
+    if (o.items && o.items.length > 0) {
+      const blockItems = o.items.filter(
+        (it) => it.productType === "AAC_BLOCK" || !it.productType
+      );
+      if (blockItems.length > 0) {
+        blockSizeDesc = blockItems
+          .map(
+            (it) =>
+              `${formatBlockSizeName(it.product?.sizeLabel || it.sizeLabel)} (${it.quantity})`
+          )
+          .join("; ");
+      }
+    }
+
     return [
       escapeCsv(o.orderNo),
       escapeCsv(new Date(o.createdAt).toISOString().split("T")[0]),
@@ -72,7 +94,7 @@ export async function GET(req: Request) {
       escapeCsv(o.deliveryAddress),
       escapeCsv(o.status),
       escapeCsv(o.invoiceNo || ""),
-      escapeCsv(o.product?.sizeLabel || "Standard"),
+      escapeCsv(blockSizeDesc),
       escapeCsv(o.quantity),
       escapeCsv(cbm),
       escapeCsv(sqft),

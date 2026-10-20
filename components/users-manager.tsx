@@ -27,7 +27,7 @@ import { toggleUserAction, deleteUserAction } from "@/lib/actions/users";
 import { AddStaffModal } from "@/components/add-staff-modal";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 
-type InternalUser = {
+export type InternalUser = {
   id: string;
   name: string;
   mobile: string;
@@ -37,7 +37,7 @@ type InternalUser = {
   createdAt: Date | string;
 };
 
-type CustomerUser = {
+export type CustomerUser = {
   id: string;
   name: string;
   companyName: string | null;

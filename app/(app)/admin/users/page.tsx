@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { Role } from "@prisma/client";
-import { UsersManager } from "@/components/users-manager";
+import { UsersManager, type InternalUser, type CustomerUser } from "@/components/users-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,15 @@ export default async function AdminUsersPage({
         deletedAt: null,
       },
       orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        mobile: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true,
+      },
     }),
     prisma.user.findMany({
       where: {
@@ -30,7 +39,19 @@ export default async function AdminUsersPage({
         deletedAt: null,
       },
       orderBy: { createdAt: "desc" },
-      include: { _count: { select: { customerOrders: true } } },
+      select: {
+        id: true,
+        name: true,
+        companyName: true,
+        gstin: true,
+        mobile: true,
+        email: true,
+        city: true,
+        state: true,
+        active: true,
+        createdAt: true,
+        _count: { select: { customerOrders: true } },
+      },
     }),
   ]);
 
@@ -43,8 +64,8 @@ export default async function AdminUsersPage({
       ) : null}
 
       <UsersManager
-        internalUsers={internalUsers as any}
-        customers={customers as any}
+        internalUsers={internalUsers as InternalUser[]}
+        customers={customers as CustomerUser[]}
         currentUserId={session.id}
       />
     </div>
