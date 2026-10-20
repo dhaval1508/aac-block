@@ -4,18 +4,23 @@ import { useMemo, useState } from "react";
 import { formatNumber } from "@/lib/utils";
 import { placeCustomerOrderAction } from "@/lib/actions/orders";
 import {
-  ShieldCheck,
-  Info,
-  Loader2,
-  Truck,
   Layers,
   Package,
   Plus,
-  Minus,
+  Trash2,
   CheckCircle2,
-  Calculator,
+  Truck,
+  Loader2,
   Sparkles,
+  Info,
+  ShieldCheck,
+  MapPin,
+  User,
+  Phone,
+  Mail,
+  FileText,
 } from "lucide-react";
+import { calculateBlockMetrics } from "@/lib/aac-calculator";
 
 export type ProductItem = {
   id: string;
@@ -32,568 +37,666 @@ export type ProductItem = {
   coverageSqft?: number | null;
 };
 
+export interface CustomerDefaults {
+  name: string;
+  mobile: string;
+  email: string;
+  deliveryAddress: string;
+  city: string;
+  pincode: string;
+}
+
+interface BlockOrderItem {
+  id: string;
+  productId: string;
+  quantity: number | "";
+}
+
 export function CustomerOrderForm({
   aacProducts,
-  mortarProduct,
   adhesiveProduct,
-  defaultAddress,
+  customerDefaults,
   defaultProductId,
   defaultQuantity,
-  defaultMortarBags,
+  defaultAdhesiveBags = 0,
   error,
 }: {
   aacProducts: ProductItem[];
-  mortarProduct?: ProductItem | null;
   adhesiveProduct?: ProductItem | null;
-  defaultAddress: string;
+  customerDefaults: CustomerDefaults;
   defaultProductId?: string;
   defaultQuantity?: number;
-  defaultMortarBags?: number;
+  defaultAdhesiveBags?: number;
   error?: string;
 }) {
   const initialAacId =
     defaultProductId && aacProducts.some((p) => p.id === defaultProductId)
       ? defaultProductId
-      : aacProducts[4]?.id ?? aacProducts[0]?.id ?? ""; // Default to 6" if present
+      : aacProducts.find((p) => p.sizeLabel.includes("6"))?.id || aacProducts[0]?.id || "";
 
-  // Main AAC block state
-  const [selectedAacId, setSelectedAacId] = useState(initialAacId);
-  const [quantity, setQuantity] = useState<number | "">(defaultQuantity || 1000);
-  const [deliveryAddress, setDeliveryAddress] = useState(defaultAddress);
+  // Section A: Multiple AAC block sizes
+  const [blockItems, setBlockItems] = useState<BlockOrderItem[]>([
+    {
+      id: "initial-1",
+      productId: initialAacId,
+      quantity: defaultQuantity || 1000,
+    },
+  ]);
+
+  // Section B: GOLD (G100) Adhesive (40 KG Bag only, default 0, compulsory field)
+  const [adhesiveBags, setAdhesiveBags] = useState<number | "">(defaultAdhesiveBags);
+
+  // Section C: Customer Details
+  const [customerName, setCustomerName] = useState(customerDefaults.name);
+  const [customerMobile, setCustomerMobile] = useState(customerDefaults.mobile);
+  const [customerEmail, setCustomerEmail] = useState(customerDefaults.email);
+  const [deliveryAddress, setDeliveryAddress] = useState(customerDefaults.deliveryAddress);
+  const [city, setCity] = useState(customerDefaults.city || "Ahmedabad");
+  const [pincode, setPincode] = useState(customerDefaults.pincode || "");
   const [requestedDate, setRequestedDate] = useState("");
   const [notes, setNotes] = useState("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Addon state: Do you also need adhesive or block joining mortar?
-  const [wantsAddons, setWantsAddons] = useState<boolean>(
-    Boolean(defaultMortarBags && defaultMortarBags > 0)
+  // Add another block size row
+  const addBlockSizeRow = () => {
+    // Pick an unused block size if available, or first
+    const usedIds = new Set(blockItems.map((b) => b.productId));
+    const nextProduct = aacProducts.find((p) => !usedIds.has(p.id)) || aacProducts[0];
+    setBlockItems((prev) => [
+      ...prev,
+      {
+        id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        productId: nextProduct?.id || "",
+        quantity: 500,
+      },
+    ]);
+  };
+
+  const removeBlockSizeRow = (id: string) => {
+    if (blockItems.length <= 1) return;
+    setBlockItems((prev) => prev.filter((b) => b.id !== id));
+  };
+
+  const updateBlockSizeRow = (id: string, updates: Partial<BlockOrderItem>) => {
+    setBlockItems((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, ...updates } : b))
+    );
+  };
+
+  // Calculations for Section A
+  const rowCalculations = useMemo(() => {
+    return blockItems.map((item) => {
+      const prod = aacProducts.find((p) => p.id === item.productId);
+      const qty = typeof item.quantity === "number" ? Math.max(0, item.quantity) : 0;
+      const cbmPerBlock = prod ? Number(prod.cbmPerBlock) : 0.018;
+      const totalCbm = qty * cbmPerBlock;
+      // Formula: Blocks * (Length * Height / 1,000,000) * 10.7639104167 = Qty * 1.29166925 sq.ft.
+      const totalSqft = qty * 1.29166925;
+
+      return {
+        ...item,
+        product: prod,
+        numericQty: qty,
+        cbmPerBlock,
+        totalCbm,
+        totalSqft,
+      };
+    });
+  }, [blockItems, aacProducts]);
+
+  const totalBlocks = useMemo(
+    () => rowCalculations.reduce((sum, r) => sum + r.numericQty, 0),
+    [rowCalculations]
   );
 
-  // Swarnim Mortar
-  const [mortarEnabled, setMortarEnabled] = useState<boolean>(
-    Boolean(defaultMortarBags && defaultMortarBags > 0)
-  );
-  const [mortarCalcMode, setMortarCalcMode] = useState<"auto" | "manual">("auto");
-  const [manualMortarBags, setManualMortarBags] = useState<number>(defaultMortarBags || 15);
-
-  // Gold G100 Adhesive
-  const [adhesiveEnabled, setAdhesiveEnabled] = useState<boolean>(false);
-  const [adhesiveBags, setAdhesiveBags] = useState<number>(5);
-
-  const selectedAac = useMemo(
-    () => aacProducts.find((p) => p.id === selectedAacId) ?? aacProducts[0],
-    [aacProducts, selectedAacId]
+  const combinedCbm = useMemo(
+    () => rowCalculations.reduce((sum, r) => sum + r.totalCbm, 0),
+    [rowCalculations]
   );
 
-  const numQty = typeof quantity === "number" ? Math.max(0, quantity) : 0;
-  const blockCbm = selectedAac ? Number((numQty * Number(selectedAac.cbmPerBlock)).toFixed(4)) : 0;
-  const blockSqft = selectedAac ? Number((numQty * 1.29).toFixed(2)) : 0;
-  const blockRate = selectedAac ? Number(selectedAac.price) : 72;
-  const blockSubtotal = Number((numQty * blockRate).toFixed(2));
-  const blockGst = Number((blockSubtotal * 0.18).toFixed(2));
-  const blockTotal = Number((blockSubtotal + blockGst).toFixed(2));
+  const combinedSqft = useMemo(
+    () => rowCalculations.reduce((sum, r) => sum + r.totalSqft, 0),
+    [rowCalculations]
+  );
 
-  // Auto mortar calculation: ~35 kg per CBM at 3mm joint, 40 kg per bag
-  const autoMortarBags = useMemo(() => {
-    if (blockCbm <= 0) return 0;
-    const kg = blockCbm * 35;
-    return Math.ceil(kg / 40);
-  }, [blockCbm]);
+  const numAdhesiveBags =
+    typeof adhesiveBags === "number" ? Math.max(0, Math.floor(adhesiveBags)) : 0;
 
-  const effectiveMortarBags = mortarEnabled
-    ? mortarCalcMode === "auto"
-      ? autoMortarBags
-      : manualMortarBags
-    : 0;
-
-  const mortarRate = mortarProduct ? Number(mortarProduct.price) || 380 : 380;
-  const mortarSubtotal = Number((effectiveMortarBags * mortarRate).toFixed(2));
-  const mortarGst = Number((mortarSubtotal * 0.18).toFixed(2));
-  const mortarTotal = Number((mortarSubtotal + mortarGst).toFixed(2));
-
-  // Adhesive calculation
-  const effectiveAdhesiveBags = adhesiveEnabled ? Math.max(0, adhesiveBags) : 0;
-  const adhesiveRate = adhesiveProduct ? Number(adhesiveProduct.price) || 290 : 290;
-  const adhesiveSubtotal = Number((effectiveAdhesiveBags * adhesiveRate).toFixed(2));
-  const adhesiveGst = Number((adhesiveSubtotal * 0.18).toFixed(2));
-  const adhesiveTotal = Number((adhesiveSubtotal + adhesiveGst).toFixed(2));
-
-  // Grand totals
-  const grandSubtotal = Number((blockSubtotal + mortarSubtotal + adhesiveSubtotal).toFixed(2));
-  const grandGst = Number((blockGst + mortarGst + adhesiveGst).toFixed(2));
-  const grandTotal = Number((grandSubtotal + grandGst).toFixed(2));
-  const estimatedTrucks = Math.max(1, Math.ceil(numQty / 1200));
-
-  // Construct itemsJson for submission
+  // JSON Items for submission
   const itemsJson = useMemo(() => {
-    const items: Array<{ productId: string; quantity: number }> = [];
-    if (selectedAac && numQty > 0) {
-      items.push({ productId: selectedAac.id, quantity: numQty });
+    const list: Array<{ productId: string; quantity: number }> = [];
+    for (const r of rowCalculations) {
+      if (r.productId && r.numericQty > 0) {
+        list.push({ productId: r.productId, quantity: r.numericQty });
+      }
     }
-    if (mortarProduct && effectiveMortarBags > 0) {
-      items.push({ productId: mortarProduct.id, quantity: effectiveMortarBags });
+    if (adhesiveProduct && numAdhesiveBags > 0) {
+      list.push({ productId: adhesiveProduct.id, quantity: numAdhesiveBags });
     }
-    if (adhesiveProduct && effectiveAdhesiveBags > 0) {
-      items.push({ productId: adhesiveProduct.id, quantity: effectiveAdhesiveBags });
-    }
-    return JSON.stringify(items);
-  }, [selectedAac, numQty, mortarProduct, effectiveMortarBags, adhesiveProduct, effectiveAdhesiveBags]);
+    return JSON.stringify(list);
+  }, [rowCalculations, adhesiveProduct, numAdhesiveBags]);
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-8 shadow-xs min-w-0 max-w-full space-y-6">
+    <form
+      action={placeCustomerOrderAction}
+      onSubmit={() => setIsSubmitting(true)}
+      className="space-y-6 min-w-0 max-w-full"
+    >
+      {/* Hidden Fields for Action Processing */}
+      <input type="hidden" name="itemsJson" value={itemsJson} />
+      <input type="hidden" name="adhesiveBags" value={numAdhesiveBags} />
+      <input type="hidden" name="customerName" value={customerName} />
+      <input type="hidden" name="customerMobile" value={customerMobile} />
+      <input type="hidden" name="customerEmail" value={customerEmail} />
+      <input type="hidden" name="city" value={city} />
+      <input type="hidden" name="pincode" value={pincode} />
+
       {error ? (
-        <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700">
-          {error}
+        <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700 flex items-center gap-2">
+          <Info className="h-4 w-4 shrink-0 text-rose-500" />
+          <span>{error}</span>
         </div>
       ) : null}
 
-      {/* Super Admin Notice */}
-      <div className="flex items-start gap-3 rounded-2xl bg-sky-50 border border-sky-200 p-4 text-xs text-sky-950 leading-relaxed">
-        <Info className="h-4 w-4 text-[#13789B] shrink-0 mt-0.5" />
-        <div>
-          <strong className="font-bold text-[#13789B]">Plant Direct Staging:</strong> Orders are confirmed by Super Admin with stock verification, vehicle staging, and dedicated loading bay allocation.
+      {/* =========================================================================
+          SECTION A: AAC BLOCK DETAILS
+      ========================================================================= */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+                A
+              </span>
+              <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+                AAC Block Details
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Select one or multiple standard AAC block sizes and specify required block quantities.
+            </p>
+          </div>
+          <span className="self-start sm:self-auto rounded-full bg-teal-50 border border-teal-200 px-3 py-1 text-[11px] font-bold text-[#13789B]">
+            All 9 Master BIS Sizes Available
+          </span>
+        </div>
+
+        {/* Dynamic Block Size Rows */}
+        <div className="space-y-3.5">
+          {blockItems.map((item, index) => {
+            const rowCalc = rowCalculations[index];
+            const currentProduct = aacProducts.find((p) => p.id === item.productId);
+
+            return (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 sm:p-5 space-y-3 transition-colors hover:border-slate-300"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    Block Size #{index + 1}
+                  </span>
+                  {blockItems.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => removeBlockSizeRow(item.id)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline p-1"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Remove</span>
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-12 sm:items-end">
+                  {/* Select Block Size */}
+                  <div className="sm:col-span-7 space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Select Block Size
+                    </label>
+                    <select
+                      value={item.productId}
+                      onChange={(e) =>
+                        updateBlockSizeRow(item.id, { productId: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
+                    >
+                      {aacProducts.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.sizeLabel} Block ({p.dimensions}) • {Number(p.cbmPerBlock).toFixed(4)} CBM/block
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Enter Number of Blocks */}
+                  <div className="sm:col-span-5 space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Number of Blocks
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        required
+                        value={item.quantity}
+                        onChange={(e) =>
+                          updateBlockSizeRow(item.id, {
+                            quantity:
+                              e.target.value === "" ? "" : Math.max(1, parseInt(e.target.value, 10) || 0),
+                          })
+                        }
+                        placeholder="e.g. 1000"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono font-bold text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">
+                        Blocks
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Auto Calculated Row Metrics */}
+                {rowCalc && rowCalc.numericQty > 0 ? (
+                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-white border border-slate-200/80 p-2.5 text-center">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">
+                        CBM / Block
+                      </span>
+                      <span className="text-xs font-bold font-mono text-slate-700">
+                        {rowCalc.cbmPerBlock.toFixed(4)} m³
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-teal-800 uppercase">
+                        Size CBM
+                      </span>
+                      <span className="text-xs font-black font-mono text-[#13789B]">
+                        {rowCalc.totalCbm.toFixed(2)} m³
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">
+                        Wall Area
+                      </span>
+                      <span className="text-xs font-bold font-mono text-slate-700">
+                        {rowCalc.totalSqft.toFixed(1)} Sq.Ft.
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Add Another Block Size Button */}
+        <button
+          type="button"
+          onClick={addBlockSizeRow}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[#13789B] bg-teal-50/50 hover:bg-teal-50 px-4 py-2.5 text-xs font-bold text-[#13789B] transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Another Block Size</span>
+        </button>
+
+        {/* Section A Combined Summary Bar */}
+        <div className="rounded-2xl bg-gradient-to-r from-teal-900 via-slate-900 to-[#13789B] p-4 sm:p-5 text-white shadow-xs">
+          <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
+            <span className="text-xs font-black uppercase tracking-wider text-teal-300">
+              Total AAC Block Calculation
+            </span>
+            <span className="text-[11px] text-slate-300">
+              {blockItems.length} Size{blockItems.length > 1 ? "s" : ""} Selected
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+            <div>
+              <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
+                Total Blocks
+              </span>
+              <span className="text-lg sm:text-2xl font-black font-mono text-white">
+                {formatNumber(totalBlocks)}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[10px] sm:text-xs font-semibold text-teal-300 uppercase">
+                Total CBM
+              </span>
+              <span className="text-lg sm:text-2xl font-black font-mono text-teal-300">
+                {combinedCbm.toFixed(2)} m³
+              </span>
+            </div>
+            <div>
+              <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
+                Total Sq.Ft.
+              </span>
+              <span className="text-lg sm:text-2xl font-black font-mono text-white">
+                {combinedSqft.toFixed(1)}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <form
-        action={placeCustomerOrderAction}
-        onSubmit={() => setIsSubmitting(true)}
-        className="space-y-6"
-      >
-        <input type="hidden" name="itemsJson" value={itemsJson} />
-        {/* Legacy hidden inputs for backward compatibility */}
-        <input type="hidden" name="productId" value={selectedAac?.id || ""} />
-        <input type="hidden" name="quantity" value={numQty} />
-        {mortarProduct && <input type="hidden" name="mortarProductId" value={mortarProduct.id} />}
-        <input type="hidden" name="mortarQuantity" value={effectiveMortarBags} />
-        {adhesiveProduct && <input type="hidden" name="adhesiveProductId" value={adhesiveProduct.id} />}
-        <input type="hidden" name="adhesiveQuantity" value={effectiveAdhesiveBags} />
-
-        {/* =========================================================================
-            SECTION 1: AAC BLOCK PRODUCT SELECTION
-        ========================================================================= */}
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5 space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
-            <Layers className="h-5 w-5 text-[#13789B]" />
-            <h3 className="text-sm font-black text-navy uppercase tracking-wider">
-              1. AAC Block Selection & Dimensions
-            </h3>
-          </div>
-
+      {/* =========================================================================
+          SECTION B: ADHESIVE DETAILS (GOLD G100 TILE & STONE ADHESIVE - 40 KG BAG ONLY)
+      ========================================================================= */}
+      <div className="rounded-3xl border border-sky-200 bg-sky-50/40 p-4 sm:p-7 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sky-100 pb-3">
           <div>
-            <label className="label">Select Block Thickness / Size *</label>
-            <select
-              value={selectedAacId}
-              onChange={(e) => setSelectedAacId(e.target.value)}
-              className="field font-semibold text-navy text-sm sm:text-base cursor-pointer"
-            >
-              {aacProducts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.sizeLabel} — {p.dimensions} ({Number(p.cbmPerBlock).toFixed(4)} CBM/block • {Number(p.blocksPerCbm).toFixed(2)} blk/m³)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedAac ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 rounded-2xl bg-white border border-slate-200 p-3.5 text-center text-xs">
-              <div>
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Dimensions</span>
-                <p className="mt-0.5 font-bold text-navy font-mono">{selectedAac.dimensions}</p>
-              </div>
-              <div>
-                <span className="text-slate-400 font-bold uppercase text-[10px]">CBM / Block</span>
-                <p className="mt-0.5 font-bold text-[#13789B] font-mono">
-                  {Number(selectedAac.cbmPerBlock).toFixed(4)} m³
-                </p>
-              </div>
-              <div>
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Blocks / CBM</span>
-                <p className="mt-0.5 font-bold text-navy font-mono">
-                  {Number(selectedAac.blocksPerCbm).toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Face Area</span>
-                <p className="mt-0.5 font-bold text-slate-700 font-mono">1.29 Sq.Ft.</p>
-              </div>
-            </div>
-          ) : null}
-
-          <div>
-            <label className="label">Required Block Quantity (Units) *</label>
             <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min="1"
-                step="1"
-                required
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value === "" ? "" : Number(e.target.value))}
-                placeholder="e.g. 1000"
-                className="field text-lg font-black text-navy font-mono flex-1"
-              />
-              <div className="flex gap-1.5 shrink-0">
-                {[500, 1000, 1500, 2000].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setQuantity(preset)}
-                    className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+                B
+              </span>
+              <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+                Adhesive Details
+              </h2>
             </div>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Compulsory specification section. Verified packaging: 40 KG bag only.
+            </p>
           </div>
-
-          {/* AAC Volume & Price Breakdown */}
-          {numQty > 0 && selectedAac && (
-            <div className="rounded-xl bg-teal-50/70 border border-teal-200/70 p-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
-              <div>
-                <span className="text-teal-900 font-bold block">
-                  Cubic Volume: <strong className="text-sm font-black font-mono text-[#13789B]">{blockCbm.toFixed(2)} CBM (m³)</strong>
-                </span>
-                <span className="text-[11px] text-teal-700">
-                  Approx. Wall Face Area: {blockSqft.toLocaleString()} Sq.Ft. • ~{estimatedTrucks} Truckload(s)
-                </span>
-              </div>
-              <div className="sm:text-right">
-                <span className="text-[10px] uppercase font-bold text-teal-800 block">Block Amount (₹{blockRate}/blk + 18% GST)</span>
-                <span className="text-base font-black text-teal-950 font-mono">₹{blockTotal.toLocaleString()}</span>
-              </div>
-            </div>
-          )}
+          <span className="self-start sm:self-auto rounded-full bg-sky-100 border border-sky-300 px-3 py-1 text-[11px] font-black text-sky-900">
+            Bag Size: 40 KG
+          </span>
         </div>
 
-        {/* =========================================================================
-            SECTION 2: ADHESIVE & BLOCK JOINING MORTAR SELECTION
-        ========================================================================= */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+        <div className="rounded-2xl border border-sky-200 bg-white p-4 sm:p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-[#13789B]">
+              <Package className="h-5 w-5" />
+            </div>
             <div>
-              <h3 className="text-sm font-black text-navy uppercase tracking-wider flex items-center gap-2">
-                <Package className="h-4 w-4 text-amber-600" />
-                <span>Do you also need adhesive or block joining mortar?</span>
+              <h3 className="text-sm sm:text-base font-black text-navy">
+                GOLD (G100) TILE & STONE ADHESIVE (40 KG)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Swarnim Thin-Bed Mortar & Tile Adhesive direct factory staging.
+                High-polymer modified thin-bed adhesive engineered for heavy-duty AAC masonry & tile bonding. Standard plant packaging: <strong>40 KG Bag</strong>.
               </p>
             </div>
-
-            {/* Toggle options */}
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setWantsAddons(true)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  wantsAddons
-                    ? "bg-[#13789B] text-white shadow-xs"
-                    : "text-slate-600 hover:text-navy"
-                }`}
-              >
-                Yes, Add Products
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setWantsAddons(false);
-                  setMortarEnabled(false);
-                  setAdhesiveEnabled(false);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  !wantsAddons
-                    ? "bg-slate-300 text-slate-800 shadow-xs"
-                    : "text-slate-600 hover:text-navy"
-                }`}
-              >
-                No, Continue Without
-              </button>
-            </div>
           </div>
 
-          {wantsAddons && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              {/* Product A: Swarnim Block Jointing Mortar */}
-              {mortarProduct && (
-                <div className={`rounded-2xl border p-4 transition-all ${
-                  mortarEnabled ? "border-amber-300 bg-amber-50/40" : "border-slate-200 bg-slate-50/50"
-                }`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={mortarEnabled}
-                        onChange={(e) => setMortarEnabled(e.target.checked)}
-                        className="h-4 w-4 rounded-md border-slate-300 text-[#13789B] focus:ring-[#13789B] mt-1"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs sm:text-sm font-black text-navy uppercase">
-                            Swarnim Block Jointing Mortar (40 Kg Bag)
-                          </h4>
-                          <span className="rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5">
-                            Verified Brochure SKU
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Thin-bed jointing mortar designed specifically for AAC masonry. 40 kg net weight bags.
-                        </p>
-                      </div>
-                    </label>
-                    <span className="text-xs font-black text-navy whitespace-nowrap">
-                      ₹{mortarRate} / bag
-                    </span>
-                  </div>
-
-                  {mortarEnabled && (
-                    <div className="mt-4 pt-3 border-t border-amber-200/60 space-y-3">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                        <span>Mortar Estimation Mode:</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setMortarCalcMode("auto")}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer ${
-                              mortarCalcMode === "auto"
-                                ? "bg-amber-600 text-white"
-                                : "bg-white border text-slate-600"
-                            }`}
-                          >
-                            Auto by CBM ({autoMortarBags} Bags)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setMortarCalcMode("manual")}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer ${
-                              mortarCalcMode === "manual"
-                                ? "bg-amber-600 text-white"
-                                : "bg-white border text-slate-600"
-                            }`}
-                          >
-                            Manual Bag Quantity
-                          </button>
-                        </div>
-                      </div>
-
-                      {mortarCalcMode === "manual" ? (
-                        <div className="flex items-center gap-3">
-                          <label className="text-xs font-semibold text-slate-600 shrink-0">
-                            Number of 40kg Bags:
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={manualMortarBags}
-                            onChange={(e) => setManualMortarBags(Math.max(1, Number(e.target.value) || 0))}
-                            className="field max-w-[140px] text-sm font-bold text-navy font-mono"
-                          />
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-amber-800 bg-amber-100/60 p-2.5 rounded-xl">
-                          Calculated for {blockCbm.toFixed(2)} CBM of AAC blocks at standard 3mm bed thickness (~35 kg/CBM) = <strong>{autoMortarBags} Bags (40 Kg each)</strong>.
-                        </p>
-                      )}
-
-                      <div className="flex justify-between items-center text-xs font-bold pt-1 text-amber-950">
-                        <span>Mortar Subtotal ({effectiveMortarBags} Bags):</span>
-                        <span className="font-mono text-sm">₹{mortarTotal.toLocaleString()} (Incl. 18% GST)</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Product B: GOLD (G100) Tile & Stone Adhesive */}
-              {adhesiveProduct && (
-                <div className={`rounded-2xl border p-4 transition-all ${
-                  adhesiveEnabled ? "border-sky-300 bg-sky-50/40" : "border-slate-200 bg-slate-50/50"
-                }`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={adhesiveEnabled}
-                        onChange={(e) => setAdhesiveEnabled(e.target.checked)}
-                        className="h-4 w-4 rounded-md border-slate-300 text-[#13789B] focus:ring-[#13789B] mt-1"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs sm:text-sm font-black text-navy uppercase">
-                            GOLD (G100) TILE & STONE ADHESIVE (20 Kg Bag)
-                          </h4>
-                          <span className="rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5">
-                            Tiling Solution
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Approx. tile coverage of <strong>55–60 Sq.Ft. per 20 kg bag</strong> at 3 mm bed thickness (for wall & floor tiles/stones).
-                        </p>
-                      </div>
-                    </label>
-                    <span className="text-xs font-black text-navy whitespace-nowrap">
-                      ₹{adhesiveRate} / bag
-                    </span>
-                  </div>
-
-                  {adhesiveEnabled && (
-                    <div className="mt-4 pt-3 border-t border-sky-200/60 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs font-semibold text-slate-600 shrink-0">
-                          Number of 20kg Bags:
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={adhesiveBags}
-                          onChange={(e) => setAdhesiveBags(Math.max(1, Number(e.target.value) || 0))}
-                          className="field max-w-[140px] text-sm font-bold text-navy font-mono"
-                        />
-                        <span className="text-xs text-slate-400">
-                          (~{(effectiveAdhesiveBags * 57.5).toFixed(0)} Sq.Ft. tile coverage)
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center text-xs font-bold pt-1 text-sky-950">
-                        <span>Adhesive Subtotal ({effectiveAdhesiveBags} Bags):</span>
-                        <span className="font-mono text-sm">₹{adhesiveTotal.toLocaleString()} (Incl. 18% GST)</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+          <div className="border-t border-slate-100 pt-4 grid gap-4 sm:grid-cols-2 items-center">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-black text-navy">
+                How many bags do you require?
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  required
+                  value={adhesiveBags}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "") {
+                      setAdhesiveBags("");
+                    } else {
+                      const parsed = parseInt(val, 10);
+                      setAdhesiveBags(isNaN(parsed) || parsed < 0 ? 0 : parsed);
+                    }
+                  }}
+                  className="w-32 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base font-mono font-black text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 text-center"
+                />
+                <span className="text-xs font-bold text-slate-600">
+                  Bags (40 KG each)
+                </span>
+              </div>
             </div>
-          )}
+
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                <Info className="h-3.5 w-3.5 text-[#13789B]" />
+                <span>Quantity 0 is completely valid</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-snug">
+                If you already have adhesive or only require AAC blocks for this consignment, leave quantity as 0.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          SECTION C: CUSTOMER & DELIVERY DETAILS
+      ========================================================================= */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+            C
+          </span>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+              Customer Details
+            </h2>
+            <p className="text-xs text-slate-500">
+              Site contact and physical unloading location for vehicle logistics.
+            </p>
+          </div>
         </div>
 
-        {/* =========================================================================
-            SECTION 3: DELIVERY & SITE INFORMATION
-        ========================================================================= */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
-          <h3 className="text-sm font-black text-navy uppercase tracking-wider border-b border-slate-100 pb-2.5">
-            3. Delivery & Construction Site Address
-          </h3>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">Requested Delivery Date</label>
-              <input
-                name="requestedDate"
-                type="date"
-                min={new Date().toISOString().split("T")[0]}
-                value={requestedDate}
-                onChange={(e) => setRequestedDate(e.target.value)}
-                className="field cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <label className="label">Unloading Site Contact / Instructions (Optional)</label>
-              <input
-                name="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Tower A gate, contact Mr. Patel"
-                className="field"
-              />
-            </div>
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          {/* Customer Name */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5 text-slate-400" />
+              <span>Customer Name / Company *</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Full name or company entity"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
           </div>
 
-          <div>
-            <label className="label">Full Site / Delivery Address *</label>
+          {/* Mobile Number */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5 text-slate-400" />
+              <span>Mobile Number *</span>
+            </label>
+            <input
+              type="tel"
+              required
+              value={customerMobile}
+              onChange={(e) => setCustomerMobile(e.target.value)}
+              placeholder="10-digit mobile number"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* Email */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5 text-slate-400" />
+              <span>Email Address</span>
+            </label>
+            <input
+              type="email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              placeholder="email@example.com"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* City */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700">City / District *</label>
+            <input
+              type="text"
+              required
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Ahmedabad, Kheda, Surat"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* Delivery Address */}
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-slate-400" />
+              <span>Delivery Site Address *</span>
+            </label>
             <textarea
               name="deliveryAddress"
               required
               rows={2}
               value={deliveryAddress}
               onChange={(e) => setDeliveryAddress(e.target.value)}
-              placeholder="Detailed site address with landmark, gate number and unloading site instructions"
-              className="field"
+              placeholder="Exact project site address, plot/road name, landmark..."
+              className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 resize-none"
+            />
+          </div>
+
+          {/* Pincode */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700">Pincode *</label>
+            <input
+              type="text"
+              required
+              value={pincode}
+              onChange={(e) => setPincode(e.target.value)}
+              placeholder="6-digit pincode"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* Additional Notes */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-slate-400" />
+              <span>Additional Notes / Unloading Instructions</span>
+            </label>
+            <input
+              type="text"
+              name="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Crane required / Evening delivery / Gate 2"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
             />
           </div>
         </div>
+      </div>
 
-        {/* =========================================================================
-            SECTION 4: ORDER SUMMARY & PRICING BREAKDOWN
-        ========================================================================= */}
-        <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-white via-teal-50/30 to-amber-50/20 p-5 space-y-3.5">
-          <div className="flex items-center justify-between border-b border-teal-100 pb-2.5">
-            <h4 className="text-sm font-black text-navy uppercase tracking-wider flex items-center gap-2">
-              <Truck className="h-4 w-4 text-[#13789B]" />
-              <span>Combined Consignment Summary</span>
-            </h4>
-            <span className="text-xs font-black text-[#13789B] font-mono">
-              Total CBM: {blockCbm.toFixed(2)} m³
-            </span>
-          </div>
-
-          <div className="space-y-2 text-xs divide-y divide-slate-100">
-            {/* Blocks Row */}
-            <div className="flex justify-between items-center pt-1 text-slate-700">
-              <span>
-                <strong>{selectedAac?.sizeLabel} AAC Blocks</strong> ({formatNumber(numQty)} Units • {blockCbm.toFixed(2)} CBM)
-              </span>
-              <span className="font-mono font-bold text-navy">₹{blockTotal.toLocaleString()}</span>
-            </div>
-
-            {/* Mortar Row */}
-            {effectiveMortarBags > 0 && (
-              <div className="flex justify-between items-center pt-2 text-slate-700">
-                <span>
-                  <strong>Swarnim Jointing Mortar</strong> ({effectiveMortarBags} Bags of 40 Kg)
-                </span>
-                <span className="font-mono font-bold text-navy">₹{mortarTotal.toLocaleString()}</span>
-              </div>
-            )}
-
-            {/* Adhesive Row */}
-            {effectiveAdhesiveBags > 0 && (
-              <div className="flex justify-between items-center pt-2 text-slate-700">
-                <span>
-                  <strong>GOLD (G100) Tile Adhesive</strong> ({effectiveAdhesiveBags} Bags of 20 Kg)
-                </span>
-                <span className="font-mono font-bold text-navy">₹{adhesiveTotal.toLocaleString()}</span>
-              </div>
-            )}
-
-            {/* Tax Row */}
-            <div className="flex justify-between items-center pt-2 text-slate-500">
-              <span>Includes Applicable 18.0% GST (CGST 9% + SGST 9%)</span>
-              <span className="font-mono">₹{grandGst.toLocaleString()}</span>
-            </div>
-
-            {/* Grand Total Row */}
-            <div className="flex justify-between items-center pt-3 text-base">
-              <span className="font-black text-navy">Grand Total Amount:</span>
-              <span className="font-black text-xl text-[#13789B] font-mono">
-                ₹{grandTotal.toLocaleString()}
-              </span>
-            </div>
+      {/* =========================================================================
+          SECTION D: ORDER SUMMARY & SUBMISSION
+      ========================================================================= */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7 shadow-xs space-y-5">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+            D
+          </span>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+              Order Summary
+            </h2>
+            <p className="text-xs text-slate-500">
+              Review your consignment specifications before submitting order placement.
+            </p>
           </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Breakdown Items List */}
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+          <div className="space-y-2">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 block">
+              AAC Block Consignment
+            </span>
+            {rowCalculations.map((r, idx) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between text-xs py-1 border-b border-slate-200/50 last:border-0"
+              >
+                <div>
+                  <strong className="text-navy">
+                    {r.product?.sizeLabel || `Size #${idx + 1}`} AAC Block
+                  </strong>
+                  <span className="text-slate-500 text-[11px] block font-mono">
+                    {r.product?.dimensions} • {r.cbmPerBlock.toFixed(4)} CBM/block
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-black text-navy text-sm block">
+                    {formatNumber(r.numericQty)} Blocks
+                  </span>
+                  <span className="text-[11px] font-mono text-[#13789B] font-bold">
+                    {r.totalCbm.toFixed(2)} m³ ({r.totalSqft.toFixed(1)} Sq.Ft.)
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-slate-200 pt-2 flex items-center justify-between text-xs">
+            <div>
+              <strong className="text-navy">
+                GOLD (G100) TILE & STONE ADHESIVE
+              </strong>
+              <span className="text-slate-500 text-[11px] block">
+                Standard Bag Size: 40 KG
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="font-mono font-black text-navy text-sm block">
+                {numAdhesiveBags} Bags
+              </span>
+              <span className="text-[11px] text-slate-500">
+                {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG Total` : "None"}
+              </span>
+            </div>
+          </div>
+
+          {/* Delivery Details In Summary */}
+          <div className="border-t border-slate-200 pt-2 text-xs text-slate-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Delivery Destination
+            </span>
+            <p className="font-semibold text-navy mt-0.5">
+              {customerName ? `${customerName} • ` : ""}
+              {deliveryAddress || "Address provided"}
+              {city ? `, ${city}` : ""}
+              {pincode ? ` - ${pincode}` : ""}
+            </p>
+          </div>
+        </div>
+
+        {/* Verification Alert */}
+        <div className="flex items-start gap-3 rounded-2xl bg-teal-50/70 border border-teal-200/80 p-3.5 text-xs text-teal-950">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-[#13789B] mt-0.5" />
+          <p className="leading-relaxed">
+            <strong>Order Placement Only:</strong> No online payment or price transaction occurs on this website. Upon placement, your order is instantly registered into the Swarnim plant ERP and assigned for transport logistics.
+          </p>
+        </div>
+
+        {/* Final Button: PLACE ORDER */}
         <button
           type="submit"
-          disabled={isSubmitting || numQty <= 0}
-          className="w-full py-4 text-sm sm:text-base font-bold flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0F627F] text-white transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          disabled={isSubmitting || totalBlocks <= 0 || !deliveryAddress.trim()}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0F627F] disabled:bg-slate-300 py-4 px-6 text-sm sm:text-base font-black text-white shadow-md hover:shadow-lg transition-all active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Placing Order with Factory...</span>
+              <span>SUBMITTING ORDER TO FACTORY...</span>
             </>
           ) : (
             <>
-              <ShieldCheck className="h-5 w-5" />
-              <span>Confirm & Place Factory Consignment Order</span>
+              <CheckCircle2 className="h-5 w-5" />
+              <span>PLACE ORDER</span>
             </>
           )}
         </button>
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }

@@ -54,6 +54,7 @@ export default async function StaffOrderDetailPage({
       notes: true,
       assignedStaffId: true,
       totalCbm: true,
+      adhesiveBags: true,
       createdAt: true,
       confirmedAt: true,
       dispatchedAt: true,
@@ -314,6 +315,16 @@ export default async function StaffOrderDetailPage({
             </div>
           </div>
         )}
+
+        <div className="mt-3 rounded-2xl bg-sky-50 border border-sky-200 p-3.5 flex items-center justify-between text-xs">
+          <div>
+            <strong className="text-navy text-sm block">GOLD (G100) TILE & STONE ADHESIVE</strong>
+            <span className="text-slate-500 text-[11px]">Factory Specification: 40 KG Bag Packaging</span>
+          </div>
+          <span className="font-mono font-black text-navy text-base">
+            {order.adhesiveBags ?? 0} Bags
+          </span>
+        </div>
       </div>
 
       {/* Loading Action Area */}

@@ -222,10 +222,12 @@ export default async function CustomerOrderDetailPage({
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Quantity</span>
                     <span className="font-mono font-bold text-navy text-sm">{formatNumber(it.quantity)} Units</span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Line Total</span>
-                    <span className="font-mono font-bold text-[#13789B] text-sm">₹{Number(it.totalAmount).toLocaleString()}</span>
-                  </div>
+                  {it.totalCbm ? (
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Volume</span>
+                      <span className="font-mono font-bold text-[#13789B] text-sm">{Number(it.totalCbm).toFixed(2)} m³</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -315,25 +317,34 @@ export default async function CustomerOrderDetailPage({
           )}
         </div>
 
-        {/* Financial & Invoicing Summary */}
+        {/* Consignment Specifications & Delivery Site (Zero Pricing) */}
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-          <h2 className="text-base font-black text-navy">Financial Summary</h2>
+          <h2 className="text-base font-black text-navy flex items-center gap-2">
+            <Boxes className="h-4 w-4 text-[#13789B]" />
+            <span>Consignment Summary</span>
+          </h2>
           <div className="space-y-2.5 text-xs">
             <div className="flex justify-between text-slate-600">
-              <span>Subtotal (Excl. Tax):</span>
-              <strong className="text-navy font-mono">₹{Number(order.subtotal).toLocaleString()}</strong>
+              <span>Total AAC Blocks:</span>
+              <strong className="text-navy font-mono">{formatNumber(order.quantity)} Blocks</strong>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>GST (18.0%):</span>
-              <strong className="text-navy font-mono">₹{Number(order.gstAmount).toLocaleString()}</strong>
+              <span>Total Volume (CBM):</span>
+              <strong className="text-[#13789B] font-mono">{totalCbm.toFixed(2)} m³</strong>
             </div>
-            <div className="flex justify-between text-base font-black text-navy border-t border-slate-200 pt-2">
-              <span>Total Order Amount:</span>
-              <span className="text-[#13789B] font-mono">₹{Number(order.totalAmount).toLocaleString()}</span>
+            <div className="flex justify-between text-slate-600">
+              <span>Total Wall Area:</span>
+              <strong className="text-navy font-mono">
+                {order.totalSqft ? Number(order.totalSqft).toFixed(1) : (order.quantity * 1.29).toFixed(1)} Sq.Ft.
+              </strong>
             </div>
-            <div className="flex justify-between text-xs pt-1">
-              <span className="text-slate-500">Payment Status:</span>
-              <span className="font-bold text-emerald-700 uppercase">{order.paymentStatus}</span>
+            <div className="flex justify-between text-slate-600">
+              <span>GOLD (G100) 40 KG Adhesive:</span>
+              <strong className="text-navy font-mono">{order.adhesiveBags ?? 0} Bags</strong>
+            </div>
+            <div className="flex justify-between text-xs border-t border-slate-100 pt-2">
+              <span className="text-slate-500">Order Status:</span>
+              <span className="font-bold text-[#13789B] uppercase">{ORDER_STATUS_LABEL[order.status]}</span>
             </div>
           </div>
         </div>

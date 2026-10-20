@@ -31,25 +31,29 @@ export interface OrderItemInput {
   quantity: number;
 }
 
-// 1. Customer places order (Supports single product, multi-product, mortar & adhesive addons)
+// 1. Customer places order (Strictly order placement without pricing)
 export async function placeCustomerOrderAction(formData: FormData) {
   const session = await getSession();
   if (!session || !["CUSTOMER", "ADMIN"].includes(session.role)) {
     redirect("/login");
   }
 
-  const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
+  let deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim();
+  const pincode = String(formData.get("pincode") ?? "").trim();
   const requestedDateRaw = String(formData.get("requestedDate") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const itemsJson = String(formData.get("itemsJson") ?? "").trim();
+  const rawAdhesiveBags = formData.get("adhesiveBags");
+  const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
 
-  // Backward-compatible individual fields
-  const primaryProductId = String(formData.get("productId") ?? "").trim();
-  const primaryQuantity = Math.floor(Number(formData.get("quantity") ?? 0));
-  const mortarProductId = String(formData.get("mortarProductId") ?? "").trim();
-  const mortarQuantity = Math.floor(Number(formData.get("mortarQuantity") ?? 0));
-  const adhesiveProductId = String(formData.get("adhesiveProductId") ?? "").trim();
-  const adhesiveQuantity = Math.floor(Number(formData.get("adhesiveQuantity") ?? 0));
+  // Append city and pincode to address if not already present
+  if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
+    deliveryAddress = `${deliveryAddress}, ${city}`;
+  }
+  if (pincode && !deliveryAddress.includes(pincode)) {
+    deliveryAddress = `${deliveryAddress} - ${pincode}`;
+  }
 
   if (!deliveryAddress) {
     redirect("/customer/new-order?error=Delivery%20site%20address%20is%20required");
@@ -71,19 +75,31 @@ export async function placeCustomerOrderAction(formData: FormData) {
         }
       }
     } catch {
-      // Fallback to individual fields if JSON parse fails
+      // Fallback
     }
   }
 
+  // Fallback to legacy fields if JSON not present
   if (orderItemsToProcess.length === 0) {
+    const primaryProductId = String(formData.get("productId") ?? "").trim();
+    const primaryQuantity = Math.floor(Number(formData.get("quantity") ?? 0));
     if (primaryProductId && primaryQuantity > 0) {
       orderItemsToProcess.push({ productId: primaryProductId, quantity: primaryQuantity });
     }
-    if (mortarProductId && mortarQuantity > 0) {
-      orderItemsToProcess.push({ productId: mortarProductId, quantity: mortarQuantity });
-    }
-    if (adhesiveProductId && adhesiveQuantity > 0) {
-      orderItemsToProcess.push({ productId: adhesiveProductId, quantity: adhesiveQuantity });
+  }
+
+  // Ensure adhesive is added to items if adhesiveBags > 0
+  const activeAdhesiveProduct = await prisma.product.findFirst({
+    where: { category: "ADHESIVE", active: true },
+  });
+
+  if (activeAdhesiveProduct && adhesiveBags > 0) {
+    const alreadyHasAdhesive = orderItemsToProcess.some((it) => it.productId === activeAdhesiveProduct.id);
+    if (!alreadyHasAdhesive) {
+      orderItemsToProcess.push({
+        productId: activeAdhesiveProduct.id,
+        quantity: adhesiveBags,
+      });
     }
   }
 
@@ -99,13 +115,10 @@ export async function placeCustomerOrderAction(formData: FormData) {
 
   const productMap = new Map(dbProducts.map((p) => [p.id, p]));
 
-  let orderSubtotal = 0;
-  let orderGstAmount = 0;
-  let orderTotalAmount = 0;
   let combinedCbm = 0;
   let combinedSqft = 0;
-  let hasMortar = false;
-  let hasAdhesive = false;
+  let totalBlocks = 0;
+  let hasAdhesive = adhesiveBags > 0;
 
   const resolvedItems: Array<{
     productId: string;
@@ -129,12 +142,6 @@ export async function placeCustomerOrderAction(formData: FormData) {
     const prod = productMap.get(it.productId);
     if (!prod) continue;
 
-    const rate = Number(prod.price) > 0 ? Number(prod.price) : 50;
-    const gstRate = Number(prod.gstRate) || 18;
-    const subtotal = Number((it.quantity * rate).toFixed(2));
-    const gstAmount = Number((subtotal * (gstRate / 100)).toFixed(2));
-    const totalAmount = Number((subtotal + gstAmount).toFixed(2));
-
     let cbmPerUnit = 0;
     let totalCbm = 0;
     let sqftPerUnit = 0;
@@ -143,19 +150,15 @@ export async function placeCustomerOrderAction(formData: FormData) {
     if (prod.category === "AAC_BLOCK") {
       cbmPerUnit = Number(prod.cbmPerBlock) || 0;
       totalCbm = Number((it.quantity * cbmPerUnit).toFixed(4));
+      // Formula: Blocks * (Length * Height / 1,000,000) * 10.7639104167 = Qty * 1.29166925
       sqftPerUnit = 1.29;
-      totalSqft = Number((it.quantity * 1.29).toFixed(2));
+      totalSqft = Number((it.quantity * 1.29166925).toFixed(2));
       combinedCbm += totalCbm;
       combinedSqft += totalSqft;
-    } else if (prod.category === "MORTAR") {
-      hasMortar = true;
+      totalBlocks += it.quantity;
     } else if (prod.category === "ADHESIVE") {
       hasAdhesive = true;
     }
-
-    orderSubtotal += subtotal;
-    orderGstAmount += gstAmount;
-    orderTotalAmount += totalAmount;
 
     resolvedItems.push({
       productId: prod.id,
@@ -168,11 +171,11 @@ export async function placeCustomerOrderAction(formData: FormData) {
       totalCbm,
       sqftPerUnit,
       totalSqft,
-      rate,
-      gstRate,
-      subtotal,
-      gstAmount,
-      totalAmount,
+      rate: 0,
+      gstRate: 0,
+      subtotal: 0,
+      gstAmount: 0,
+      totalAmount: 0,
     });
   }
 
@@ -182,6 +185,8 @@ export async function placeCustomerOrderAction(formData: FormData) {
 
   const orderNo = await nextOrderNo();
   const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
+  const aacBlockItems = resolvedItems.filter((it) => it.productType === "AAC_BLOCK");
+  const blockSizesSummary = aacBlockItems.map((it) => it.sizeLabel).join(", ") || primaryItem.sizeLabel;
 
   const order = await prisma.$transaction(async (tx) => {
     const ord = await tx.order.create({
@@ -189,16 +194,17 @@ export async function placeCustomerOrderAction(formData: FormData) {
         orderNo,
         customerId: session.id,
         productId: primaryItem.productId,
-        quantity: primaryItem.quantity,
-        rate: primaryItem.rate,
-        gstRate: primaryItem.gstRate,
-        subtotal: orderSubtotal,
-        gstAmount: orderGstAmount,
-        totalAmount: orderTotalAmount,
-        totalCbm: combinedCbm > 0 ? combinedCbm : null,
-        totalSqft: combinedSqft > 0 ? combinedSqft : null,
-        hasMortar,
+        quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
+        rate: 0,
+        gstRate: 0,
+        subtotal: 0,
+        gstAmount: 0,
+        totalAmount: 0,
+        totalCbm: combinedCbm > 0 ? Number(combinedCbm.toFixed(4)) : null,
+        totalSqft: combinedSqft > 0 ? Number(combinedSqft.toFixed(2)) : null,
+        hasMortar: false,
         hasAdhesive,
+        adhesiveBags,
         deliveryAddress,
         requestedDate: requestedDateRaw ? new Date(requestedDateRaw) : null,
         notes,
@@ -215,20 +221,18 @@ export async function placeCustomerOrderAction(formData: FormData) {
             totalCbm: it.totalCbm,
             sqftPerUnit: it.sqftPerUnit,
             totalSqft: it.totalSqft,
-            rate: it.rate,
-            gstRate: it.gstRate,
-            subtotal: it.subtotal,
-            gstAmount: it.gstAmount,
-            totalAmount: it.totalAmount,
+            rate: 0,
+            gstRate: 0,
+            subtotal: 0,
+            gstAmount: 0,
+            totalAmount: 0,
           })),
         },
         events: {
           create: {
             status: OrderStatus.PENDING,
             title: "Order Placed",
-            note: `Order booked with ${resolvedItems.length} item(s) • Total: ₹${orderTotalAmount.toLocaleString()}${
-              combinedCbm > 0 ? ` • ${combinedCbm.toFixed(2)} CBM` : ""
-            }`,
+            note: `Order booked: ${totalBlocks.toLocaleString()} AAC Blocks (${combinedCbm.toFixed(2)} CBM) + ${adhesiveBags} Bags GOLD (G100) 40 KG`,
             createdById: session.id,
           },
         },
@@ -238,7 +242,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
     return ord;
   });
 
-  // Real-Time Notification to Admin
+  // Real-Time Notification to Admin (Strictly zero price)
   const customer = await prisma.user.findUnique({
     where: { id: session.id },
     select: { name: true, companyName: true },
@@ -247,10 +251,8 @@ export async function placeCustomerOrderAction(formData: FormData) {
 
   await dispatchNotification({
     role: "ADMIN",
-    title: "New AAC Block Order Received",
-    message: `Order ID: ${order.orderNo} • Customer: ${customerName} • ${primaryItem.quantity.toLocaleString()} Blocks${
-      combinedCbm > 0 ? ` (${combinedCbm.toFixed(2)} CBM)` : ""
-    }${hasMortar ? " + Mortar" : ""}${hasAdhesive ? " + Adhesive" : ""}`,
+    title: "New AAC Block Order",
+    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nQuantity: ${totalBlocks.toLocaleString()}\nTotal CBM: ${combinedCbm.toFixed(2)}\nGOLD (G100) 40 KG: ${adhesiveBags} Bags\nCustomer: ${customerName}`,
     link: `/admin/orders/${order.id}`,
     orderId: order.id,
     type: "NEW_ORDER",
@@ -432,7 +434,7 @@ export async function assignTransportAction(formData: FormData) {
   await dispatchNotification({
     userId: staffId,
     title: "New Loading Task Assigned",
-    message: `Order ${order.orderNo} assigned for staging. Truck: ${truckNumber} • ${formatNumber(order.quantity)} Blocks`,
+    message: `Order ID: ${order.orderNo}\nQuantity: ${formatNumber(order.quantity)} Blocks\nTotal CBM: ${Number(order.totalCbm || 0).toFixed(2)}\nGOLD (G100) 40 KG: ${order.adhesiveBags ?? 0} Bags\nTruck: ${truckNumber}`,
     link: `/staff/orders/${orderId}`,
     orderId,
     type: "ORDER_ASSIGNED",

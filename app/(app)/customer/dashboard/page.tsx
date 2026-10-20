@@ -20,7 +20,6 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { formatDate, formatNumber, ORDER_STATUS_CLASS, ORDER_STATUS_LABEL } from "@/lib/utils";
 import { BrochureDownloadButton } from "@/components/brochure-download-btn";
-import { DashboardCalculatorSection } from "@/components/dashboard-calculator-section";
 
 export const dynamic = "force-dynamic";
 
@@ -73,13 +72,7 @@ export default async function CustomerDashboardPage() {
   const invoiceCount = customer?.customerOrders.filter((o) => o.invoiceNo).length ?? 0;
 
   const aacProducts = products.filter((p) => p.category === "AAC_BLOCK");
-  const mortarProducts = products.filter((p) => p.category === "MORTAR");
   const adhesiveProducts = products.filter((p) => p.category === "ADHESIVE");
-
-  const rates: Record<string, number> = {};
-  for (const p of products) {
-    rates[p.sizeLabel] = Number(p.price);
-  }
 
   return (
     <div className="space-y-5 sm:space-y-6 p-3 sm:p-6 lg:p-8 min-w-0 max-w-full">
@@ -245,10 +238,6 @@ export default async function CustomerDashboardPage() {
         </div>
       </div>
 
-      {/* =========================================================================
-          AAC BLOCK & MORTAR CALCULATOR
-      ========================================================================= */}
-      <DashboardCalculatorSection rates={rates} />
 
       {/* Recent Orders List */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -296,7 +285,7 @@ export default async function CustomerDashboardPage() {
                     ) : null}
                   </div>
                   <p className="mt-1 text-xs text-slate-600">
-                    {formatNumber(o.quantity)} blocks · {o.product?.sizeLabel || "Consignment"} · {formatDate(o.createdAt)}
+                    {formatNumber(o.quantity)} blocks · {o.product?.sizeLabel || "Consignment"} · {o.adhesiveBags ?? 0} Bags Adhesive · {formatDate(o.createdAt)}
                   </p>
                   {o.transport ? (
                     <p className="mt-0.5 text-xs text-indigo-700 font-semibold truncate">
@@ -387,69 +376,32 @@ export default async function CustomerDashboardPage() {
           </div>
         </div>
 
-        {/* 2. Mortar & Adhesive Section */}
+        {/* 2. Adhesive Section (Strictly 40 KG Bag Only, Zero Prices) */}
         <div>
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">
-            Masonry & Tiling Solutions
+            Plant Masonry & Tiling Adhesive
           </h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Swarnim Jointing Mortar */}
-            {mortarProducts.map((m) => (
-              <div
-                key={m.id}
-                className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 flex flex-col justify-between space-y-3"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-0.5">
-                      AAC Masonry Jointing
-                    </span>
-                    <span className="text-sm font-black text-amber-950 font-mono">
-                      ₹{Number(m.price)} / 40kg bag
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-black text-navy mt-1.5">{m.name}</h4>
-                  <p className="text-xs text-slate-600 mt-1 leading-snug">
-                    Thin-bed jointing mortar engineered for high bond strength, self-curing, and shrinkage-free joints. Net Weight: 40 Kg.
-                  </p>
-                </div>
-                <Link
-                  href="/customer/new-order"
-                  className="block text-center rounded-xl bg-amber-600 text-white py-2 text-xs font-bold hover:bg-amber-700 transition-colors shadow-2xs"
-                >
-                  Add Jointing Mortar to Order
-                </Link>
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/40 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-sky-200 text-sky-900 text-[10px] font-black px-2.5 py-0.5 uppercase tracking-wide">
+                  Standard Plant Packaging: 40 KG Bag
+                </span>
+                <span className="text-xs text-slate-400 font-semibold">• High-Polymer Modified</span>
               </div>
-            ))}
-
-            {/* GOLD G100 Adhesive */}
-            {adhesiveProducts.map((a) => (
-              <div
-                key={a.id}
-                className="rounded-2xl border border-sky-200 bg-sky-50/40 p-4 flex flex-col justify-between space-y-3"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-sky-200 text-sky-900 text-[10px] font-bold px-2 py-0.5">
-                      Tiling Solution
-                    </span>
-                    <span className="text-sm font-black text-sky-950 font-mono">
-                      ₹{Number(a.price)} / 20kg bag
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-black text-navy mt-1.5">{a.name}</h4>
-                  <p className="text-xs text-slate-600 mt-1 leading-snug">
-                    Tile & Stone adhesive. Coverage: ~55–60 Sq.Ft. per 20 kg bag at 3 mm bed thickness for ceramic & vitrified tiles.
-                  </p>
-                </div>
-                <Link
-                  href="/customer/new-order"
-                  className="block text-center rounded-xl bg-[#13789B] text-white py-2 text-xs font-bold hover:bg-[#0F627F] transition-colors shadow-2xs"
-                >
-                  Add Tile Adhesive to Order
-                </Link>
-              </div>
-            ))}
+              <h4 className="text-sm sm:text-base font-black text-navy mt-1">
+                GOLD (G100) TILE & STONE ADHESIVE (40 KG)
+              </h4>
+              <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                Factory-certified thin-bed adhesive engineered for heavy-duty AAC block masonry jointing and tile/stone installations. Net Weight: 40 Kg Bag.
+              </p>
+            </div>
+            <Link
+              href="/customer/new-order"
+              className="inline-flex items-center justify-center rounded-xl bg-[#13789B] text-white px-5 py-2.5 text-xs font-bold hover:bg-[#0F627F] transition-all shadow-xs shrink-0"
+            >
+              Order With AAC Blocks →
+            </Link>
           </div>
         </div>
       </div>

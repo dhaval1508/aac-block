@@ -120,6 +120,7 @@ model Order {
   totalSqft       Decimal?        @db.Decimal(12, 2)
   hasMortar       Boolean         @default(false)
   hasAdhesive     Boolean         @default(false)
+  adhesiveBags    Int             @default(0)
   rate            Decimal         @default(0) @db.Decimal(12, 2)
   gstRate         Decimal         @default(18.00) @db.Decimal(5, 2)
   subtotal        Decimal         @db.Decimal(14, 2)

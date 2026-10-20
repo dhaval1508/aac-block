@@ -47,42 +47,43 @@ export async function GET(
           cbmPerUnit: order.product.cbmPerBlock,
           totalCbm: order.totalCbm || Number(order.product.cbmPerBlock) * order.quantity,
           sqftPerUnit: 1.29,
-          totalSqft: order.totalSqft || 1.29 * order.quantity,
-          rate: order.rate,
-          gstRate: order.gstRate,
-          subtotal: order.subtotal,
-          gstAmount: order.gstAmount,
-          totalAmount: order.totalAmount,
+          totalSqft: order.totalSqft || 1.29166925 * order.quantity,
+          rate: 0,
+          gstRate: 0,
+          subtotal: 0,
+          gstAmount: 0,
+          totalAmount: 0,
         },
       ]
     : [];
 
+  const aacItems = items.filter((it) => it.productType === "AAC_BLOCK");
+
+  const totalBlocks = aacItems.reduce((acc, it) => acc + it.quantity, 0) || order.quantity;
+
   const totalCbm = order.totalCbm
     ? Number(order.totalCbm)
-    : items.reduce((acc, it) => acc + (Number(it.totalCbm) || 0), 0);
+    : aacItems.reduce((acc, it) => acc + (Number(it.totalCbm) || 0), 0);
 
   const totalSqft = order.totalSqft
     ? Number(order.totalSqft)
-    : items.reduce((acc, it) => acc + (Number(it.totalSqft) || 0), 0);
+    : aacItems.reduce((acc, it) => acc + (Number(it.totalSqft) || 0), 0);
 
-  const subtotal = Number(order.subtotal);
-  const gstAmount = Number(order.gstAmount);
-  const totalAmount = Number(order.totalAmount);
-  const cgst = gstAmount / 2;
-  const sgst = gstAmount / 2;
+  const adhesiveBags = order.adhesiveBags ?? 0;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Swarnim AAC Order Summary - ${order.orderNo}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: #172033;
+      color: #0f172a;
       background: #f8fafc;
-      padding: 30px 20px;
+      padding: 30px 16px;
       font-size: 13px;
       line-height: 1.5;
     }
@@ -99,9 +100,27 @@ export async function GET(
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 2px solid #0f766e;
+      border-bottom: 2px solid #13789b;
       padding-bottom: 20px;
       margin-bottom: 24px;
+    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #0d5d79 0%, #13789b 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 900;
+      font-size: 22px;
+      box-shadow: 0 2px 8px rgba(19, 120, 155, 0.3);
     }
     .brand-title {
       font-size: 20px;
@@ -114,13 +133,14 @@ export async function GET(
       font-size: 11px;
       font-weight: 700;
       color: #13789b;
-      margin-top: 2px;
+      margin-top: 1px;
     }
     .brand-address {
-      font-size: 11px;
+      font-size: 10px;
       color: #64748b;
       margin-top: 4px;
-      max-width: 380px;
+      max-width: 400px;
+      line-height: 1.4;
     }
     .order-badge-box {
       text-align: right;
@@ -129,9 +149,9 @@ export async function GET(
       display: inline-block;
       padding: 4px 12px;
       border-radius: 20px;
-      background: #111827;
+      background: #0f172a;
       color: #ffffff;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -139,7 +159,7 @@ export async function GET(
     .order-id {
       font-size: 20px;
       font-weight: 900;
-      color: #0f766e;
+      color: #13789b;
       font-family: monospace;
       margin-top: 6px;
     }
@@ -176,6 +196,31 @@ export async function GET(
       font-size: 12px;
       margin-top: 2px;
     }
+    .metrics-banner {
+      background: linear-gradient(135deg, #0f172a 0%, #13789b 100%);
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .metric-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #93c5fd;
+      letter-spacing: 0.5px;
+    }
+    .metric-val {
+      font-size: 18px;
+      font-weight: 900;
+      font-family: monospace;
+      margin-top: 2px;
+      color: #ffffff;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -199,39 +244,9 @@ export async function GET(
     }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
-    .totals-wrapper {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 10px;
-      margin-bottom: 24px;
-    }
-    .totals-box {
-      width: 320px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .totals-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: #475569;
-      margin-bottom: 6px;
-    }
-    .totals-row-grand {
-      display: flex;
-      justify-content: space-between;
-      font-size: 15px;
-      font-weight: 900;
-      color: #0f172a;
-      border-top: 2px solid #cbd5e1;
-      padding-top: 8px;
-      margin-top: 8px;
-    }
-    .cbm-highlight {
-      background: #ecfdf5;
-      border: 1px solid #a7f3d0;
+    .adhesive-card {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
       border-radius: 12px;
       padding: 14px 18px;
       display: flex;
@@ -239,10 +254,20 @@ export async function GET(
       align-items: center;
       margin-bottom: 24px;
     }
-    .cbm-value {
+    .adhesive-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #0369a1;
+    }
+    .adhesive-sub {
+      font-size: 11px;
+      color: #0284c7;
+      margin-top: 1px;
+    }
+    .adhesive-qty {
       font-size: 18px;
       font-weight: 900;
-      color: #065f46;
+      color: #0c4a6e;
       font-family: monospace;
     }
     .footer-note {
@@ -251,15 +276,17 @@ export async function GET(
       text-align: center;
       font-size: 10px;
       color: #94a3b8;
+      line-height: 1.6;
     }
     .btn-bar {
       margin-bottom: 20px;
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
       gap: 12px;
     }
     .print-btn {
-      background: #0f766e;
+      background: #13789b;
       color: #fff;
       border: none;
       padding: 10px 18px;
@@ -267,6 +294,23 @@ export async function GET(
       font-weight: 700;
       font-size: 12px;
       cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .brochure-link {
+      background: #ffffff;
+      color: #13789b;
+      border: 1px solid #cbd5e1;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 12px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
     @media print {
       body { background: #fff; padding: 0; }
@@ -278,17 +322,26 @@ export async function GET(
 <body>
   <div class="container">
     <div class="btn-bar">
-      <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+      <a href="/downloads/Swarnim-AAC-Block-Brochure.pdf" download="Swarnim-AAC-Block-Brochure.pdf" class="brochure-link">
+        📄 Download Technical Brochure (PDF)
+      </a>
+      <button class="print-btn" onclick="window.print()">
+        🖨️ Print / Save Order Summary (PDF)
+      </button>
     </div>
 
+    <!-- Header with Swarnim Logo & Details -->
     <div class="header">
-      <div>
-        <div class="brand-title">Swarnim AAC Block Pvt. Ltd.</div>
-        <div class="brand-sub">Premium Autoclaved Aerated Concrete Blocks & Mortars</div>
-        <div class="brand-address">
-          Factory: 166 p2/p2, Khakhriya-1 Village, Vadol, Kapdwanj Dist-Kheda 387620<br>
-          Office: No. 615, Ganesh Glory 11, Jagatpur-Chenpur Road, Ahmedabad, Gujarat<br>
-          <strong>GSTIN: 24AAACS0000A1Z5</strong> • Ph: +91 7698787476
+      <div class="logo-container">
+        <div class="logo-icon">S</div>
+        <div>
+          <div class="brand-title">Swarnim AAC Block Pvt. Ltd.</div>
+          <div class="brand-sub">Autoclaved Aerated Concrete Blocks & Tiling Solutions</div>
+          <div class="brand-address">
+            Factory: 166 p2/p2, Khakhriya-1 Village, Vadol, Kapdwanj, Dist-Kheda 387620<br>
+            Office: No. 615, Ganesh Glory 11, Jagatpur-Chenpur Road, Ahmedabad, Gujarat<br>
+            <strong>Ph: +91 7698787476 / +91 9904966385</strong> • Email: contact@swarnimaac.com
+          </div>
         </div>
       </div>
       <div class="order-badge-box">
@@ -299,92 +352,86 @@ export async function GET(
       </div>
     </div>
 
+    <!-- Customer & Delivery Site Info -->
     <div class="grid-info">
       <div>
-        <div class="info-title">Customer / Billing Details</div>
+        <div class="info-title">Customer Contact Details</div>
         <div class="info-text-bold">${order.customer.companyName || order.customer.name}</div>
-        <div class="info-text">Contact: ${order.customer.name} (${order.customer.mobile})</div>
+        <div class="info-text">Contact Person: ${order.customer.name}</div>
+        <div class="info-text">Mobile: ${order.customer.mobile}</div>
         <div class="info-text">Email: ${order.customer.email}</div>
-        <div class="info-text">GSTIN: ${order.customer.gstin || "Unregistered"}</div>
       </div>
       <div>
-        <div class="info-title">Unloading & Delivery Site</div>
+        <div class="info-title">Delivery & Unloading Site</div>
         <div class="info-text-bold">${order.deliveryAddress}</div>
         ${order.requestedDate ? `<div class="info-text">Requested Delivery: <strong>${new Date(order.requestedDate).toLocaleDateString("en-IN")}</strong></div>` : ""}
-        ${order.notes ? `<div class="info-text">Instructions: <em>${order.notes}</em></div>` : ""}
-        ${order.transport ? `<div class="info-text" style="margin-top:6px; color:#0f766e;"><strong>Assigned Truck: ${order.transport.truckNumber}</strong> (Driver: ${order.transport.driverName} - ${order.transport.driverMobile})</div>` : ""}
+        ${order.notes ? `<div class="info-text">Site Notes: <em>${order.notes}</em></div>` : ""}
+        ${order.transport ? `<div class="info-text" style="margin-top:6px; color:#13789b;"><strong>Allocated Truck: ${order.transport.truckNumber}</strong> (Driver: ${order.transport.driverName} - ${order.transport.driverMobile})</div>` : ""}
       </div>
     </div>
 
-    <!-- CBM Banner -->
-    <div class="cbm-highlight">
+    <!-- Metrics Banner (Blocks, CBM, Sq.Ft., Adhesive) -->
+    <div class="metrics-banner">
       <div>
-        <div style="font-size:11px; font-weight:800; color:#065f46; text-transform:uppercase;">Total Consignment Volume (CBM)</div>
-        <div style="font-size:11px; color:#047857;">Calculated at full engineering precision</div>
+        <div class="metric-label">Total Blocks</div>
+        <div class="metric-val">${formatNumber(totalBlocks)}</div>
       </div>
-      <div class="cbm-value">${totalCbm.toFixed(2)} m³</div>
+      <div>
+        <div class="metric-label">Total Volume (CBM)</div>
+        <div class="metric-val">${totalCbm.toFixed(2)} m³</div>
+      </div>
+      <div>
+        <div class="metric-label">Total Wall Area</div>
+        <div class="metric-val">${totalSqft.toFixed(1)} Sq.Ft.</div>
+      </div>
+      <div>
+        <div class="metric-label">Adhesive (40 KG)</div>
+        <div class="metric-val">${adhesiveBags} Bags</div>
+      </div>
     </div>
 
-    <!-- Line Items Table -->
+    <!-- AAC Block Items Table -->
     <table>
       <thead>
         <tr>
           <th>#</th>
-          <th>Product & Specification</th>
-          <th class="text-center">Quantity</th>
-          <th class="text-right">Unit CBM</th>
+          <th>AAC Block Size & Specification</th>
+          <th class="text-center">Block Quantity</th>
+          <th class="text-right">CBM / Block</th>
           <th class="text-right">Total CBM</th>
-          <th class="text-right">Unit Rate</th>
-          <th class="text-right">Amount (₹)</th>
+          <th class="text-right">Total Sq.Ft.</th>
         </tr>
       </thead>
       <tbody>
-        ${items.map((it, idx) => `
+        ${aacItems.map((it, idx) => `
           <tr>
             <td>${idx + 1}</td>
             <td>
               <strong>${it.productName}</strong> ${it.sizeLabel ? `(${it.sizeLabel})` : ""}<br>
               <span style="font-size:10px; color:#64748b;">${it.dimensions || it.productType}</span>
             </td>
-            <td class="text-center"><strong>${it.quantity.toLocaleString()}</strong></td>
-            <td class="text-right" style="font-family:monospace;">${it.cbmPerUnit ? Number(it.cbmPerUnit).toFixed(4) : "—"}</td>
-            <td class="text-right" style="font-family:monospace; font-weight:bold; color:#0f766e;">${it.totalCbm ? Number(it.totalCbm).toFixed(2) : "—"}</td>
-            <td class="text-right" style="font-family:monospace;">₹${Number(it.rate).toFixed(2)}</td>
-            <td class="text-right" style="font-family:monospace; font-weight:bold;">₹${Number(it.totalAmount).toLocaleString()}</td>
+            <td class="text-center"><strong>${formatNumber(it.quantity)} Blocks</strong></td>
+            <td class="text-right" style="font-family:monospace;">${it.cbmPerUnit ? Number(it.cbmPerUnit).toFixed(4) : "—"} m³</td>
+            <td class="text-right" style="font-family:monospace; font-weight:bold; color:#13789b;">${it.totalCbm ? Number(it.totalCbm).toFixed(2) : "—"} m³</td>
+            <td class="text-right" style="font-family:monospace;">${it.totalSqft ? Number(it.totalSqft).toFixed(1) : (it.quantity * 1.29).toFixed(1)} Sq.Ft.</td>
           </tr>
         `).join("")}
       </tbody>
     </table>
 
-    <!-- Totals Breakdown -->
-    <div class="totals-wrapper">
-      <div class="totals-box">
-        <div class="totals-row">
-          <span>Subtotal (Excl. Tax):</span>
-          <span style="font-family:monospace; font-weight:bold;">₹${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div class="totals-row">
-          <span>CGST (9.0%):</span>
-          <span style="font-family:monospace;">₹${cgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div class="totals-row">
-          <span>SGST (9.0%):</span>
-          <span style="font-family:monospace;">₹${sgst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div class="totals-row-grand">
-          <span>Grand Total:</span>
-          <span>₹${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div class="totals-row" style="margin-top:8px; font-size:11px;">
-          <span>Payment Status:</span>
-          <span style="font-weight:bold; color:${order.paymentStatus === 'PAID' ? '#059669' : '#d97706'};">${order.paymentStatus}</span>
-        </div>
+    <!-- Compulsory Adhesive Details Card -->
+    <div class="adhesive-card">
+      <div>
+        <div class="adhesive-title">GOLD (G100) TILE & STONE ADHESIVE</div>
+        <div class="adhesive-sub">Plant Specification: 40 KG Bag Packaging Only</div>
       </div>
+      <div class="adhesive-qty">${adhesiveBags} Bags ${adhesiveBags > 0 ? `(${adhesiveBags * 40} KG)` : "(0 Bags)"}</div>
     </div>
 
     <div class="footer-note">
-      This is an official computer-generated Order Summary document issued by Swarnim AAC Block Pvt. Ltd.<br>
-      For any billing or delivery questions, contact dispatch support at +91 7698787476 / +91 9904966385.
+      This is an official computer-generated Order Placement Summary issued by Swarnim AAC Block Pvt. Ltd.<br>
+      This document records product quantities and delivery destination only. Commercial billing and dispatch are processed directly by factory administration.<br>
+      For logistics or dispatch inquiries, contact plant dispatch at +91 7698787476 / +91 9904966385.
     </div>
   </div>
 </body>

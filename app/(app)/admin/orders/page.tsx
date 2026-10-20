@@ -298,15 +298,17 @@ export default async function AdminOrdersPage({
       <div className="card rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden min-w-0">
         {/* Desktop Table View */}
         <div className="hidden lg:block overflow-x-auto min-w-0">
-          <table className="w-full text-left text-xs min-w-[750px]">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-4">Order ID & Date</th>
-                <th className="py-3.5 px-4">Customer & Location</th>
-                <th className="py-3.5 px-4">Block Specification</th>
-                <th className="py-3.5 px-4">Transport / Driver</th>
+                <th className="py-3.5 px-4">Customer Name & Site</th>
+                <th className="py-3.5 px-4">Block Size</th>
+                <th className="py-3.5 px-4 text-right">Block Quantity</th>
+                <th className="py-3.5 px-4 text-right">Total CBM</th>
+                <th className="py-3.5 px-4 text-center">Adhesive (40 KG Bags)</th>
+                <th className="py-3.5 px-4">Transport</th>
                 <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Order Quantity</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -326,17 +328,34 @@ export default async function AdminOrdersPage({
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <p className="font-bold text-navy truncate max-w-[200px]">
+                    <p className="font-bold text-navy truncate max-w-[180px]">
                       {o.customer.companyName || o.customer.name}
                     </p>
-                    <p className="text-[11px] text-slate-500 truncate max-w-[200px] mt-0.5">
+                    <p className="text-[11px] text-slate-500 truncate max-w-[180px] mt-0.5">
                       📍 {o.deliveryAddress}
                     </p>
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <span className="font-bold text-slate-800">{o.product?.sizeLabel || (o.items && o.items.length > 0 ? `${o.items.length} items` : "Standard")}</span>
-                    <span className="text-[11px] text-slate-400 block font-mono">{o.product?.dimensions || (o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "-")}</span>
+                    <span className="font-bold text-slate-800">{o.product?.sizeLabel || (o.items && o.items.length > 0 ? `${o.items.length} sizes` : "Standard")}</span>
+                    <span className="text-[11px] text-slate-400 block font-mono">{o.product?.dimensions || "-"}</span>
+                  </td>
+
+                  <td className="py-3.5 px-4 text-right">
+                    <p className="font-black text-navy">{formatNumber(o.quantity)}</p>
+                    <span className="text-[10px] text-slate-400">Blocks</span>
+                  </td>
+
+                  <td className="py-3.5 px-4 text-right">
+                    <p className="font-black text-[#13789B] font-mono">
+                      {o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "-"}
+                    </p>
+                  </td>
+
+                  <td className="py-3.5 px-4 text-center">
+                    <span className="inline-block rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1 text-xs font-mono font-bold text-navy">
+                      {o.adhesiveBags ?? 0} Bags
+                    </span>
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -345,7 +364,7 @@ export default async function AdminOrdersPage({
                         <span className="font-bold text-navy block font-mono">
                           {o.transport.truckNumber}
                         </span>
-                        <span className="text-[11px] text-slate-500 block truncate max-w-[140px]">
+                        <span className="text-[11px] text-slate-500 block truncate max-w-[120px]">
                           {o.transport.driverName}
                         </span>
                       </div>
@@ -361,13 +380,6 @@ export default async function AdminOrdersPage({
                       }`}
                     >
                       {ORDER_STATUS_LABEL[o.status]}
-                    </span>
-                  </td>
-
-                  <td className="py-3.5 px-4 text-right">
-                    <p className="font-black text-navy">{formatNumber(o.quantity)} blocks</p>
-                    <span className="text-[10px] font-bold text-slate-500">
-                      {o.product?.sizeLabel || (o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "Standard")}
                     </span>
                   </td>
 
@@ -416,7 +428,7 @@ export default async function AdminOrdersPage({
                     {formatNumber(o.quantity)} blocks
                   </p>
                   <span className="text-[10px] font-bold text-[#13789B]">
-                    {o.product?.sizeLabel || (o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "Standard")}
+                    {o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : o.product?.sizeLabel || "Standard"}
                   </span>
                 </div>
               </div>
@@ -424,11 +436,11 @@ export default async function AdminOrdersPage({
               <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Size</span>
-                  <p className="font-bold text-navy truncate">{o.product?.sizeLabel || "Standard"}</p>
+                  <p className="font-bold text-navy truncate">{o.product?.sizeLabel || "AAC Blocks"}</p>
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Quantity</span>
-                  <p className="font-bold text-navy truncate">{formatNumber(o.quantity)} blocks</p>
+                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Adhesive (40 KG)</span>
+                  <p className="font-bold text-navy truncate">{o.adhesiveBags ?? 0} Bags</p>
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Vehicle</span>
@@ -445,7 +457,7 @@ export default async function AdminOrdersPage({
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 gap-2 min-w-0">
                 <span className="truncate flex-1">📍 {o.deliveryAddress}</span>
                 <span className="font-bold text-[#13789B] flex items-center gap-0.5 shrink-0">
-                  View →
+                  Manage →
                 </span>
               </div>
             </Link>

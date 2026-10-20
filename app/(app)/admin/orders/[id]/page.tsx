@@ -374,62 +374,69 @@ export default async function AdminOrderDetailPage({
             </div>
 
             {order.items && order.items.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
-                      <th className="p-2.5">Item Description</th>
-                      <th className="p-2.5 text-center">Unit Specs</th>
-                      <th className="p-2.5 text-right">Quantity</th>
-                      <th className="p-2.5 text-right">Unit CBM</th>
-                      <th className="p-2.5 text-right">Total CBM</th>
-                      <th className="p-2.5 text-right">Rate</th>
-                      <th className="p-2.5 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {order.items.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="p-2.5">
-                          <p className="font-bold text-navy">{item.product.name}</p>
-                          <span className="text-[10px] text-slate-400 capitalize">{item.product.category?.replace("_", " ") || "Material"}</span>
-                        </td>
-                        <td className="p-2.5 text-center">
-                          {item.product.sizeLabel ? (
-                            <span className="font-mono text-slate-700">{item.product.sizeLabel} ({item.product.dimensions})</span>
-                          ) : item.product.bagWeightKg ? (
-                            <span className="text-slate-700">{Number(item.product.bagWeightKg)} kg Bag</span>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                        <td className="p-2.5 text-right font-black text-navy">
-                          {formatNumber(item.quantity)} {item.product.category === "AAC_BLOCK" ? "Blocks" : "Bags"}
-                        </td>
-                        <td className="p-2.5 text-right text-slate-600 font-mono">
-                          {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} m³` : "-"}
-                        </td>
-                        <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
-                          {item.totalCbm ? `${Number(item.totalCbm).toFixed(3)} m³` : "-"}
-                        </td>
-                        <td className="p-2.5 text-right text-slate-600">₹{formatNumber(Number(item.rate))}</td>
-                        <td className="p-2.5 text-right font-black text-navy">₹{formatNumber(Number(item.totalAmount))}</td>
+              <div className="space-y-3">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
+                        <th className="p-2.5">Item Description</th>
+                        <th className="p-2.5 text-center">Unit Specs</th>
+                        <th className="p-2.5 text-right">Quantity</th>
+                        <th className="p-2.5 text-right">Unit CBM</th>
+                        <th className="p-2.5 text-right">Total CBM</th>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold">
-                      <td colSpan={4} className="p-2.5 text-slate-700">Combined Totals:</td>
-                      <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
-                        {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} m³` : "-"}
-                      </td>
-                      <td></td>
-                      <td className="p-2.5 text-right font-black text-navy text-sm">
-                        ₹{formatNumber(Number(order.totalAmount))}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {order.items.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/50">
+                          <td className="p-2.5">
+                            <p className="font-bold text-navy">{item.product.name}</p>
+                            <span className="text-[10px] text-slate-400 capitalize">{item.product.category?.replace("_", " ") || "Material"}</span>
+                          </td>
+                          <td className="p-2.5 text-center">
+                            {item.product.sizeLabel ? (
+                              <span className="font-mono text-slate-700">{item.product.sizeLabel} ({item.product.dimensions})</span>
+                            ) : item.product.bagWeightKg ? (
+                              <span className="text-slate-700">{Number(item.product.bagWeightKg)} kg Bag</span>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                          <td className="p-2.5 text-right font-black text-navy">
+                            {formatNumber(item.quantity)} {item.product.category === "AAC_BLOCK" ? "Blocks" : "Bags"}
+                          </td>
+                          <td className="p-2.5 text-right text-slate-600 font-mono">
+                            {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} m³` : "-"}
+                          </td>
+                          <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
+                            {item.totalCbm ? `${Number(item.totalCbm).toFixed(3)} m³` : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold">
+                        <td colSpan={2} className="p-2.5 text-slate-700">Combined Totals:</td>
+                        <td className="p-2.5 text-right font-black text-navy">
+                          {formatNumber(order.quantity)} Blocks
+                        </td>
+                        <td></td>
+                        <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
+                          {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} m³` : "-"}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-[#13789B]">GOLD (G100) TILE & STONE ADHESIVE</span>
+                    <span className="block text-[11px] text-slate-500">40 KG Bag Packaging</span>
+                  </div>
+                  <span className="font-mono font-black text-navy text-sm">
+                    {order.adhesiveBags ?? 0} Bags
+                  </span>
+                </div>
               </div>
             ) : order.product ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 rounded-2xl bg-slate-50 p-3 sm:p-4 text-xs min-w-0">

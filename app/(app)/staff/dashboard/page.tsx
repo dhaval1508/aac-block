@@ -111,6 +111,7 @@ export default async function StaffDashboardPage({
       requestedDate: true,
       notes: true,
       totalCbm: true,
+      adhesiveBags: true,
       createdAt: true,
       customer: {
         select: {
@@ -391,16 +392,14 @@ export default async function StaffDashboardPage({
 
                 <div>
                   <span className="text-[11px] font-semibold text-slate-400 uppercase">
-                    Order Quantity
+                    Order Quantity & Adhesive
                   </span>
                   <p className="mt-0.5 font-black text-navy font-mono">
                     {formatNumber(o.quantity)} blocks
                   </p>
-                  {o.items && o.items.some(i => i.product.category !== "AAC_BLOCK") && (
-                    <span className="text-[11px] font-bold text-amber-700 block">
-                      + {o.items.filter(i => i.product.category !== "AAC_BLOCK").reduce((acc, curr) => acc + curr.quantity, 0)} bags
-                    </span>
-                  )}
+                  <span className="text-[11px] font-bold text-sky-800 block mt-0.5">
+                    GOLD (G100): {o.adhesiveBags ?? 0} Bags (40 KG)
+                  </span>
                   <span className="text-[10px] text-slate-500 font-semibold">
                     Physical Count
                   </span>
