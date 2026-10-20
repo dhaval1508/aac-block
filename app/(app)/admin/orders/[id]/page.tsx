@@ -27,6 +27,7 @@ import {
   formatDate,
   formatDateTime,
   formatNumber,
+  formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
   telHref,
@@ -397,7 +398,7 @@ export default async function AdminOrderDetailPage({
                           </td>
                           <td className="p-2.5 text-center">
                             {item.product.sizeLabel ? (
-                              <span className="font-mono text-slate-700">{item.product.sizeLabel} ({item.product.dimensions})</span>
+                              <span className="font-mono text-slate-700">{formatBlockSizeName(item.product.sizeLabel)} ({item.product.dimensions})</span>
                             ) : item.product.bagWeightKg ? (
                               <span className="text-slate-700">{Number(item.product.bagWeightKg)} kg Bag</span>
                             ) : (
@@ -444,7 +445,7 @@ export default async function AdminOrderDetailPage({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 rounded-2xl bg-slate-50 p-3 sm:p-4 text-xs min-w-0">
                 <div className="min-w-0">
                   <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Block Size</span>
-                  <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{order.product.sizeLabel}</p>
+                  <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{formatBlockSizeName(order.product.sizeLabel)}</p>
                   <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">{order.product.dimensions}</p>
                 </div>
 

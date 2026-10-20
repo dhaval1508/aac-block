@@ -15,7 +15,7 @@ import {
   Trash2,
   AlertCircle,
 } from "lucide-react";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatBlockSizeName } from "@/lib/utils";
 import { ProductFormModal } from "@/components/product-form-modal";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { toggleProductActiveAction, deleteProductAction } from "@/lib/actions/products";
@@ -291,7 +291,7 @@ export function ProductsManager({
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-base font-black text-slate-900">{p.sizeLabel}</h3>
+                    <h3 className="text-base font-black text-slate-900">{formatBlockSizeName(p.sizeLabel)}</h3>
                     <p className="text-xs text-slate-400 mt-0.5">{p.dimensions}</p>
                   </div>
                   {p.active ? (
@@ -385,7 +385,7 @@ export function ProductsManager({
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3 px-4 font-black text-slate-900">{p.sizeLabel}</td>
+                  <td className="py-3 px-4 font-black text-slate-900">{formatBlockSizeName(p.sizeLabel)}</td>
                   <td className="py-3 px-4 text-slate-600 font-mono">{p.dimensions}</td>
                   <td className="py-3 px-4 font-bold text-slate-800">
                     {Number(p.cbmPerBlock).toFixed(4)} m³

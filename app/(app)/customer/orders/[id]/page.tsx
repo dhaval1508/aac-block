@@ -7,6 +7,7 @@ import {
   formatDate,
   formatDateTime,
   formatNumber,
+  formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
   telHref,
@@ -208,7 +209,7 @@ export default async function CustomerOrderDetailPage({
                     <span className="font-bold text-navy text-sm">{it.productName}</span>
                     {it.sizeLabel && (
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                        {it.sizeLabel}
+                        {formatBlockSizeName(it.sizeLabel)}
                       </span>
                     )}
                   </div>
@@ -236,7 +237,7 @@ export default async function CustomerOrderDetailPage({
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-slate-500">Product / Size:</span>
-              <strong className="text-navy">{order.product.sizeLabel} ({order.product.dimensions})</strong>
+              <strong className="text-navy">{formatBlockSizeName(order.product.sizeLabel)} ({order.product.dimensions})</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Unit CBM / Block:</span>

@@ -25,6 +25,7 @@ import { getSession } from "@/lib/session";
 import {
   formatDate,
   formatNumber,
+  formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
 } from "@/lib/utils";
@@ -337,7 +338,7 @@ export default async function AdminOrdersPage({
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <span className="font-bold text-slate-800">{o.product?.sizeLabel || (o.items && o.items.length > 0 ? `${o.items.length} sizes` : "Standard")}</span>
+                    <span className="font-bold text-slate-800">{o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : (o.items && o.items.length > 0 ? `${o.items.length} sizes` : "Standard")}</span>
                     <span className="text-[11px] text-slate-400 block font-mono">{o.product?.dimensions || "-"}</span>
                   </td>
 
@@ -436,7 +437,7 @@ export default async function AdminOrdersPage({
               <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Size</span>
-                  <p className="font-bold text-navy truncate">{o.product?.sizeLabel || "AAC Blocks"}</p>
+                  <p className="font-bold text-navy truncate">{o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "AAC Blocks"}</p>
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Jointing Morter (40 KG)</span>

@@ -22,6 +22,7 @@ import { getStockBySize, getStockSummary, getMortarStock } from "@/lib/data";
 import {
   formatDate,
   formatNumber,
+  formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
 } from "@/lib/utils";
@@ -461,7 +462,7 @@ export default async function AdminDashboardPage({
                 Low Yard Stock Alert ({lowStockProducts.length} Specification{lowStockProducts.length > 1 ? "s" : ""})
               </p>
               <p className="text-xs text-amber-700 mt-0.5 truncate">
-                {lowStockProducts.map((p) => `${p.sizeLabel} (${p.currentStock} blocks)`).join(", ")}
+                {lowStockProducts.map((p) => `${formatBlockSizeName(p.sizeLabel)} (${p.currentStock} blocks)`).join(", ")}
               </p>
             </div>
           </div>
@@ -507,7 +508,7 @@ export default async function AdminDashboardPage({
                 <div className="min-w-0">
                   <div className="flex items-start justify-between gap-1">
                     <div className="min-w-0">
-                      <span className="font-bold text-navy text-xs truncate block">{p.sizeLabel}</span>
+                      <span className="font-bold text-navy text-xs truncate block">{formatBlockSizeName(p.sizeLabel)}</span>
                       <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">{p.dimensions}</p>
                     </div>
                     <span className="text-xs font-black text-[#13789B] shrink-0">
@@ -623,7 +624,7 @@ export default async function AdminDashboardPage({
                     )}
                   </div>
                   <p className="mt-1 text-xs text-slate-700 font-semibold truncate">
-                    {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks {o.product ? `(${o.product.sizeLabel})` : ""}
+                    {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks {o.product ? `(${formatBlockSizeName(o.product.sizeLabel)})` : ""}
                   </p>
                   {o.transport && (
                     <p className="text-[11px] text-slate-400 mt-0.5 truncate">
@@ -638,7 +639,7 @@ export default async function AdminDashboardPage({
                       {formatNumber(o.quantity)} blk
                     </span>
                     <span className="text-[10px] text-[#13789B] font-bold">
-                      {o.product?.sizeLabel || "Standard"}
+                      {o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "Standard"}
                     </span>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-navy transition-colors shrink-0" />
@@ -666,7 +667,7 @@ export default async function AdminDashboardPage({
                 <div key={m.id} className="rounded-xl border border-slate-100 p-2.5 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-navy truncate max-w-[130px]">
-                      {m.product.sizeLabel}
+                      {formatBlockSizeName(m.product.sizeLabel)}
                     </span>
                     <span
                       className={`font-black text-xs ${

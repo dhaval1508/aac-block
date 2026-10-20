@@ -17,6 +17,7 @@ import { getSession } from "@/lib/session";
 import {
   formatDate,
   formatNumber,
+  formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
   telHref,
@@ -375,11 +376,11 @@ export default async function StaffDashboardPage({
                   </span>
                   {o.items && o.items.length > 0 ? (
                     <p className="mt-0.5 font-bold text-navy text-xs">
-                      {o.items.map((it) => it.product.sizeLabel || it.product.name).join(", ")}
+                      {o.items.map((it) => formatBlockSizeName(it.product.sizeLabel) || it.product.name).join(", ")}
                     </p>
                   ) : (
                     <>
-                      <p className="mt-0.5 font-bold text-navy">{o.product?.sizeLabel || "Standard"}</p>
+                      <p className="mt-0.5 font-bold text-navy">{o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "Standard"}</p>
                       <span className="text-[10px] text-slate-500">{o.product?.dimensions || "-"}</span>
                     </>
                   )}

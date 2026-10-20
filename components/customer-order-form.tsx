@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatBlockSizeName } from "@/lib/utils";
 import { placeCustomerOrderAction } from "@/lib/actions/orders";
 import {
   Layers,
@@ -264,7 +264,7 @@ export function CustomerOrderForm({
                     >
                       {aacProducts.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.sizeLabel} Block ({p.dimensions}) • {Number(p.cbmPerBlock).toFixed(4)} CBM/block
+                          {formatBlockSizeName(p.sizeLabel)} ({p.dimensions})
                         </option>
                       ))}
                     </select>
@@ -619,7 +619,7 @@ export function CustomerOrderForm({
               >
                 <div>
                   <strong className="text-navy">
-                    {r.product?.sizeLabel || `Size #${idx + 1}`} AAC Block
+                    {formatBlockSizeName(r.product?.sizeLabel) || `Size #${idx + 1}`} AAC Block
                   </strong>
                   <span className="text-slate-500 text-[11px] block font-mono">
                     {r.product?.dimensions} • {r.cbmPerBlock.toFixed(4)} CBM/block

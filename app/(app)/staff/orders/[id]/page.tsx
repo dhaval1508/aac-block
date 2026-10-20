@@ -18,6 +18,7 @@ import { getSession } from "@/lib/session";
 import {
   formatDate,
   formatNumber,
+  formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
   telHref,
@@ -272,7 +273,7 @@ export default async function StaffOrderDetailPage({
                   <p className="font-bold text-sm text-navy">{item.product.name}</p>
                   <p className="text-xs text-slate-500">
                     {item.product.sizeLabel
-                      ? `Size: ${item.product.sizeLabel} (${item.product.dimensions})`
+                      ? `Size: ${formatBlockSizeName(item.product.sizeLabel)} (${item.product.dimensions})`
                       : item.product.bagWeightKg
                       ? `Bag Weight: ${item.product.bagWeightKg} kg`
                       : "Accessory"}
@@ -301,7 +302,7 @@ export default async function StaffOrderDetailPage({
               <span className="text-[11px] font-semibold text-slate-400 uppercase">
                 Block Size
               </span>
-              <p className="mt-1 text-base font-bold text-navy">{order.product?.sizeLabel || "Standard"}</p>
+              <p className="mt-1 text-base font-bold text-navy">{order.product?.sizeLabel ? formatBlockSizeName(order.product.sizeLabel) : "Standard"}</p>
               <span className="text-xs text-slate-500">{order.product?.dimensions || "-"}</span>
             </div>
 

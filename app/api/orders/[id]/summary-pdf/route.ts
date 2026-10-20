@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatBlockSizeName } from "@/lib/utils";
 
 export async function GET(
   req: Request,
@@ -407,7 +407,7 @@ export async function GET(
           <tr>
             <td>${idx + 1}</td>
             <td>
-              <strong>${it.productName}</strong> ${it.sizeLabel ? `(${it.sizeLabel})` : ""}<br>
+              <strong>${formatBlockSizeName(it.sizeLabel)}</strong><br>
               <span style="font-size:10px; color:#64748b;">${it.dimensions || it.productType}</span>
             </td>
             <td class="text-center"><strong>${formatNumber(it.quantity)} Blocks</strong></td>

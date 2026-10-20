@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { formatDate, formatNumber, ORDER_STATUS_CLASS, ORDER_STATUS_LABEL } from "@/lib/utils";
+import { formatDate, formatNumber, formatBlockSizeName, ORDER_STATUS_CLASS, ORDER_STATUS_LABEL } from "@/lib/utils";
 import { OrderStatus, Prisma } from "@prisma/client";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { resolveDateRange } from "@/lib/date-utils";
@@ -202,7 +202,7 @@ export default async function CustomerOrdersPage({
               </div>
 
               <p className="text-xs font-semibold text-slate-700">
-                {formatNumber(o.quantity)} blocks {o.product ? `· ${o.product.sizeLabel} (${o.product.dimensions})` : o.totalCbm ? `· ${Number(o.totalCbm).toFixed(2)} m³` : ""} · {o.adhesiveBags ?? 0} Bags Block Jointing Morter (40 KG)
+                {formatNumber(o.quantity)} blocks {o.product ? `· ${formatBlockSizeName(o.product.sizeLabel)} (${o.product.dimensions})` : o.totalCbm ? `· ${Number(o.totalCbm).toFixed(2)} m³` : ""} · {o.adhesiveBags ?? 0} Bags Block Jointing Morter (40 KG)
               </p>
 
               <p className="text-[11px] text-slate-400">

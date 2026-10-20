@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getProductStock } from "@/lib/actions/stock";
 import { dispatchNotification } from "@/lib/push-dispatcher";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, formatBlockSizeName } from "@/lib/utils";
 
 async function nextOrderNo() {
   const year = new Date().getFullYear();
@@ -186,7 +186,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
   const orderNo = await nextOrderNo();
   const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
   const aacBlockItems = resolvedItems.filter((it) => it.productType === "AAC_BLOCK");
-  const blockSizesSummary = aacBlockItems.map((it) => it.sizeLabel).join(", ") || primaryItem.sizeLabel;
+  const blockSizesSummary = aacBlockItems.map((it) => formatBlockSizeName(it.sizeLabel)).join(", ") || formatBlockSizeName(primaryItem.sizeLabel);
 
   const order = await prisma.$transaction(async (tx) => {
     const ord = await tx.order.create({

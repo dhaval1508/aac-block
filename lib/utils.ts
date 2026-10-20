@@ -162,3 +162,22 @@ export function avatarTone(name: string) {
   const index = name.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return tones[index % tones.length];
 }
+
+/**
+ * Standardize AAC block size labels to exact format:
+ * "3 Inch", "4 Inch", "4+ Inch", "5 Inch", "6 Inch", "8 Inch", "9 Inch", "9+ Inch", "12 Inch"
+ */
+export function formatBlockSizeName(sizeLabel?: string | null): string {
+  if (!sizeLabel) return "AAC Block";
+  const s = sizeLabel.trim();
+  if (/^3(?:\s*inch|\")?$/i.test(s)) return "3 Inch";
+  if (/^4\+(?:\s*inch|\")?$/i.test(s)) return "4+ Inch";
+  if (/^4(?:\s*inch|\")?$/i.test(s)) return "4 Inch";
+  if (/^5(?:\s*inch|\")?$/i.test(s)) return "5 Inch";
+  if (/^6(?:\s*inch|\")?$/i.test(s)) return "6 Inch";
+  if (/^8(?:\s*inch|\")?$/i.test(s)) return "8 Inch";
+  if (/^9\+(?:\s*inch|\")?$/i.test(s)) return "9+ Inch";
+  if (/^9(?:\s*inch|\")?$/i.test(s)) return "9 Inch";
+  if (/^12(?:\s*inch|\")?$/i.test(s)) return "12 Inch";
+  return s.replace(/"/g, " Inch").replace(/\s+Inch/gi, " Inch");
+}

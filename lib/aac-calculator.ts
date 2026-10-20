@@ -19,7 +19,7 @@ export const SQFT_CONVERSION_FACTOR = 10.7639104167;
 
 export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
   {
-    size: '3"',
+    size: '3 Inch',
     name: '3 Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -30,7 +30,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 143.52,
   },
   {
-    size: '4"',
+    size: '4 Inch',
     name: '4 Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -41,7 +41,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 107.64,
   },
   {
-    size: '4+"',
+    size: '4+ Inch',
     name: '4+ Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -52,7 +52,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 93.60,
   },
   {
-    size: '5"',
+    size: '5 Inch',
     name: '5 Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -63,7 +63,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 86.11,
   },
   {
-    size: '6"',
+    size: '6 Inch',
     name: '6 Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -74,7 +74,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 71.76,
   },
   {
-    size: '8"',
+    size: '8 Inch',
     name: '8 Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -85,7 +85,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 53.82,
   },
   {
-    size: '9"',
+    size: '9 Inch',
     name: '9 Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -96,7 +96,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 47.84,
   },
   {
-    size: '9+"',
+    size: '9+ Inch',
     name: '9+ Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -107,7 +107,7 @@ export const MASTER_BLOCK_SIZES: BlockSizeSpec[] = [
     sqftPerCbm: 46.80,
   },
   {
-    size: '12"',
+    size: '12 Inch',
     name: '12 Inch AAC Block',
     lengthMm: 600,
     heightMm: 200,
@@ -171,7 +171,13 @@ export interface CalculatorResult {
 }
 
 export function computeBlockRequirement(input: CalculatorInput): CalculatorResult {
-  const spec = MASTER_BLOCK_SIZES.find((s) => s.size === input.size) || MASTER_BLOCK_SIZES[4]; // Default 6"
+  const cleanInput = (input.size || "").trim();
+  const spec = MASTER_BLOCK_SIZES.find((s) => 
+    s.size.toLowerCase() === cleanInput.toLowerCase() || 
+    s.name.toLowerCase() === cleanInput.toLowerCase() ||
+    cleanInput.startsWith(s.size) ||
+    s.size.startsWith(cleanInput.replace(/"/g, ' Inch'))
+  ) || MASTER_BLOCK_SIZES[4]; // Default 6 Inch
   const wastage = Math.max(0, input.wastagePercent || 0);
 
   let baseBlocks = 0;
