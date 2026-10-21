@@ -65,19 +65,21 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
           ],
         },
         {
-          title: "TEAM & AUDIT",
+          title: "COMPANY & AUDIT",
           items: [
+            { href: "/admin/company-profile", label: "Company Profile", icon: Building2 },
             { href: "/admin/users", label: "Users & Team", icon: Users },
             { href: "/admin/activity", label: "Activity Audit", icon: Activity },
           ],
         },
       ];
     case "STOCKER":
+    case "STAFF":
       return [
         {
           title: "OPERATIONS",
           items: [
-            { href: "/stocker/dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { href: "/staff/dashboard", label: "Loading & Stock Dashboard", icon: LayoutDashboard },
             { href: "/stocker/orders", label: "Orders Logistics", icon: ShoppingCart },
           ],
         },
@@ -85,17 +87,8 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
           title: "INVENTORY CONTROL",
           items: [
             { href: "/stocker/stock", label: "Stock In / Out", icon: Boxes },
-            { href: "/stocker/products", label: "Block Sizes", icon: Layers },
+            { href: "/stocker/products", label: "Block Sizes & CBM", icon: Layers },
             { href: "/stocker/activity", label: "Movement Log", icon: Activity },
-          ],
-        },
-      ];
-    case "STAFF":
-      return [
-        {
-          title: "YARD MOBILE",
-          items: [
-            { href: "/staff/dashboard", label: "Loading Tasks", icon: Truck },
           ],
         },
       ];

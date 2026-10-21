@@ -42,6 +42,7 @@ export function AACBlockCalculator({
   const [mode, setMode] = useState<CalcMode>("quantity");
   const [quantityInput, setQuantityInput] = useState<number>(1000);
   const [cbmInput, setCbmInput] = useState<number>(18.0);
+  const [sqftInput, setSqftInput] = useState<number>(1292);
   const [wastagePercent, setWastagePercent] = useState<number>(0);
   const [includeMortar, setIncludeMortar] = useState<boolean>(true);
   const [jointThickness, setJointThickness] = useState<number>(3.0);
@@ -54,10 +55,11 @@ export function AACBlockCalculator({
       mode,
       quantity: quantityInput,
       cbm: cbmInput,
+      wallAreaSqft: sqftInput,
       wastagePercent,
       ratePerBlock: currentRate,
     });
-  }, [selectedSize, mode, quantityInput, cbmInput, wastagePercent, currentRate]);
+  }, [selectedSize, mode, quantityInput, cbmInput, sqftInput, wastagePercent, currentRate]);
 
   const mortarResult = useMemo(() => {
     return computeMortarRequirement({
@@ -341,7 +343,7 @@ export function AACBlockCalculator({
           </div>
 
           {/* Primary Metric Badges */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-2xs">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Total Required Blocks

@@ -19,6 +19,8 @@ import {
   Boxes,
   Check,
   Copy,
+  ExternalLink,
+  History,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -32,6 +34,7 @@ import {
   ORDER_STATUS_LABEL,
   telHref,
   whatsappHref,
+  mapsHref,
 } from "@/lib/utils";
 import { buildWhatsAppMessage } from "@/lib/whatsapp";
 import {
@@ -42,6 +45,7 @@ import {
   deliverOrderAction,
 } from "@/lib/actions/orders";
 import { DownloadOrderSummaryBtn } from "@/components/download-order-summary-btn";
+import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
 import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +71,9 @@ export default async function AdminOrderDetailPage({
         product: true,
         transport: true,
         assignedStaff: true,
+        weighbridgeSlip: true,
+        loadingRecord: true,
+        editHistory: { orderBy: { createdAt: "desc" } },
         items: {
           include: {
             product: true,
@@ -168,6 +175,11 @@ export default async function AdminOrderDetailPage({
               {order.invoiceNo && (
                 <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-mono font-bold text-slate-700">
                   {order.invoiceNo}
+                </span>
+              )}
+              {order.dcNumber && (
+                <span className="rounded-full bg-purple-100 border border-purple-200 px-2.5 py-0.5 text-[11px] font-mono font-bold text-purple-800">
+                  Challan: {order.dcNumber}
                 </span>
               )}
             </div>
@@ -354,16 +366,51 @@ export default async function AdminOrderDetailPage({
                 <p className="text-slate-500 truncate">{order.customer.email}</p>
               </div>
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-1 sm:col-span-2 min-w-0">
-                <div className="flex items-center gap-1.5 text-slate-400 uppercase font-bold text-[10px]">
-                  <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                  <span className="truncate">Delivery Destination / Site</span>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-2 sm:col-span-2 min-w-0">
+                <div className="flex items-center justify-between gap-1.5 text-slate-400 uppercase font-bold text-[10px]">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                    <span className="truncate">Delivery Destination / Site</span>
+                  </div>
+                  {order.locationSource && (
+                    <span className="rounded-md bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[9px] font-bold text-blue-700">
+                      Source: {order.locationSource === "GOOGLE_MAPS" ? "Google Maps" : "Custom Site Entry"}
+                    </span>
+                  )}
                 </div>
                 <p className="font-bold text-sm text-navy">{order.deliveryAddress}</p>
+                {order.formattedAddress && order.formattedAddress !== order.deliveryAddress && (
+                  <p className="text-xs text-slate-500">
+                    <strong className="text-slate-600">Full Mapped Address:</strong> {order.formattedAddress}
+                  </p>
+                )}
+                {(order.customSiteName || order.nearbyLandmark || order.city) && (
+                  <div className="flex flex-wrap gap-2 text-[11px] text-slate-600 bg-white/80 rounded-xl p-2 border border-slate-200/60">
+                    {order.customSiteName && <span><strong>Site:</strong> {order.customSiteName}</span>}
+                    {order.villageArea && <span><strong>Area:</strong> {order.villageArea}</span>}
+                    {order.city && <span><strong>City:</strong> {order.city}</span>}
+                    {order.nearbyLandmark && <span><strong>Landmark:</strong> {order.nearbyLandmark}</span>}
+                    {order.pincode && <span><strong>PIN:</strong> {order.pincode}</span>}
+                  </div>
+                )}
                 {order.notes && (
                   <p className="mt-1 text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-2 text-xs">
                     <strong>Site Note:</strong> {order.notes}
                   </p>
+                )}
+                {mapsHref(order.deliveryAddress, order.latitude ? Number(order.latitude) : null, order.longitude ? Number(order.longitude) : null) && (
+                  <div className="pt-1">
+                    <a
+                      href={mapsHref(order.deliveryAddress, order.latitude ? Number(order.latitude) : null, order.longitude ? Number(order.longitude) : null)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-blue-600" />
+                      <span>View on Google Maps</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
                 )}
               </div>
             </div>
@@ -517,6 +564,59 @@ export default async function AdminOrderDetailPage({
               })}
             </div>
           </div>
+
+          {/* Weighbridge Slip, Vehicle Details & Driver WhatsApp Panel */}
+          <StaffWeighbridgeVehiclePanel order={order} />
+
+          {/* Order Modification Audit History (if customer or staff edited before dispatch) */}
+          {order.editHistory && order.editHistory.length > 0 && (
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs min-w-0">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                  <History className="h-4 w-4" />
+                </span>
+                <div>
+                  <h2 className="text-base font-black text-navy">Order Change History (Audit)</h2>
+                  <p className="text-xs text-slate-500">Immutable record of modifications made before dispatch</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 text-xs">
+                {order.editHistory.map((hist) => (
+                  <div key={hist.id} className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <span className="font-bold text-navy">
+                        Version {hist.orderVersion} — Modified by {hist.changedByName || hist.userRole}
+                      </span>
+                      <span className="text-slate-400 text-[11px] font-mono">{formatDateTime(hist.createdAt)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="text-[11px] text-slate-500 font-semibold">Modified Fields:</span>
+                      {hist.changedFields.map((f) => (
+                        <span key={f} className="rounded-md bg-teal-100 text-teal-800 text-[10px] font-bold px-2 py-0.5">
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div className="rounded-xl bg-white p-2 border border-slate-200/60">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Previous Values</span>
+                        <pre className="text-slate-600 font-mono text-[10px] whitespace-pre-wrap mt-0.5">
+                          {JSON.stringify(hist.previousValues, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="rounded-xl bg-emerald-50/60 p-2 border border-emerald-200/60">
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase block">Updated Values</span>
+                        <pre className="text-emerald-900 font-mono text-[10px] whitespace-pre-wrap mt-0.5">
+                          {JSON.stringify(hist.newValues, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Workflow Actions, Dispatch & Payments */}

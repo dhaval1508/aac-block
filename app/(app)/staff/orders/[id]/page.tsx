@@ -24,6 +24,7 @@ import {
   telHref,
 } from "@/lib/utils";
 import { StaffLoadingForm } from "@/components/staff-loading-form";
+import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
 import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function StaffOrderDetailPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const session = await getSession();
-  if (!session || !["STAFF", "ADMIN"].includes(session.role)) redirect("/login");
+  if (!session || !["STAFF", "STOCKER", "ADMIN"].includes(session.role)) redirect("/login");
 
   const { id } = await params;
   const { error } = await searchParams;
@@ -56,6 +57,19 @@ export default async function StaffOrderDetailPage({
       assignedStaffId: true,
       totalCbm: true,
       adhesiveBags: true,
+      dcNumber: true,
+      googlePlaceId: true,
+      latitude: true,
+      longitude: true,
+      formattedAddress: true,
+      customSiteName: true,
+      villageArea: true,
+      city: true,
+      district: true,
+      state: true,
+      pincode: true,
+      nearbyLandmark: true,
+      locationSource: true,
       createdAt: true,
       confirmedAt: true,
       dispatchedAt: true,
@@ -103,6 +117,8 @@ export default async function StaffOrderDetailPage({
           assignedAt: true,
         },
       },
+      weighbridgeSlip: true,
+      loadingRecord: true,
       events: {
         orderBy: { createdAt: "desc" },
         select: {
@@ -120,7 +136,7 @@ export default async function StaffOrderDetailPage({
   if (!order) notFound();
 
   // Strict Role Guard: Staff can only access their assigned order
-  if (session.role === "STAFF" && order.assignedStaffId !== session.id) {
+  if (["STAFF", "STOCKER"].includes(session.role) && order.assignedStaffId && order.assignedStaffId !== session.id) {
     redirect(
       `/staff/dashboard?error=Access%20Denied.%20You%20are%20not%20assigned%20to%20order%20${order.orderNo}`
     );
@@ -327,6 +343,9 @@ export default async function StaffOrderDetailPage({
           </span>
         </div>
       </div>
+
+      {/* Weighbridge Slip, Vehicle Details & Driver WhatsApp Panel */}
+      <StaffWeighbridgeVehiclePanel order={order} />
 
       {/* Loading Action Area */}
       <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatNumber, formatBlockSizeName } from "@/lib/utils";
+import { getCompanyProfile } from "@/lib/company-profile";
 
 export async function GET(
   req: Request,
@@ -14,15 +15,20 @@ export async function GET(
 
   const { id } = await params;
 
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: {
-      customer: true,
-      product: true,
-      items: { include: { product: true } },
-      transport: true,
-    },
-  });
+  const [order, company] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        product: true,
+        items: { include: { product: true } },
+        transport: true,
+        weighbridgeSlip: true,
+        loadingRecord: true,
+      },
+    }),
+    getCompanyProfile(),
+  ]);
 
   if (!order) {
     return new NextResponse("Order not found", { status: 404 });
@@ -46,8 +52,6 @@ export async function GET(
           quantity: order.quantity,
           cbmPerUnit: order.product.cbmPerBlock,
           totalCbm: order.totalCbm || Number(order.product.cbmPerBlock) * order.quantity,
-          sqftPerUnit: 1.29,
-          totalSqft: order.totalSqft || 1.29166925 * order.quantity,
           rate: 0,
           gstRate: 0,
           subtotal: 0,
@@ -64,10 +68,6 @@ export async function GET(
   const totalCbm = order.totalCbm
     ? Number(order.totalCbm)
     : aacItems.reduce((acc, it) => acc + (Number(it.totalCbm) || 0), 0);
-
-  const totalSqft = order.totalSqft
-    ? Number(order.totalSqft)
-    : aacItems.reduce((acc, it) => acc + (Number(it.totalSqft) || 0), 0);
 
   const adhesiveBags = order.adhesiveBags ?? 0;
 
@@ -335,22 +335,38 @@ export async function GET(
       <div class="logo-container">
         <div class="logo-icon">S</div>
         <div>
-          <div class="brand-title">Swarnim AAC Block Pvt. Ltd.</div>
+          <div class="brand-title">${company.legalName}</div>
           <div class="brand-sub">Autoclaved Aerated Concrete Blocks & Tiling Solutions</div>
           <div class="brand-address">
-            Factory: 166 p2/p2, Khakhriya-1 Village, Vadol, Kapdwanj, Dist-Kheda 387620<br>
-            Office: No. 615, Ganesh Glory 11, Jagatpur-Chenpur Road, Ahmedabad, Gujarat<br>
-            <strong>Ph: +91 7698787476 / +91 9904966385</strong> • Email: contact@swarnimaac.com
+            <strong>GSTIN:</strong> ${company.gstin} • <strong>Constitution:</strong> ${company.constitution}<br>
+            <strong>Reg. Office:</strong> ${company.registeredAddress}<br>
+            ${company.factoryAddress ? `<strong>Factory:</strong> ${company.factoryAddress}<br>` : ""}
+            <strong>Phone:</strong> ${company.companyMobile || "+91 98795 00000"}${company.altMobile ? ` / ${company.altMobile}` : ""} • <strong>Email:</strong> ${company.companyEmail || "info@swarnimaac.com"}
           </div>
         </div>
       </div>
       <div class="order-badge-box">
         <span class="badge">Official Order Summary</span>
         <div class="order-id">${order.orderNo}</div>
+        ${order.dcNumber ? `<div style="font-size:12px;font-weight:bold;color:#6b21a8;margin-top:3px;">Challan: ${order.dcNumber}</div>` : ""}
         <div class="meta-date">Date: ${new Date(order.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
         <div class="meta-date">Status: <strong>${order.status}</strong></div>
       </div>
     </div>
+
+    ${order.weighbridgeSlip ? `
+    <!-- Weighbridge Slip Banner -->
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+      <div>
+        <strong style="color:#166534;font-size:13px;">⚖️ Official Weighbridge / Vajan Slip Details</strong><br>
+        <span style="color:#15803d;">RST Slip No: <strong>${order.weighbridgeSlip.rstNumber}</strong> • Vehicle: <strong>${order.weighbridgeSlip.vehicleNumber}</strong> • Weighbridge: <strong>${order.weighbridgeSlip.weighbridgeName}</strong></span>
+      </div>
+      <div style="text-align:right;">
+        <span style="font-size:15px;font-weight:900;color:#14532d;font-family:monospace;">Net Weight: ${Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG</span><br>
+        <span style="font-size:11px;color:#166534;">Gross: ${Number(order.weighbridgeSlip.grossWeightKg).toLocaleString()} KG • Tare: ${Number(order.weighbridgeSlip.tareWeightKg).toLocaleString()} KG</span>
+      </div>
+    </div>
+    ` : ""}
 
     <!-- Customer & Delivery Site Info -->
     <div class="grid-info">
@@ -364,6 +380,7 @@ export async function GET(
       <div>
         <div class="info-title">Delivery & Unloading Site</div>
         <div class="info-text-bold">${order.deliveryAddress}</div>
+        ${order.formattedAddress && order.formattedAddress !== order.deliveryAddress ? `<div class="info-text" style="color:#64748b;font-size:11px;">Mapped: ${order.formattedAddress}</div>` : ""}
         ${order.requestedDate ? `<div class="info-text">Requested Delivery: <strong>${new Date(order.requestedDate).toLocaleDateString("en-IN")}</strong></div>` : ""}
         ${order.notes ? `<div class="info-text">Site Notes: <em>${order.notes}</em></div>` : ""}
         ${order.transport ? `<div class="info-text" style="margin-top:6px; color:#13789b;"><strong>Allocated Truck: ${order.transport.truckNumber}</strong> (Driver: ${order.transport.driverName} - ${order.transport.driverMobile})</div>` : ""}

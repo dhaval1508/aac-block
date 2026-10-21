@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Phone, FileText, ArrowLeft, CheckCircle2, Layers, Package, Truck, Boxes } from "lucide-react";
+import { Phone, FileText, ArrowLeft, CheckCircle2, Layers, Package, Truck, Boxes, Edit3, ExternalLink, Scale, History, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import {
@@ -11,6 +11,7 @@ import {
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
   telHref,
+  mapsHref,
 } from "@/lib/utils";
 import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
 
@@ -35,6 +36,8 @@ export default async function CustomerOrderDetailPage({
       product: true,
       items: { include: { product: true } },
       transport: true,
+      weighbridgeSlip: true,
+      editHistory: { orderBy: { createdAt: "desc" } },
       events: { orderBy: { createdAt: "asc" } },
       payments: { orderBy: { paidAt: "desc" } },
     },
@@ -113,9 +116,23 @@ export default async function CustomerOrderDetailPage({
           </div>
         </div>
 
-        {/* Action Buttons: PDF Download + Challan */}
+        {/* Action Buttons: Edit Order + PDF Download + Challan */}
         <div className="flex items-center gap-2 flex-wrap">
+          {["PENDING", "CONFIRMED", "ASSIGNED", "LOADING", "LOADED"].includes(order.status) && (
+            <Link
+              href={`/customer/orders/${order.id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#13789B] bg-teal-50 px-3.5 py-2 text-xs font-bold text-[#13789B] hover:bg-teal-100 transition-colors shadow-2xs cursor-pointer"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span>Edit Order</span>
+            </Link>
+          )}
           <DownloadOrderSummaryButton orderId={order.id} orderNo={order.orderNo} />
+          {order.dcNumber && (
+            <span className="inline-flex items-center gap-1 rounded-xl bg-slate-900 text-teal-300 px-3 py-2 text-xs font-black font-mono shadow-xs">
+              DC: {order.dcNumber}
+            </span>
+          )}
           {order.invoiceNo ? (
             <Link
               href={`/invoice/${order.id}`}
@@ -254,17 +271,43 @@ export default async function CustomerOrderDetailPage({
           </div>
         ) : null}
 
-        <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
+        <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
           <div>
             <span className="text-slate-400 uppercase font-bold text-[10px]">Delivery Site Address</span>
-            <p className="mt-0.5 font-medium text-navy">{order.deliveryAddress}</p>
+            <p className="mt-0.5 font-medium text-navy">{order.formattedAddress || order.deliveryAddress}</p>
+            {order.nearbyLandmark && (
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                <strong>Nearby Landmark:</strong> {order.nearbyLandmark}
+              </p>
+            )}
           </div>
-          {order.requestedDate && (
-            <div className="sm:text-right">
-              <span className="text-slate-400 uppercase font-bold text-[10px]">Requested Date</span>
-              <p className="mt-0.5 font-semibold text-navy">{formatDate(order.requestedDate)}</p>
-            </div>
-          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            {order.requestedDate && (
+              <div className="sm:text-right">
+                <span className="text-slate-400 uppercase font-bold text-[10px]">Requested Date</span>
+                <p className="mt-0.5 font-semibold text-navy">{formatDate(order.requestedDate)}</p>
+              </div>
+            )}
+            {mapsHref(
+              order.latitude ? Number(order.latitude) : null,
+              order.longitude ? Number(order.longitude) : null,
+              order.formattedAddress || order.deliveryAddress
+            ) && (
+              <a
+                href={mapsHref(
+                  order.latitude ? Number(order.latitude) : null,
+                  order.longitude ? Number(order.longitude) : null,
+                  order.formattedAddress || order.deliveryAddress
+                )!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-teal-50 border border-teal-200 text-[#13789B] hover:bg-teal-100 px-3.5 py-2 text-xs font-bold transition-colors shadow-2xs"
+              >
+                <MapPin className="h-3.5 w-3.5 text-[#13789B]" />
+                <span>View on Google Maps</span>
+              </a>
+            )}
+          </div>
         </div>
       </div>
 
@@ -342,7 +385,90 @@ export default async function CustomerOrderDetailPage({
             </div>
           </div>
         </div>
+
+        {/* Weighbridge Slip Card if Available */}
+        {order.weighbridgeSlip && (
+          <div className="col-span-full rounded-3xl border border-teal-200 bg-teal-50/40 p-5 sm:p-6 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Scale className="h-5 w-5 text-[#13789B]" />
+                <h3 className="text-base font-black text-navy">Weighbridge / Vajan Slip Details</h3>
+              </div>
+              {order.weighbridgeSlip.slipUrl && (
+                <a
+                  href={order.weighbridgeSlip.slipUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#13789B] text-white px-3.5 py-1.5 text-xs font-bold hover:bg-[#0f607d] transition-colors shadow-xs"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>View Weight Slip</span>
+                </a>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="bg-white rounded-xl p-2.5 border border-teal-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">RST Number</span>
+                <strong className="text-navy font-mono text-sm">{order.weighbridgeSlip.rstNumber}</strong>
+              </div>
+              <div className="bg-white rounded-xl p-2.5 border border-teal-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Loaded Weight</span>
+                <strong className="text-emerald-700 font-mono text-sm">
+                  {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG
+                </strong>
+              </div>
+              <div className="bg-white rounded-xl p-2.5 border border-teal-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Gross Weight</span>
+                <strong className="text-slate-700 font-mono">
+                  {Number(order.weighbridgeSlip.grossWeightKg).toLocaleString()} KG
+                </strong>
+              </div>
+              <div className="bg-white rounded-xl p-2.5 border border-teal-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Tare Weight</span>
+                <strong className="text-slate-700 font-mono">
+                  {Number(order.weighbridgeSlip.tareWeightKg).toLocaleString()} KG
+                </strong>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 pt-1">
+              <span><strong>Weighbridge:</strong> {order.weighbridgeSlip.weighbridgeName}</span>
+              <span><strong>Vehicle:</strong> {order.weighbridgeSlip.vehicleNumber}</span>
+              <span><strong>Date & Time:</strong> {formatDate(order.weighbridgeSlip.slipDate)} {order.weighbridgeSlip.slipTime || ""}</span>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Order Edit History if Modified */}
+      {order.editHistory && order.editHistory.length > 0 && (
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <History className="h-4 w-4 text-[#13789B]" />
+            <h3 className="text-base font-bold text-navy">Order Change History</h3>
+          </div>
+          <div className="space-y-3 text-xs">
+            {order.editHistory.map((h) => (
+              <div key={h.id} className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-navy">
+                    Version {h.orderVersion} — Modified by {h.changedByName || h.userRole}
+                  </span>
+                  <span className="text-slate-400 text-[11px]">{formatDateTime(h.createdAt)}</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {h.changedFields.map((f) => (
+                    <span key={f} className="rounded-md bg-teal-100 text-teal-800 text-[10px] font-bold px-2 py-0.5">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Live Order Timeline */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

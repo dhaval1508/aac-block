@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatNumber, formatBlockSizeName } from "@/lib/utils";
-import { placeCustomerOrderAction } from "@/lib/actions/orders";
+import { placeCustomerOrderAction, editCustomerOrderAction } from "@/lib/actions/orders";
 import {
   Layers,
   Package,
@@ -19,8 +19,15 @@ import {
   Phone,
   Mail,
   FileText,
+  X,
+  ArrowLeft,
+  Boxes,
 } from "lucide-react";
 import { calculateBlockMetrics } from "@/lib/aac-calculator";
+import {
+  DeliveryLocationPicker,
+  DeliveryLocationData,
+} from "@/components/delivery-location-picker";
 
 export type ProductItem = {
   id: string;
@@ -46,7 +53,7 @@ export interface CustomerDefaults {
   pincode: string;
 }
 
-interface BlockOrderItem {
+export interface BlockOrderItem {
   id: string;
   productId: string;
   cbm: number | "";
@@ -60,6 +67,12 @@ export function CustomerOrderForm({
   defaultProductId,
   defaultQuantity,
   defaultAdhesiveBags = 0,
+  isEditing = false,
+  orderId,
+  orderNo,
+  initialBlockItems,
+  initialDeliveryLocation,
+  initialNotes = "",
   error,
 }: {
   aacProducts: ProductItem[];
@@ -68,6 +81,12 @@ export function CustomerOrderForm({
   defaultProductId?: string;
   defaultQuantity?: number;
   defaultAdhesiveBags?: number;
+  isEditing?: boolean;
+  orderId?: string;
+  orderNo?: string;
+  initialBlockItems?: BlockOrderItem[];
+  initialDeliveryLocation?: DeliveryLocationData;
+  initialNotes?: string;
   error?: string;
 }) {
   const initialAacId =
@@ -80,14 +99,18 @@ export function CustomerOrderForm({
   const initialCbm = Number((initialQty * initialRate).toFixed(3));
 
   // Section A: Multiple AAC block sizes (CBM is primary)
-  const [blockItems, setBlockItems] = useState<BlockOrderItem[]>([
-    {
-      id: "initial-1",
-      productId: initialAacId,
-      cbm: initialCbm,
-      quantity: initialQty,
-    },
-  ]);
+  const [blockItems, setBlockItems] = useState<BlockOrderItem[]>(
+    initialBlockItems && initialBlockItems.length > 0
+      ? initialBlockItems
+      : [
+          {
+            id: "initial-1",
+            productId: initialAacId,
+            cbm: initialCbm,
+            quantity: initialQty,
+          },
+        ]
+  );
 
   // Section B: Block Jointing Morter (40 KG Bag only, default 0, compulsory field)
   const [adhesiveBags, setAdhesiveBags] = useState<number | "">(defaultAdhesiveBags);
@@ -96,12 +119,25 @@ export function CustomerOrderForm({
   const [customerName, setCustomerName] = useState(customerDefaults.name);
   const [customerMobile, setCustomerMobile] = useState(customerDefaults.mobile);
   const [customerEmail, setCustomerEmail] = useState(customerDefaults.email);
-  const [deliveryAddress, setDeliveryAddress] = useState(customerDefaults.deliveryAddress);
-  const [city, setCity] = useState(customerDefaults.city || "Ahmedabad");
-  const [pincode, setPincode] = useState(customerDefaults.pincode || "");
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    initialDeliveryLocation?.address || customerDefaults.deliveryAddress
+  );
+  const [city, setCity] = useState(initialDeliveryLocation?.city || customerDefaults.city || "Ahmedabad");
+  const [pincode, setPincode] = useState(initialDeliveryLocation?.pincode || customerDefaults.pincode || "");
   const [requestedDate, setRequestedDate] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(initialNotes);
 
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocationData>(
+    initialDeliveryLocation || {
+      address: customerDefaults.deliveryAddress || "",
+      locationSource: "MANUAL",
+      city: customerDefaults.city || "Ahmedabad",
+      pincode: customerDefaults.pincode || "",
+      state: "Gujarat",
+    }
+  );
+
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Add another block size row
@@ -195,11 +231,12 @@ export function CustomerOrderForm({
 
   return (
     <form
-      action={placeCustomerOrderAction}
+      action={isEditing ? editCustomerOrderAction : placeCustomerOrderAction}
       onSubmit={() => setIsSubmitting(true)}
       className="space-y-6 min-w-0 max-w-full"
     >
       {/* Hidden Fields for Action Processing */}
+      {isEditing && <input type="hidden" name="orderId" value={orderId || ""} />}
       <input type="hidden" name="itemsJson" value={itemsJson} />
       <input type="hidden" name="adhesiveBags" value={numAdhesiveBags} />
       <input type="hidden" name="customerName" value={customerName} />
@@ -324,13 +361,21 @@ export function CustomerOrderForm({
 
                 {/* Auto Calculated Row Metrics */}
                 {rowCalc && (rowCalc.totalCbm > 0 || rowCalc.numericQty > 0) ? (
-                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-white border border-slate-200/80 p-2.5 text-center">
+                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-white border border-slate-200/80 p-2.5 text-center">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">
+                        Approx. Blocks
+                      </span>
+                      <span className="text-xs font-black font-mono text-navy">
+                        {formatNumber(rowCalc.numericQty)} Nos
+                      </span>
+                    </div>
                     <div>
                       <span className="block text-[10px] font-bold text-slate-400 uppercase">
                         CBM / Block
                       </span>
                       <span className="text-xs font-bold font-mono text-slate-700">
-                        {rowCalc.cbmPerBlock.toFixed(4)} CBM
+                        {rowCalc.cbmPerBlock.toFixed(4)} m³
                       </span>
                     </div>
                     <div>
@@ -339,9 +384,6 @@ export function CustomerOrderForm({
                       </span>
                       <span className="text-xs font-black font-mono text-[#13789B]">
                         {rowCalc.totalCbm.toFixed(3)} CBM
-                      </span>
-                      <span className="text-[10px] text-slate-400 italic block">
-                        ≈ {formatNumber(rowCalc.numericQty)} Blocks
                       </span>
                     </div>
                   </div>
@@ -371,7 +413,7 @@ export function CustomerOrderForm({
               {blockItems.length} Size{blockItems.length > 1 ? "s" : ""} Selected
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-center">
+          <div className="grid grid-cols-2 gap-4 text-center">
             <div>
               <span className="block text-[10px] sm:text-xs font-semibold text-teal-300 uppercase">
                 Total Order Volume
@@ -385,13 +427,13 @@ export function CustomerOrderForm({
             </div>
             <div>
               <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
-                Standard Block Spec
+                Selected Block Sizes
               </span>
-              <span className="text-base sm:text-xl font-bold text-slate-200 block mt-1">
-                {blockItems.length} Size{blockItems.length > 1 ? "s" : ""} Configured
+              <span className="text-lg sm:text-2xl font-black font-mono text-white block">
+                {blockItems.length} Size{blockItems.length > 1 ? "s" : ""}
               </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                Factory Manufactured
+              <span className="text-[11px] text-slate-300 italic block mt-0.5">
+                Standard Factory Dimensions
               </span>
             </div>
           </div>
@@ -557,23 +599,6 @@ export function CustomerOrderForm({
             />
           </div>
 
-          {/* Delivery Address */}
-          <div className="sm:col-span-2 space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-slate-400" />
-              <span>Delivery Site Address *</span>
-            </label>
-            <textarea
-              name="deliveryAddress"
-              required
-              rows={2}
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              placeholder="Exact project site address, plot/road name, landmark..."
-              className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 resize-none"
-            />
-          </div>
-
           {/* Pincode */}
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-slate-700">Pincode *</label>
@@ -581,14 +606,48 @@ export function CustomerOrderForm({
               type="text"
               required
               value={pincode}
-              onChange={(e) => setPincode(e.target.value)}
+              onChange={(e) => {
+                setPincode(e.target.value);
+                setDeliveryLocation((prev) => ({ ...prev, pincode: e.target.value }));
+              }}
               placeholder="6-digit pincode"
               className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
             />
           </div>
 
+          {/* Delivery Site Address & Google Maps Location Picker */}
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-[#13789B]" />
+              <span>Delivery Site Location (Google Maps Search & Custom Entry) *</span>
+            </label>
+            <DeliveryLocationPicker
+              value={deliveryLocation}
+              onChange={(newLoc) => {
+                setDeliveryLocation(newLoc);
+                setDeliveryAddress(newLoc.address);
+                if (newLoc.city) setCity(newLoc.city);
+                if (newLoc.pincode) setPincode(newLoc.pincode);
+              }}
+              disabled={isSubmitting}
+            />
+            {/* Hidden form inputs for server action */}
+            <input type="hidden" name="deliveryAddress" value={deliveryAddress} />
+            <input type="hidden" name="city" value={city} />
+            <input type="hidden" name="pincode" value={pincode} />
+            <input type="hidden" name="googlePlaceId" value={deliveryLocation.googlePlaceId || ""} />
+            <input type="hidden" name="latitude" value={deliveryLocation.latitude ?? ""} />
+            <input type="hidden" name="longitude" value={deliveryLocation.longitude ?? ""} />
+            <input type="hidden" name="customSiteName" value={deliveryLocation.customSiteName || ""} />
+            <input type="hidden" name="villageArea" value={deliveryLocation.villageArea || ""} />
+            <input type="hidden" name="district" value={deliveryLocation.district || ""} />
+            <input type="hidden" name="state" value={deliveryLocation.state || "Gujarat"} />
+            <input type="hidden" name="nearbyLandmark" value={deliveryLocation.nearbyLandmark || ""} />
+            <input type="hidden" name="locationSource" value={deliveryLocation.locationSource} />
+          </div>
+
           {/* Additional Notes */}
-          <div className="space-y-1.5">
+          <div className="sm:col-span-2 space-y-1.5">
             <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <FileText className="h-3.5 w-3.5 text-slate-400" />
               <span>Additional Notes / Unloading Instructions</span>
@@ -695,25 +754,198 @@ export function CustomerOrderForm({
           </p>
         </div>
 
-        {/* Final Button: PLACE ORDER */}
+        {/* Step 4: PREVIEW ORDER BUTTON */}
         <button
-          type="submit"
+          type="button"
+          onClick={() => {
+            if (totalBlocks <= 0 || !deliveryAddress.trim() || !customerName.trim() || !customerMobile.trim()) {
+              alert("Please ensure AAC block quantity, customer contact, and delivery address are entered.");
+              return;
+            }
+            setIsPreviewOpen(true);
+          }}
           disabled={isSubmitting || totalBlocks <= 0 || !deliveryAddress.trim()}
           className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0F627F] disabled:bg-slate-300 py-4 px-6 text-sm sm:text-base font-black text-white shadow-md hover:shadow-lg transition-all active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed"
         >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>SUBMITTING ORDER TO FACTORY...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="h-5 w-5" />
-              <span>PLACE ORDER</span>
-            </>
-          )}
+          <Sparkles className="h-5 w-5" />
+          <span>PREVIEW ORDER BEFORE CONFIRMATION</span>
         </button>
       </div>
+
+      {/* =========================================================================
+          ORDER PREVIEW MODAL / REVIEW SCREEN (STEP 5 & 6)
+      ========================================================================= */}
+      {isPreviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
+          <div className="relative w-full max-w-2xl rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-[#13789B] p-5 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold tracking-widest uppercase text-teal-300 block">
+                  Swarnim AAC Block Private Limited
+                </span>
+                <h3 className="text-lg font-black tracking-tight mt-0.5">
+                  Review & Confirm Your Consignment
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="rounded-full bg-white/10 hover:bg-white/20 p-2 text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto text-xs">
+              {/* AAC Block Items */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                  <span className="font-black text-navy uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Boxes className="h-4 w-4 text-[#13789B]" />
+                    <span>Selected AAC Blocks</span>
+                  </span>
+                  <span className="font-bold text-slate-500">
+                    {rowCalculations.length} Size{rowCalculations.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {rowCalculations.map((r, idx) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between py-1.5 border-b border-slate-200/60 last:border-0"
+                    >
+                      <div>
+                        <strong className="text-navy text-sm font-black">
+                          {formatBlockSizeName(r.product?.sizeLabel) || `Size #${idx + 1}`}
+                        </strong>
+                        <span className="text-slate-500 text-[11px] block font-mono">
+                          Dimensions: {r.product?.dimensions} • {r.cbmPerBlock.toFixed(4)} CBM/block
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono font-black text-[#13789B] text-sm block">
+                          {r.totalCbm.toFixed(3)} CBM
+                        </span>
+                        <span className="text-slate-500 text-[11px] italic block">
+                          ≈ {formatNumber(r.numericQty)} Blocks
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-slate-200 pt-2.5 flex justify-between items-center text-xs font-bold text-navy">
+                  <span>Total AAC Block Volume:</span>
+                  <span className="font-black font-mono text-base text-[#13789B]">
+                    {combinedCbm.toFixed(3)} CBM (≈ {formatNumber(totalBlocks)} Blocks)
+                  </span>
+                </div>
+              </div>
+
+              {/* Block Jointing Morter */}
+              <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 flex items-center justify-between">
+                <div>
+                  <strong className="text-navy text-sm font-black block">
+                    Block Jointing Morter
+                  </strong>
+                  <span className="text-slate-500 text-[11px]">
+                    Packaging: 40 KG Bag Only • High Polymer Masonry
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-black text-navy text-base block">
+                    {numAdhesiveBags} Bags
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG` : "0 Bags"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Customer & Destination */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <span className="font-black text-navy uppercase tracking-wider text-[11px] block border-b border-slate-200/80 pb-2">
+                  Customer & Delivery Site
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Customer Name</span>
+                    <strong className="text-navy">{customerName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Mobile</span>
+                    <strong className="text-navy font-mono">{customerMobile}</strong>
+                  </div>
+                  {customerEmail && (
+                    <div className="col-span-2">
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Email</span>
+                      <span className="text-slate-700">{customerEmail}</span>
+                    </div>
+                  )}
+                  <div className="col-span-2 pt-1 border-t border-slate-200/60">
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Delivery Site</span>
+                    <span className="text-navy font-semibold block">{deliveryAddress}</span>
+                    {deliveryLocation.nearbyLandmark && (
+                      <span className="text-slate-600 text-[11px] block mt-0.5">
+                        <strong>Landmark:</strong> {deliveryLocation.nearbyLandmark}
+                      </span>
+                    )}
+                    {deliveryLocation.latitude && deliveryLocation.longitude && (
+                      <span className="text-[11px] text-[#13789B] font-mono block mt-0.5">
+                        Coordinates: {deliveryLocation.latitude}, {deliveryLocation.longitude}
+                      </span>
+                    )}
+                  </div>
+                  {notes && (
+                    <div className="col-span-2 pt-1 border-t border-slate-200/60">
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Unloading Instructions</span>
+                      <span className="text-slate-700 italic">{notes}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Price Free Notice */}
+              <p className="text-[11px] text-slate-500 italic text-center">
+                This confirmation books your physical consignment into Swarnim factory queue. Price and billing are handled separately.
+              </p>
+            </div>
+
+            {/* Modal Actions: Edit Order vs Confirm & Place Order */}
+            <div className="bg-slate-50 border-t border-slate-200 p-4 sm:p-5 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 py-3 px-5 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Edit Order</span>
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#13789B] hover:bg-[#0f607d] disabled:bg-slate-300 py-3.5 px-6 text-sm font-black text-white shadow-md hover:shadow-lg transition-all active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{isEditing ? "UPDATING ORDER..." : "PLACING ORDER..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>{isEditing ? "CONFIRM & UPDATE ORDER" : "CONFIRM & PLACE ORDER"}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

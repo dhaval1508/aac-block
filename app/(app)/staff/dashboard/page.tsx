@@ -11,9 +11,15 @@ import {
   Phone,
   UserCheck,
   Activity as ActivityIcon,
+  Boxes,
+  Layers,
+  Scale,
+  MapPin,
+  ExternalLink,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { getMortarStock } from "@/lib/data";
 import {
   formatDate,
   formatNumber,
@@ -21,6 +27,7 @@ import {
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
   telHref,
+  mapsHref,
 } from "@/lib/utils";
 import { OrderStatus } from "@prisma/client";
 
@@ -32,25 +39,27 @@ export default async function StaffDashboardPage({
   searchParams: Promise<{ tab?: string; error?: string }>;
 }) {
   const session = await getSession();
-  if (!session || !["STAFF", "ADMIN"].includes(session.role)) redirect("/login");
+  if (!session || !["STAFF", "STOCKER", "ADMIN"].includes(session.role)) redirect("/login");
 
   const { tab = "active", error } = await searchParams;
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  // Strict role filter: staff only sees their assigned orders
+  // Strict role filter: staff sees their assigned orders
   const baseWhere = {
     assignedStaffId: session.id,
   };
 
-  // Metrics calculation
+  // Metrics and yard inventory calculation
   const [
     totalAssigned,
     pendingLoading,
     currentlyLoading,
     completedLoading,
     todayAssigned,
+    products,
+    mortarStock,
   ] = await Promise.all([
     prisma.order.count({ where: baseWhere }),
     prisma.order.count({
@@ -71,6 +80,20 @@ export default async function StaffDashboardPage({
         createdAt: { gte: startOfToday },
       },
     }),
+    prisma.product.findMany({
+      where: { active: true },
+      orderBy: { widthMm: "asc" },
+      select: {
+        id: true,
+        name: true,
+        sizeLabel: true,
+        dimensions: true,
+        cbmPerBlock: true,
+        blocksPerCbm: true,
+        movements: { select: { quantityDelta: true } },
+      },
+    }),
+    getMortarStock(),
   ]);
 
   // Tab filtering
@@ -105,6 +128,7 @@ export default async function StaffDashboardPage({
     select: {
       id: true,
       orderNo: true,
+      dcNumber: true,
       quantity: true,
       loadedQuantity: true,
       status: true,
@@ -113,6 +137,15 @@ export default async function StaffDashboardPage({
       notes: true,
       totalCbm: true,
       adhesiveBags: true,
+      googlePlaceId: true,
+      latitude: true,
+      longitude: true,
+      formattedAddress: true,
+      customSiteName: true,
+      villageArea: true,
+      city: true,
+      nearbyLandmark: true,
+      locationSource: true,
       createdAt: true,
       customer: {
         select: {
@@ -153,6 +186,8 @@ export default async function StaffDashboardPage({
           assignedAt: true,
         },
       },
+      weighbridgeSlip: true,
+      loadingRecord: true,
     },
   });
 
@@ -180,11 +215,11 @@ export default async function StaffDashboardPage({
       <div className="flex flex-col gap-3 rounded-3xl bg-navy p-5 sm:p-6 text-white sm:flex-row sm:items-center sm:justify-between shadow-lg min-w-0">
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold text-purple-200">
-            <Truck className="h-3.5 w-3.5" /> Yard Loading Portal
+            <Truck className="h-3.5 w-3.5" /> Loading & Stock Staff Portal
           </span>
-          <h1 className="mt-2 text-xl sm:text-2xl font-black tracking-tight">Loading Staff Dashboard</h1>
+          <h1 className="mt-2 text-xl sm:text-2xl font-black tracking-tight">Loading & Stock Staff Dashboard</h1>
           <p className="text-xs text-slate-300">
-            Assigned truck tasks, real-time physical counts, and verified dispatch staging.
+            Assigned loading tasks, weighbridge slips, vehicle staging, and factory yard inventory.
           </p>
         </div>
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
@@ -205,6 +240,59 @@ export default async function StaffDashboardPage({
           <span>{decodeURIComponent(error)}</span>
         </div>
       ) : null}
+
+      {/* Live Yard Stock Overview for Combined Role */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-50 text-[#13789B]">
+              <Boxes className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-navy">Factory Yard Stock Availability</h2>
+              <p className="text-[11px] text-slate-500">Live physical stock for order loading verification</p>
+            </div>
+          </div>
+          <Link
+            href="/stocker/stock"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#13789B] px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#0F627F] transition-all self-start sm:self-auto"
+          >
+            <span>Record Stock Movement</span>
+            <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
+          {products.map((p) => {
+            const blockQty = p.movements.reduce((sum, m) => sum + m.quantityDelta, 0);
+            const cbmQty = blockQty * Number(p.cbmPerBlock);
+            return (
+              <div key={p.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase block truncate">
+                  {formatBlockSizeName(p.sizeLabel)}
+                </span>
+                <div className="font-black text-navy text-sm font-mono truncate">
+                  {cbmQty.toFixed(3)} CBM
+                </div>
+                <div className="text-[10px] text-slate-400 italic truncate">
+                  ≈ {formatNumber(blockQty)} Blocks
+                </div>
+              </div>
+            );
+          })}
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-2.5 space-y-1">
+            <span className="text-[10px] font-bold text-[#13789B] uppercase block truncate">
+              Mortar (40 KG Bags)
+            </span>
+            <div className="font-black text-navy text-sm font-mono truncate">
+              {formatNumber(mortarStock?.stock ?? 0)} Bags
+            </div>
+            <div className="text-[10px] text-slate-500 italic truncate">
+              Thin-Bed Jointing
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Operational Metrics Cards */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4 min-w-0">
@@ -407,13 +495,30 @@ export default async function StaffDashboardPage({
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-slate-500 border-t border-slate-100 pt-2.5">
-                <span className="truncate max-w-md">
-                  📍 Delivery Site: {o.deliveryAddress}
-                </span>
-                <span className="shrink-0 text-[11px] text-slate-400">
-                  Assigned: {formatDate(o.transport?.assignedAt || o.createdAt)}
-                </span>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-slate-100 pt-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-slate-600 truncate max-w-md">
+                    📍 <strong>Site:</strong> {o.deliveryAddress}
+                  </span>
+                  {o.dcNumber && (
+                    <span className="rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-mono font-bold text-purple-800">
+                      Challan: {o.dcNumber}
+                    </span>
+                  )}
+                  {o.weighbridgeSlip && (
+                    <span className="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                      ⚖️ Slip RST #{o.weighbridgeSlip.rstNumber} ({Number(o.weighbridgeSlip.netWeightKg).toLocaleString()} KG)
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0 text-[11px] text-slate-400">
+                  {mapsHref(o.deliveryAddress, o.latitude ? Number(o.latitude) : null, o.longitude ? Number(o.longitude) : null) && (
+                    <span className="text-blue-600 font-bold">
+                      Maps Available
+                    </span>
+                  )}
+                  <span>Assigned: {formatDate(o.transport?.assignedAt || o.createdAt)}</span>
+                </div>
               </div>
             </Link>
           );

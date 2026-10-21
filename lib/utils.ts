@@ -62,12 +62,25 @@ export function telHref(phone: string) {
   return `tel:+${digits.startsWith("91") ? digits : `91${digits}`}`;
 }
 
-export function mapsHref(lat?: number | null, lng?: number | null, address?: string | null) {
-  if (lat != null && lng != null) {
-    return `https://www.google.com/maps?q=${lat},${lng}`;
+export function mapsHref(
+  arg1?: number | string | null,
+  arg2?: number | null,
+  arg3?: string | number | null
+): string | null {
+  // Case 1: mapsHref(lat, lng, address?)
+  if (typeof arg1 === "number" && typeof arg2 === "number") {
+    return `https://www.google.com/maps?q=${arg1},${arg2}`;
   }
-  if (address) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  // Case 2: mapsHref(address, lat?, lng?)
+  if (typeof arg1 === "string" && arg1.trim().length > 0) {
+    if (typeof arg2 === "number" && typeof arg3 === "number") {
+      return `https://www.google.com/maps?q=${arg2},${arg3}`;
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(arg1)}`;
+  }
+  // Case 3: arg3 is address string
+  if (typeof arg3 === "string" && arg3.trim().length > 0) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(arg3)}`;
   }
   return null;
 }

@@ -138,10 +138,26 @@ model Order {
   notes           String?
   status          OrderStatus     @default(PENDING)
   invoiceNo       String?         @unique // e.g. "INV-2026-0001"
+  dcNumber        String?         @unique // Delivery Challan series e.g. "SAB/DC/0001"
+  version         Int             @default(1)
   shareToken      String?         @unique // Secure public token for WhatsApp
   paymentStatus   PaymentStatus   @default(PENDING)
   paidAmount      Decimal         @default(0) @db.Decimal(14, 2)
   
+  // Google Maps & Custom Delivery Location fields
+  googlePlaceId   String?
+  latitude        Decimal?        @db.Decimal(10, 7)
+  longitude       Decimal?        @db.Decimal(10, 7)
+  formattedAddress String?
+  customSiteName  String?
+  villageArea     String?
+  city            String?
+  district        String?
+  state           String?
+  pincode         String?
+  nearbyLandmark  String?
+  locationSource  String?         @default("MANUAL") // "GOOGLE_MAPS" | "MANUAL"
+
   assignedStaffId String?
   assignedStaff   User?           @relation("StaffAssignedOrders", fields: [assignedStaffId], references: [id])
 
@@ -153,6 +169,9 @@ model Order {
 
   items           OrderItem[]
   transport       Transport?
+  weighbridgeSlip WeighbridgeSlip?
+  loadingRecord   LoadingRecord?
+  editHistory     OrderEditHistory[]
   events          OrderEvent[]
   payments        Payment[]
   movements       StockMovement[]
@@ -161,6 +180,7 @@ model Order {
   @@index([status])
   @@index([customerId])
   @@index([assignedStaffId])
+  @@index([dcNumber])
 }
 
 model OrderItem {
@@ -328,3 +348,107 @@ model SystemSetting {
   description String?
   updatedAt   DateTime @updatedAt
 }
+
+model WeighbridgeSlip {
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  rstNumber       String
+  receiptNumber   String?
+  weighbridgeName String
+  slipDate        DateTime  @default(now())
+  slipTime        String?
+  vehicleNumber   String
+  driverName      String
+  driverMobile    String
+  grossWeightKg   Decimal   @db.Decimal(10, 2)
+  tareWeightKg    Decimal   @db.Decimal(10, 2)
+  netWeightKg     Decimal   @db.Decimal(10, 2)
+  remarks         String?
+  slipUrl         String?
+  fileType        String?
+  fileName        String?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([rstNumber])
+  @@index([vehicleNumber])
+}
+
+model LoadingRecord {
+  id               String    @id @default(cuid())
+  orderId          String    @unique
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driverName       String
+  driverMobile     String
+  vehicleNumber    String
+  transporterName  String?
+  vehicleType      String?
+  loadingDate      DateTime? @default(now())
+  loadingStartTime String?
+  loadingEndTime   String?
+  loadedBlockSize  String?
+  loadedCbm        Decimal?  @db.Decimal(12, 4)
+  loadedMortarBags Int?      @default(0)
+  rstNumber        String?
+  grossWeight      Decimal?  @db.Decimal(10, 2)
+  tareWeight       Decimal?  @db.Decimal(10, 2)
+  netWeight        Decimal?  @db.Decimal(10, 2)
+  remarks          String?
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([vehicleNumber])
+}
+
+model OrderEditHistory {
+  id             String    @id @default(cuid())
+  orderId        String
+  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedById    String?
+  changedByName  String?
+  userRole       String
+  previousValues Json
+  newValues      Json
+  changedFields  String[]
+  orderVersion   Int
+  createdAt      DateTime  @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model CompanyProfile {
+  id                 String   @id @default(cuid())
+  legalName          String   @default("SWARNIM AAC BLOCK PRIVATE LIMITED")
+  tradeName          String   @default("SWARNIM AAC BLOCK PRIVATE LIMITED")
+  gstin              String   @default("24ABNCS5280K1ZU")
+  constitution       String   @default("Private Limited Company")
+  registeredAddress  String   @default("Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470")
+  state              String   @default("Gujarat")
+  district           String   @default("Ahmedabad")
+  registrationDate   String   @default("07/08/2024")
+  registrationType   String   @default("Regular")
+  contactPerson      String?
+  companyMobile      String?
+  altMobile          String?
+  companyEmail       String?
+  website            String?
+  factoryAddress     String?
+  factoryContact     String?
+  officeAddress      String?
+  signatoryName      String?
+  logoUrl            String?
+  stampUrl           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model DeliveryChallanSequence {
+  id           Int      @id @default(autoincrement())
+  currentValue Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+

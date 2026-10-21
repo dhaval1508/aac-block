@@ -39,7 +39,7 @@ export function DashboardCalculatorSection({
               AAC Block & Mortar Engineering Calculator
             </h2>
             <p className="text-xs text-slate-500">
-              Calculate exact volume (CBM), required physical blocks, and thin-bed mortar bags.
+              Calculate exact volume (CBM), required block units, and thin-bed jointing mortar bags.
             </p>
           </div>
         </div>

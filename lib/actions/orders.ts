@@ -9,6 +9,7 @@ import { getSession } from "@/lib/session";
 import { getProductStock, getProductCbm } from "@/lib/actions/stock";
 import { dispatchNotification } from "@/lib/push-dispatcher";
 import { formatNumber, formatBlockSizeName } from "@/lib/utils";
+import { getNextDeliveryChallanNumber } from "@/lib/delivery-challan";
 
 async function nextOrderNo() {
   const year = new Date().getFullYear();
@@ -47,6 +48,19 @@ export async function placeCustomerOrderAction(formData: FormData) {
   const itemsJson = String(formData.get("itemsJson") ?? "").trim();
   const rawAdhesiveBags = formData.get("adhesiveBags");
   const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
+
+  // Google Maps & Custom Location Details
+  const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
+  const latitudeRaw = formData.get("latitude");
+  const longitudeRaw = formData.get("longitude");
+  const latitude = latitudeRaw && !isNaN(Number(latitudeRaw)) ? Number(latitudeRaw) : null;
+  const longitude = longitudeRaw && !isNaN(Number(longitudeRaw)) ? Number(longitudeRaw) : null;
+  const customSiteName = String(formData.get("customSiteName") ?? "").trim() || null;
+  const villageArea = String(formData.get("villageArea") ?? "").trim() || null;
+  const district = String(formData.get("district") ?? "").trim() || null;
+  const state = String(formData.get("state") ?? "").trim() || "Gujarat";
+  const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
+  const locationSource = String(formData.get("locationSource") ?? (googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
 
   // Append city and pincode to address if not already present
   if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
@@ -230,6 +244,19 @@ export async function placeCustomerOrderAction(formData: FormData) {
         requestedDate: requestedDateRaw ? new Date(requestedDateRaw) : null,
         notes,
         status: OrderStatus.PENDING,
+        version: 1,
+        googlePlaceId,
+        latitude,
+        longitude,
+        formattedAddress: deliveryAddress,
+        customSiteName,
+        villageArea,
+        city: city || null,
+        district,
+        state,
+        pincode: pincode || null,
+        nearbyLandmark,
+        locationSource,
         items: {
           create: resolvedItems.map((it) => ({
             productId: it.productId,
@@ -502,7 +529,7 @@ export async function assignTransportAction(formData: FormData) {
 // 5. Staff starts loading
 export async function startLoadingAction(formData: FormData) {
   const session = await getSession();
-  if (!session || !["ADMIN", "STAFF"].includes(session.role)) redirect("/login");
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) redirect("/login");
 
   const orderId = String(formData.get("orderId") ?? "");
   const order = await prisma.order.findUnique({ where: { id: orderId } });
@@ -512,7 +539,7 @@ export async function startLoadingAction(formData: FormData) {
   }
 
   // Security Guard: Staff can only load orders assigned to them
-  if (session.role === "STAFF" && order.assignedStaffId !== session.id) {
+  if (["STAFF", "STOCKER"].includes(session.role) && order.assignedStaffId && order.assignedStaffId !== session.id) {
     redirect(`/staff/dashboard?error=You%20are%20not%20assigned%20to%20order%20${order.orderNo}`);
   }
 
@@ -555,7 +582,7 @@ export async function startLoadingAction(formData: FormData) {
 // 6. Staff marks loading done with actual counted blocks / CBM
 export async function completeLoadingAction(formData: FormData) {
   const session = await getSession();
-  if (!session || !["ADMIN", "STAFF"].includes(session.role)) redirect("/login");
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) redirect("/login");
 
   const orderId = String(formData.get("orderId") ?? "");
   const loadedQuantityRaw = formData.get("loadedQuantity");
@@ -571,7 +598,7 @@ export async function completeLoadingAction(formData: FormData) {
   }
 
   // Security Guard: Staff can only load orders assigned to them
-  if (session.role === "STAFF" && order.assignedStaffId !== session.id) {
+  if (["STAFF", "STOCKER"].includes(session.role) && order.assignedStaffId && order.assignedStaffId !== session.id) {
     redirect(`/staff/dashboard?error=You%20are%20not%20assigned%20to%20order%20${order.orderNo}`);
   }
 
@@ -725,16 +752,19 @@ export async function dispatchOrderAction(formData: FormData) {
       });
     }
 
+    const dcNumber = order.dcNumber || (await getNextDeliveryChallanNumber());
+
     await tx.order.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.DISPATCHED,
         dispatchedAt: new Date(),
+        dcNumber,
         events: {
           create: {
             status: OrderStatus.DISPATCHED,
             title: "Order Dispatched",
-            note: `Truck ${order.transport?.truckNumber || ""} left the factory yard • Deducted from inventory`,
+            note: `Delivery Challan ${dcNumber} issued • Truck ${order.transport?.truckNumber || ""} left the factory yard • Deducted from inventory`,
             createdById: session.id,
           },
         },
@@ -850,3 +880,542 @@ export async function recordPaymentAction(formData: FormData) {
   revalidatePath("/admin/payments");
   redirect(`/admin/orders/${orderId}`);
 }
+
+// ============================================================================
+// 9. Customer Edits Order Before Dispatch (with Audit History & Notifications)
+// ============================================================================
+export async function editCustomerOrderAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !["CUSTOMER", "ADMIN"].includes(session.role)) {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const existingOrder = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { include: { product: true } },
+      customer: true,
+      assignedStaff: true,
+    },
+  });
+
+  if (!existingOrder) {
+    redirect("/customer/orders?error=Order%20not%20found");
+  }
+
+  // Security guard: Customers can only edit their own orders
+  if (session.role === "CUSTOMER" && existingOrder.customerId !== session.id) {
+    redirect("/customer/orders?error=Unauthorized%20access%20to%20order");
+  }
+
+  // Strict backend status check: Only editable before dispatch!
+  const nonEditableStatuses: OrderStatus[] = [
+    OrderStatus.DISPATCHED,
+    OrderStatus.DELIVERED,
+    OrderStatus.CANCELLED,
+    OrderStatus.REJECTED,
+  ];
+
+  if (nonEditableStatuses.includes(existingOrder.status)) {
+    redirect(
+      `/customer/orders/${orderId}?error=Order%20cannot%20be%20edited%20after%20it%20has%20been%20dispatched%20or%20delivered`
+    );
+  }
+
+  let deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim();
+  const pincode = String(formData.get("pincode") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const itemsJson = String(formData.get("itemsJson") ?? "").trim();
+  const rawAdhesiveBags = formData.get("adhesiveBags");
+  const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
+
+  // Google Maps fields
+  const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
+  const latitudeRaw = formData.get("latitude");
+  const longitudeRaw = formData.get("longitude");
+  const latitude = latitudeRaw && !isNaN(Number(latitudeRaw)) ? Number(latitudeRaw) : null;
+  const longitude = longitudeRaw && !isNaN(Number(longitudeRaw)) ? Number(longitudeRaw) : null;
+  const customSiteName = String(formData.get("customSiteName") ?? "").trim() || null;
+  const villageArea = String(formData.get("villageArea") ?? "").trim() || null;
+  const district = String(formData.get("district") ?? "").trim() || null;
+  const state = String(formData.get("state") ?? "").trim() || "Gujarat";
+  const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
+  const locationSource = String(formData.get("locationSource") ?? (googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
+
+  if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
+    deliveryAddress = `${deliveryAddress}, ${city}`;
+  }
+  if (pincode && !deliveryAddress.includes(pincode)) {
+    deliveryAddress = `${deliveryAddress} - ${pincode}`;
+  }
+
+  if (!deliveryAddress) {
+    redirect(`/customer/orders/${orderId}/edit?error=Delivery%20site%20address%20is%20required`);
+  }
+
+  const orderItemsToProcess: OrderItemInput[] = [];
+  if (itemsJson) {
+    try {
+      const parsed = JSON.parse(itemsJson) as OrderItemInput[];
+      if (Array.isArray(parsed)) {
+        for (const it of parsed) {
+          const qty = it.quantity ? Math.floor(it.quantity) : 0;
+          const cbm = it.cbm ? Number(it.cbm) : 0;
+          if (it.productId && (qty > 0 || cbm > 0)) {
+            orderItemsToProcess.push({
+              productId: it.productId,
+              quantity: qty,
+              cbm: cbm > 0 ? cbm : undefined,
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Ensure mortar / adhesive is added if adhesiveBags > 0
+  const activeAdhesiveProduct = await prisma.product.findFirst({
+    where: {
+      category: { in: ["MORTAR", "ADHESIVE", "BLOCK_JOINTING_MORTAR"] },
+      active: true,
+      deletedAt: null,
+    },
+  });
+
+  if (activeAdhesiveProduct && adhesiveBags > 0) {
+    const alreadyHasAdhesive = orderItemsToProcess.some((it) => it.productId === activeAdhesiveProduct.id);
+    if (!alreadyHasAdhesive) {
+      orderItemsToProcess.push({
+        productId: activeAdhesiveProduct.id,
+        quantity: adhesiveBags,
+      });
+    }
+  }
+
+  if (orderItemsToProcess.length === 0) {
+    redirect(`/customer/orders/${orderId}/edit?error=Please%20select%20at%20least%20one%20product%20with%20valid%20quantity`);
+  }
+
+  // Resolve products and recalculate
+  let combinedCbm = 0;
+  let totalBlocks = 0;
+  let hasAdhesive = adhesiveBags > 0;
+
+  const resolvedItems: any[] = [];
+  for (const it of orderItemsToProcess) {
+    const product = await prisma.product.findUnique({ where: { id: it.productId } });
+    if (!product) continue;
+
+    const isAacBlock = product.category === "AAC_BLOCK";
+    const cbmPerBlock = Number(product.cbmPerBlock || 0.018);
+    let itemQty = it.quantity ?? 0;
+    let itemCbm = it.cbm ?? 0;
+
+    if (isAacBlock) {
+      if (itemCbm > 0 && itemQty <= 0 && cbmPerBlock > 0) {
+        itemQty = Math.ceil(itemCbm / cbmPerBlock);
+      } else if (itemQty > 0 && itemCbm <= 0 && cbmPerBlock > 0) {
+        itemCbm = Number((itemQty * cbmPerBlock).toFixed(4));
+      } else if (itemCbm > 0 && cbmPerBlock > 0) {
+        itemQty = Math.ceil(itemCbm / cbmPerBlock);
+        itemCbm = Number((itemQty * cbmPerBlock).toFixed(4));
+      }
+      totalBlocks += itemQty;
+      combinedCbm += itemCbm;
+    } else {
+      hasAdhesive = true;
+    }
+
+    resolvedItems.push({
+      productId: product.id,
+      productType: product.category,
+      productName: product.name,
+      sizeLabel: product.sizeLabel,
+      dimensions: product.dimensions,
+      quantity: itemQty,
+      cbmPerUnit: isAacBlock && cbmPerBlock > 0 ? cbmPerBlock : null,
+      totalCbm: isAacBlock && itemCbm > 0 ? Number(itemCbm.toFixed(4)) : null,
+      rate: 0,
+      gstRate: 0,
+      subtotal: 0,
+      gstAmount: 0,
+      totalAmount: 0,
+    });
+  }
+
+  const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
+
+  // Compare previous values with new values to track audit history
+  const changedFields: string[] = [];
+  const prevCbm = Number(existingOrder.totalCbm || 0);
+  if (Math.abs(prevCbm - combinedCbm) > 0.001) changedFields.push("Total CBM");
+  if (existingOrder.quantity !== totalBlocks) changedFields.push("Block Quantity");
+  if (existingOrder.adhesiveBags !== adhesiveBags) changedFields.push("Block Jointing Morter");
+  if (existingOrder.deliveryAddress !== deliveryAddress) changedFields.push("Delivery Address");
+  if (existingOrder.notes !== notes) changedFields.push("Site Notes");
+  if (existingOrder.googlePlaceId !== googlePlaceId) changedFields.push("Maps Location");
+
+  const prevSnapshot = {
+    totalCbm: prevCbm,
+    quantity: existingOrder.quantity,
+    adhesiveBags: existingOrder.adhesiveBags,
+    deliveryAddress: existingOrder.deliveryAddress,
+    notes: existingOrder.notes,
+    googlePlaceId: existingOrder.googlePlaceId,
+    items: existingOrder.items.map((i) => ({
+      sizeLabel: i.sizeLabel,
+      quantity: i.quantity,
+      totalCbm: i.totalCbm ? Number(i.totalCbm) : null,
+    })),
+  };
+
+  const newSnapshot = {
+    totalCbm: Number(combinedCbm.toFixed(3)),
+    quantity: totalBlocks,
+    adhesiveBags,
+    deliveryAddress,
+    notes,
+    googlePlaceId,
+    items: resolvedItems.map((i) => ({
+      sizeLabel: i.sizeLabel,
+      quantity: i.quantity,
+      totalCbm: i.totalCbm,
+    })),
+  };
+
+  const newVersion = (existingOrder.version || 1) + 1;
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Delete old line items
+    await tx.orderItem.deleteMany({ where: { orderId } });
+
+    // 2. Insert new line items
+    await tx.orderItem.createMany({
+      data: resolvedItems.map((it) => ({
+        orderId,
+        productId: it.productId,
+        productType: it.productType,
+        productName: it.productName,
+        sizeLabel: it.sizeLabel,
+        dimensions: it.dimensions,
+        quantity: it.quantity,
+        cbmPerUnit: it.cbmPerUnit,
+        totalCbm: it.totalCbm,
+        rate: 0,
+        gstRate: 0,
+        subtotal: 0,
+        gstAmount: 0,
+        totalAmount: 0,
+      })),
+    });
+
+    // 3. Update order record
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        productId: primaryItem.productId,
+        quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
+        totalCbm: combinedCbm > 0 ? Number(combinedCbm.toFixed(4)) : null,
+        hasMortar: adhesiveBags > 0,
+        hasAdhesive,
+        adhesiveBags,
+        deliveryAddress,
+        notes,
+        googlePlaceId,
+        latitude,
+        longitude,
+        formattedAddress: deliveryAddress,
+        customSiteName,
+        villageArea,
+        city: city || null,
+        district,
+        state,
+        pincode: pincode || null,
+        nearbyLandmark,
+        locationSource,
+        version: newVersion,
+        events: {
+          create: {
+            status: existingOrder.status,
+            title: "Order Updated by Customer",
+            note: `Order v${newVersion} modified: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} blocks), ${adhesiveBags} bags mortar. Changes: ${
+              changedFields.join(", ") || "Specifications refreshed"
+            }`,
+            createdById: session.id,
+          },
+        },
+      },
+    });
+
+    // 4. Save immutable audit entry
+    await tx.orderEditHistory.create({
+      data: {
+        orderId,
+        changedById: session.id,
+        changedByName: session.name,
+        userRole: session.role,
+        previousValues: prevSnapshot,
+        newValues: newSnapshot,
+        changedFields,
+        orderVersion: newVersion,
+      },
+    });
+  });
+
+  // Notify Admin
+  await dispatchNotification({
+    role: "ADMIN",
+    title: `Order Updated by Customer: ${existingOrder.orderNo}`,
+    message: `Customer modified ${existingOrder.orderNo}. Volume: ${combinedCbm.toFixed(3)} CBM (Prev: ${prevCbm.toFixed(3)} CBM). Changed: ${
+      changedFields.join(", ") || "Details"
+    }`,
+    link: `/admin/orders/${orderId}`,
+    orderId,
+    type: "ORDER_UPDATED",
+  });
+
+  // If order was already assigned to staff or in loading, notify staff immediately
+  if (existingOrder.assignedStaffId) {
+    await dispatchNotification({
+      userId: existingOrder.assignedStaffId,
+      title: `ALERT: Assigned Order ${existingOrder.orderNo} Updated`,
+      message: `Customer updated Order ${existingOrder.orderNo} specifications. Please re-verify loading count! New CBM: ${combinedCbm.toFixed(3)} CBM`,
+      link: `/staff/orders/${orderId}`,
+      orderId,
+      type: "ORDER_UPDATED",
+    });
+  }
+
+  revalidatePath(`/customer/orders/${orderId}`);
+  revalidatePath(`/customer/orders/${orderId}/edit`);
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/staff/dashboard");
+  redirect(`/customer/orders/${orderId}?success=Order%20updated%20successfully`);
+}
+
+// ============================================================================
+// 10. Weighbridge Slip / Vajan Slip Management
+// ============================================================================
+export async function saveWeighbridgeSlipAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const rstNumber = String(formData.get("rstNumber") ?? "").trim();
+  const receiptNumber = String(formData.get("receiptNumber") ?? "").trim() || null;
+  const weighbridgeName = String(formData.get("weighbridgeName") ?? "").trim() || "Swarnim Plant Weighbridge";
+  const slipDateRaw = String(formData.get("slipDate") ?? "").trim();
+  const slipTime = String(formData.get("slipTime") ?? "").trim() || null;
+  const vehicleNumber = String(formData.get("vehicleNumber") ?? "").trim().toUpperCase();
+  const driverName = String(formData.get("driverName") ?? "").trim();
+  const driverMobile = String(formData.get("driverMobile") ?? "").trim();
+  const grossWeightKg = Number(formData.get("grossWeightKg") || 0);
+  const tareWeightKg = Number(formData.get("tareWeightKg") || 0);
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const slipUrl = String(formData.get("slipUrl") ?? "").trim() || null;
+  const fileType = String(formData.get("fileType") ?? "").trim() || null;
+  const fileName = String(formData.get("fileName") ?? "").trim() || null;
+
+  if (!orderId || !rstNumber || !vehicleNumber) {
+    redirect(`/staff/orders/${orderId}?error=RST%20Number%20and%20Vehicle%20Number%20are%20required`);
+  }
+
+  if (grossWeightKg <= 0 || tareWeightKg <= 0) {
+    redirect(`/staff/orders/${orderId}?error=Please%20enter%20valid%20Gross%20and%20Tare%20weights`);
+  }
+
+  if (grossWeightKg < tareWeightKg) {
+    redirect(`/staff/orders/${orderId}?error=Gross%20Weight%20cannot%20be%20less%20than%20Tare%20Weight`);
+  }
+
+  const netWeightKg = Number((grossWeightKg - tareWeightKg).toFixed(2));
+  const slipDate = slipDateRaw ? new Date(slipDateRaw) : new Date();
+
+  await prisma.$transaction(async (tx) => {
+    // Upsert WeighbridgeSlip
+    await tx.weighbridgeSlip.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        rstNumber,
+        receiptNumber,
+        weighbridgeName,
+        slipDate,
+        slipTime,
+        vehicleNumber,
+        driverName,
+        driverMobile,
+        grossWeightKg,
+        tareWeightKg,
+        netWeightKg,
+        remarks,
+        slipUrl,
+        fileType,
+        fileName,
+        createdById: session.id,
+      },
+      update: {
+        rstNumber,
+        receiptNumber,
+        weighbridgeName,
+        slipDate,
+        slipTime,
+        vehicleNumber,
+        driverName,
+        driverMobile,
+        grossWeightKg,
+        tareWeightKg,
+        netWeightKg,
+        remarks,
+        ...(slipUrl ? { slipUrl, fileType, fileName } : {}),
+      },
+    });
+
+    // Update or create Transport details
+    if (vehicleNumber) {
+      await tx.transport.upsert({
+        where: { orderId },
+        create: {
+          orderId,
+          truckNumber: vehicleNumber,
+          driverName: driverName || "Assigned Driver",
+          driverMobile: driverMobile || "9879500000",
+        },
+        update: {
+          truckNumber: vehicleNumber,
+          ...(driverName ? { driverName } : {}),
+          ...(driverMobile ? { driverMobile } : {}),
+        },
+      });
+    }
+
+    // Add order timeline event
+    await tx.orderEvent.create({
+      data: {
+        orderId,
+        status: OrderStatus.LOADED,
+        title: "Weighbridge Slip Recorded",
+        note: `RST #${rstNumber} • Net Weight: ${netWeightKg.toLocaleString()} KG (Gross: ${grossWeightKg.toLocaleString()} KG, Tare: ${tareWeightKg.toLocaleString()} KG) • Vehicle: ${vehicleNumber}`,
+        createdById: session.id,
+      },
+    });
+  });
+
+  // Notify Admin
+  await dispatchNotification({
+    role: "ADMIN",
+    title: "Weighbridge Slip Added",
+    message: `Weighbridge slip RST #${rstNumber} recorded. Net weight: ${netWeightKg} KG for truck ${vehicleNumber}.`,
+    link: `/admin/orders/${orderId}`,
+    orderId,
+    type: "WEIGHBRIDGE_RECORDED",
+  });
+
+  revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath("/staff/dashboard");
+  revalidatePath(`/admin/orders/${orderId}`);
+  redirect(`/staff/orders/${orderId}?success=Weighbridge%20slip%20saved%20successfully`);
+}
+
+// ============================================================================
+// 11. Loading & Vehicle Details Entry
+// ============================================================================
+export async function saveLoadingAndVehicleAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const driverName = String(formData.get("driverName") ?? "").trim();
+  const driverMobile = String(formData.get("driverMobile") ?? "").trim();
+  const vehicleNumber = String(formData.get("vehicleNumber") ?? "").trim().toUpperCase();
+  const transporterName = String(formData.get("transporterName") ?? "").trim() || null;
+  const vehicleType = String(formData.get("vehicleType") ?? "").trim() || null;
+  const loadingStartTime = String(formData.get("loadingStartTime") ?? "").trim() || null;
+  const loadingEndTime = String(formData.get("loadingEndTime") ?? "").trim() || null;
+  const loadedBlockSize = String(formData.get("loadedBlockSize") ?? "").trim() || null;
+  const loadedCbm = Number(formData.get("loadedCbm") || 0);
+  const loadedMortarBags = Number(formData.get("loadedMortarBags") || 0);
+  const rstNumber = String(formData.get("rstNumber") ?? "").trim() || null;
+  const grossWeight = Number(formData.get("grossWeight") || 0);
+  const tareWeight = Number(formData.get("tareWeight") || 0);
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+
+  if (!orderId || !vehicleNumber || !driverName) {
+    redirect(`/staff/orders/${orderId}?error=Driver%20Name%20and%20Vehicle%20Number%20are%20required`);
+  }
+
+  const netWeight = grossWeight > 0 && tareWeight > 0 ? Number((grossWeight - tareWeight).toFixed(2)) : null;
+
+  await prisma.$transaction(async (tx) => {
+    // Upsert LoadingRecord
+    await tx.loadingRecord.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        driverName,
+        driverMobile,
+        vehicleNumber,
+        transporterName,
+        vehicleType,
+        loadingStartTime,
+        loadingEndTime,
+        loadedBlockSize,
+        loadedCbm: loadedCbm > 0 ? loadedCbm : null,
+        loadedMortarBags,
+        rstNumber,
+        grossWeight: grossWeight > 0 ? grossWeight : null,
+        tareWeight: tareWeight > 0 ? tareWeight : null,
+        netWeight,
+        remarks,
+        createdById: session.id,
+      },
+      update: {
+        driverName,
+        driverMobile,
+        vehicleNumber,
+        transporterName,
+        vehicleType,
+        loadingStartTime,
+        loadingEndTime,
+        loadedBlockSize,
+        loadedCbm: loadedCbm > 0 ? loadedCbm : null,
+        loadedMortarBags,
+        rstNumber,
+        grossWeight: grossWeight > 0 ? grossWeight : null,
+        tareWeight: tareWeight > 0 ? tareWeight : null,
+        netWeight,
+        remarks,
+      },
+    });
+
+    // Sync Transport
+    await tx.transport.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        truckNumber: vehicleNumber,
+        driverName,
+        driverMobile,
+        transporterName,
+      },
+      update: {
+        truckNumber: vehicleNumber,
+        driverName,
+        driverMobile,
+        transporterName,
+      },
+    });
+  });
+
+  revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath("/staff/dashboard");
+  revalidatePath(`/admin/orders/${orderId}`);
+  redirect(`/staff/orders/${orderId}?success=Loading%20and%20vehicle%20details%20saved`);
+}
+
