@@ -1,35 +1,41 @@
 import { prisma } from "../lib/prisma";
 
+const DEFAULT_COMPANY_PROFILE = {
+  legalName: "SWARNIM AAC BLOCK PRIVATE LIMITED",
+  tradeName: "SWARNIM AAC BLOCK PRIVATE LIMITED",
+  gstin: "24ABNCS5280K1ZU",
+  constitution: "Private Limited Company",
+  registeredAddress:
+    "Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470",
+  state: "Gujarat",
+  district: "Ahmedabad",
+  registrationDate: "07/08/2024",
+  registrationType: "Regular",
+  officeAddress:
+    "Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470",
+  factoryAddress:
+    "Swarnim AAC Block Plant, Survey No. 42, Jagatpur Road, Ahmedabad, Gujarat - 382470",
+  companyMobile: "+91 98795 00000",
+  companyEmail: "info@swarnimaac.com",
+  website: "https://swarnimaac.com",
+  signatoryName: "Authorized Signatory",
+};
+
 async function main() {
   console.log("🌱 Seeding Company Profile and Delivery Challan Sequence...");
 
   const existingProfile = await prisma.companyProfile.findFirst();
   if (!existingProfile) {
     const profile = await prisma.companyProfile.create({
-      data: {
-        legalName: "SWARNIM AAC BLOCK PRIVATE LIMITED",
-        tradeName: "SWARNIM AAC BLOCK PRIVATE LIMITED",
-        gstin: "24ABNCS5280K1ZU",
-        constitution: "Private Limited Company",
-        registeredAddress:
-          "Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470",
-        state: "Gujarat",
-        district: "Ahmedabad",
-        registrationDate: "07/08/2024",
-        registrationType: "Regular",
-        officeAddress:
-          "Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470",
-        factoryAddress:
-          "Swarnim AAC Block Plant, Survey No. 42, Jagatpur Road, Ahmedabad, Gujarat - 382470",
-        companyMobile: "+91 98795 00000",
-        companyEmail: "info@swarnimaac.com",
-        website: "https://swarnimaac.com",
-        signatoryName: "Authorized Signatory",
-      },
+      data: DEFAULT_COMPANY_PROFILE,
     });
     console.log("✅ Company profile seeded:", profile.legalName);
   } else {
-    console.log("ℹ️ Company profile already exists:", existingProfile.legalName);
+    const updated = await prisma.companyProfile.update({
+      where: { id: existingProfile.id },
+      data: DEFAULT_COMPANY_PROFILE,
+    });
+    console.log("✅ Company profile synchronized and updated:", updated.legalName);
   }
 
   const existingSeq = await prisma.deliveryChallanSequence.findFirst();
@@ -53,3 +59,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

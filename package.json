@@ -16,6 +16,7 @@
     "db:reset": "prisma migrate reset",
     "orders:backup": "tsx scripts/backup-orders.ts",
     "orders:clean": "tsx scripts/clean-orders.ts",
+    "orders:clean:confirm": "tsx scripts/clean-orders.ts --confirm-delete",
     "profile:seed": "tsx scripts/seed-company-profile.ts"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import type { Prisma } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -7,25 +8,33 @@ import * as path from "path";
  *
  * Requirements:
  * - Verified backup archive created automatically or verified before execution
- * - Requires explicit --confirm-delete flag
+ * - Requires explicit --confirm-delete flag (or --force / -y / npm run orders:clean:confirm)
  * - Deletes ONLY operational orders and order-linked records
  * - Preserves ALL Users (Admin, Staff, Customer), Products (all 9 sizes + mortar),
  *   Stock Master Data, Stock Movements, Company Profile, and App Settings.
  * - Resets Delivery Challan Sequence so series starts fresh at SAB/DC/0001.
  */
 async function main() {
-  const isConfirmed = process.argv.includes("--confirm-delete");
+  const isConfirmed =
+    process.argv.includes("--confirm-delete") ||
+    process.argv.includes("--confirm") ||
+    process.argv.includes("--force") ||
+    process.argv.includes("-y") ||
+    process.env.CONFIRM_DELETE === "true" ||
+    process.env.npm_config_confirm_delete === "true";
 
   console.log("=================================================================");
   console.log(" SWARNIM AAC BLOCK: CONTROLLED OPERATIONAL ORDER CLEANUP");
   console.log("=================================================================\n");
 
   // 1. Resolve archive directory across both root and pwa working directories
-  const archiveDir = fs.existsSync(path.join(process.cwd(), "archive"))
-    ? path.join(process.cwd(), "archive")
-    : fs.existsSync(path.join(__dirname, "..", "archive"))
-    ? path.join(__dirname, "..", "archive")
-    : path.join(process.cwd(), "pwa", "archive");
+  const candidateDirs = [
+    path.join(process.cwd(), "archive"),
+    path.join(process.cwd(), "pwa", "archive"),
+    path.resolve(process.cwd(), "..", "archive"),
+  ];
+
+  let archiveDir = candidateDirs.find((d) => fs.existsSync(d)) || path.join(process.cwd(), "archive");
 
   if (!fs.existsSync(archiveDir)) {
     fs.mkdirSync(archiveDir, { recursive: true });
@@ -43,9 +52,11 @@ async function main() {
   console.log(`- Order Items: ${itemCount}`);
   console.log(`- Order Events: ${eventCount}`);
 
-  let backupFiles: string[] = fs
-    .readdirSync(archiveDir, { encoding: "utf-8" })
-    .filter((f: string) => f.startsWith("orders-backup-"));
+  const rawEntries = fs.readdirSync(archiveDir);
+  let backupFiles: string[] = rawEntries
+    .map((f) => String(f))
+    .filter((f) => f.startsWith("orders-backup-"));
+
   if (backupFiles.length === 0 || isConfirmed) {
     console.log("📦 Creating automatic verified backup archive...");
     const allOrders = await prisma.order.findMany({
@@ -72,15 +83,16 @@ async function main() {
 
   if (!isConfirmed) {
     console.log("\n⚠️  SAFETY NOTICE: Execution halted because --confirm-delete was not passed.");
-    console.log("To execute the authorized cleanup, run:");
+    console.log("To execute the authorized cleanup, run either:");
+    console.log("  npm run orders:clean:confirm");
     console.log("  npx tsx scripts/clean-orders.ts --confirm-delete\n");
-    process.exit(0);
+    return;
   }
 
   console.log("\n⚡ Performing controlled cleanup within database transaction...");
 
   await prisma.$transaction(
-    async (tx: any) => {
+    async (tx: Prisma.TransactionClient) => {
       // 1. Order edit history
       await tx.orderEditHistory.deleteMany({});
       console.log("✓ Cleared OrderEditHistory");
@@ -156,3 +168,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
