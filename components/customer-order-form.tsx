@@ -310,9 +310,19 @@ export function CustomerOrderForm({
                     </label>
                     <select
                       value={item.productId}
-                      onChange={(e) =>
-                        updateBlockSizeRow(item.id, { productId: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const newProductId = e.target.value;
+                        const newProd = aacProducts.find((p) => p.id === newProductId);
+                        const newRate = Number(newProd?.cbmPerBlock || 0.018);
+                        let newQty = item.quantity;
+                        if (typeof item.cbm === "number" && item.cbm > 0 && newRate > 0) {
+                          newQty = Math.round(item.cbm / newRate);
+                        }
+                        updateBlockSizeRow(item.id, {
+                          productId: newProductId,
+                          quantity: newQty,
+                        });
+                      }}
                       className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
                     >
                       {aacProducts.map((p) => (
@@ -351,38 +361,25 @@ export function CustomerOrderForm({
                         CBM
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 italic mt-0.5">
-                      {typeof item.quantity === "number" && item.quantity > 0
-                        ? `≈ ${formatNumber(item.quantity)} Blocks`
-                        : "Calculated automatically from CBM"}
-                    </p>
                   </div>
                 </div>
 
                 {/* Auto Calculated Row Metrics */}
                 {rowCalc && (rowCalc.totalCbm > 0 || rowCalc.numericQty > 0) ? (
-                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-white border border-slate-200/80 p-2.5 text-center">
-                    <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase">
+                  <div className="grid grid-cols-2 gap-3 rounded-2xl bg-white border border-teal-200/90 p-3 sm:p-3.5 text-center shadow-xs">
+                    <div className="border-r border-slate-100 pr-2">
+                      <span className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider">
                         Approx. Blocks
                       </span>
-                      <span className="text-xs font-black font-mono text-navy">
+                      <span className="text-sm sm:text-base font-black font-mono text-navy mt-0.5 block">
                         {formatNumber(rowCalc.numericQty)} Nos
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase">
-                        CBM / Block
-                      </span>
-                      <span className="text-xs font-bold font-mono text-slate-700">
-                        {rowCalc.cbmPerBlock.toFixed(4)} m³
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[10px] font-bold text-teal-800 uppercase">
+                      <span className="block text-[10px] sm:text-[11px] font-black text-[#13789B] uppercase tracking-wider">
                         Total CBM
                       </span>
-                      <span className="text-xs font-black font-mono text-[#13789B]">
+                      <span className="text-sm sm:text-base font-black font-mono text-[#13789B] mt-0.5 block">
                         {rowCalc.totalCbm.toFixed(3)} CBM
                       </span>
                     </div>

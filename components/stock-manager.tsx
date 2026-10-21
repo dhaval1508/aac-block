@@ -256,28 +256,15 @@ export function StockManager({
   // Live Automatic Calculations for Mortar Entry
   const mortarCalculations = useMemo(() => {
     const qty = typeof quantity === "number" ? Math.max(0, quantity) : 0;
-    const pPrice = typeof purchasePrice === "number" ? Math.max(0, purchasePrice) : 0;
-    const sPrice = typeof sellingPrice === "number" ? Math.max(0, sellingPrice) : 0;
-
     const totalWeightKg = qty * 40;
     const totalWeightMt = totalWeightKg / 1000;
-    const totalPurchaseValue = qty * pPrice;
-    const totalSellingValue = qty * sPrice;
-    const estimatedMargin = totalSellingValue - totalPurchaseValue;
-    const marginPercent = totalPurchaseValue > 0 ? (estimatedMargin / totalPurchaseValue) * 100 : 0;
 
     return {
       qty,
       totalWeightKg,
       totalWeightMt,
-      pPrice,
-      sPrice,
-      totalPurchaseValue,
-      totalSellingValue,
-      estimatedMargin,
-      marginPercent,
     };
-  }, [quantity, purchasePrice, sellingPrice]);
+  }, [quantity]);
 
   // Negative Stock Guard
   const exceedsStock = useMemo(() => {
@@ -693,114 +680,27 @@ export function StockManager({
                   )}
                 </div>
 
-                {/* Purchase Price & Selling Price Fields */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="label">Purchase Price (₹/Bag)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
-                      <input
-                        name="purchasePrice"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="e.g. 250"
-                        value={purchasePrice}
-                        onChange={(e) =>
-                          setPurchasePrice(e.target.value === "" ? "" : Number(e.target.value))
-                        }
-                        className="field pl-7 text-xs font-semibold font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="label">Selling Price (₹/Bag)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
-                      <input
-                        name="sellingPrice"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="e.g. 320"
-                        value={sellingPrice}
-                        onChange={(e) =>
-                          setSellingPrice(e.target.value === "" ? "" : Number(e.target.value))
-                        }
-                        className="field pl-7 text-xs font-semibold font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Supplier / Manufacturer & Entry Date */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="label">Supplier / Manufacturer</label>
-                    <input
-                      name="supplier"
-                      type="text"
-                      placeholder="e.g. Swarnim Plant"
-                      value={supplier}
-                      onChange={(e) => setSupplier(e.target.value)}
-                      className="field text-xs font-medium"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Stock Entry Date</label>
-                    <input
-                      name="entryDate"
-                      type="date"
-                      value={entryDate}
-                      onChange={(e) => setEntryDate(e.target.value)}
-                      className="field text-xs font-medium"
-                    />
-                  </div>
+                {/* Stock Entry Date */}
+                <div>
+                  <label className="label">Stock Entry Date</label>
+                  <input
+                    name="entryDate"
+                    type="date"
+                    value={entryDate}
+                    onChange={(e) => setEntryDate(e.target.value)}
+                    className="field text-xs font-medium"
+                  />
                 </div>
 
                 {/* Live Automatic Calculations Box */}
                 {mortarCalculations.qty > 0 && (
                   <div className="rounded-xl border border-sky-300 bg-sky-100/60 p-3 text-xs space-y-1.5 shadow-2xs">
-                    <div className="flex items-center justify-between text-slate-600 font-semibold border-b border-sky-200 pb-1">
+                    <div className="flex items-center justify-between text-slate-600 font-semibold">
                       <span>Total Stock Weight:</span>
-                      <span className="font-mono font-black text-navy">
+                      <span className="font-mono font-black text-navy text-sm">
                         {formatNumber(mortarCalculations.totalWeightKg)} KG ({mortarCalculations.totalWeightMt.toFixed(2)} MT)
                       </span>
                     </div>
-
-                    <div className="flex items-center justify-between text-slate-600 font-semibold">
-                      <span>Total Purchase Value:</span>
-                      <span className="font-mono font-black text-emerald-800 text-sm">
-                        ₹{formatNumber(mortarCalculations.totalPurchaseValue)}
-                      </span>
-                    </div>
-
-                    {mortarCalculations.sPrice > 0 && (
-                      <>
-                        <div className="flex items-center justify-between text-slate-600 font-semibold">
-                          <span>Total Selling Value:</span>
-                          <span className="font-mono font-black text-navy text-sm">
-                            ₹{formatNumber(mortarCalculations.totalSellingValue)}
-                          </span>
-                        </div>
-                        {mortarCalculations.pPrice > 0 && (
-                          <div className="flex items-center justify-between text-slate-600 font-semibold border-t border-sky-200 pt-1">
-                            <span>Estimated Margin:</span>
-                            <span
-                              className={`font-mono font-black ${
-                                mortarCalculations.estimatedMargin >= 0
-                                  ? "text-emerald-700"
-                                  : "text-rose-700"
-                              }`}
-                            >
-                              ₹{formatNumber(mortarCalculations.estimatedMargin)} ({mortarCalculations.marginPercent.toFixed(1)}%)
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
                   </div>
                 )}
               </div>

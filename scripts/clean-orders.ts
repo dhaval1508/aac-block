@@ -1,6 +1,6 @@
 import { prisma } from "../lib/prisma";
-import fs from "fs";
-import path from "path";
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * SAFE ORDER DATA CLEANUP SCRIPT
@@ -43,7 +43,9 @@ async function main() {
   console.log(`- Order Items: ${itemCount}`);
   console.log(`- Order Events: ${eventCount}`);
 
-  let backupFiles = fs.readdirSync(archiveDir).filter((f) => f.startsWith("orders-backup-"));
+  let backupFiles: string[] = fs
+    .readdirSync(archiveDir, { encoding: "utf-8" })
+    .filter((f: string) => f.startsWith("orders-backup-"));
   if (backupFiles.length === 0 || isConfirmed) {
     console.log("📦 Creating automatic verified backup archive...");
     const allOrders = await prisma.order.findMany({
