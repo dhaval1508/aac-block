@@ -48,6 +48,7 @@ export type ProductWithStock = {
   currentStock: number;
   currentCbm?: number;
   category?: string;
+  active?: boolean;
 };
 
 export type MortarStockInfo = {
@@ -119,7 +120,9 @@ export function StockManager({
   const [selectedCategory, setSelectedCategory] = useState<"AAC_BLOCK" | "MORTAR">("AAC_BLOCK");
 
   // AAC Block Form State
-  const [selectedProductId, setSelectedProductId] = useState(products[0]?.id ?? "");
+  const [selectedProductId, setSelectedProductId] = useState(
+    products.find((p) => p.active)?.id ?? products[0]?.id ?? ""
+  );
   const [cbmInput, setCbmInput] = useState<string>("");
 
   // Form Common State
@@ -817,7 +820,9 @@ export function StockManager({
                     }}
                     className="field text-xs font-semibold"
                   >
-                    {products.map((p) => {
+                    {products
+                      .filter((p) => p.active)
+                      .map((p) => {
                       const cbm = p.currentCbm != null ? p.currentCbm : p.currentStock * Number(p.cbmPerBlock || 0.018);
                       return (
                         <option key={p.id} value={p.id}>
@@ -1102,7 +1107,9 @@ export function StockManager({
               AAC Block Sizes & Volumes
             </h3>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {products.map((p) => {
+              {products
+                .filter((p) => p.active)
+                .map((p) => {
                 const isLow = p.currentStock < 500;
                 return (
                   <div

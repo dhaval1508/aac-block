@@ -52,7 +52,7 @@ export default async function CustomerDashboardPage() {
       },
     }),
     prisma.product.findMany({
-      where: { active: true },
+      where: { active: true, deletedAt: null },
       orderBy: { widthMm: "asc" },
     }),
   ]);

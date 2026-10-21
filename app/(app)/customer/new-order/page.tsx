@@ -25,7 +25,7 @@ export default async function CustomerNewOrderPage({
 
   const [rawProducts, user] = await Promise.all([
     prisma.product.findMany({
-      where: { active: true },
+      where: { active: true, deletedAt: null },
       orderBy: { widthMm: "asc" },
     }),
     prisma.user.findUnique({

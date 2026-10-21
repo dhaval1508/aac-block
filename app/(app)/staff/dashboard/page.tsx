@@ -81,7 +81,7 @@ export default async function StaffDashboardPage({
       },
     }),
     prisma.product.findMany({
-      where: { active: true },
+      where: { active: true, deletedAt: null },
       orderBy: { widthMm: "asc" },
       select: {
         id: true,
