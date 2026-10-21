@@ -285,7 +285,7 @@ export default async function CustomerDashboardPage() {
                     ) : null}
                   </div>
                   <p className="mt-1 text-xs text-slate-600">
-                    {formatNumber(o.quantity)} blocks · {o.product?.sizeLabel || "Consignment"} · {o.adhesiveBags ?? 0} Bags Morter · {formatDate(o.createdAt)}
+                    <strong className="text-navy">{displayCbm.toFixed(3)} CBM</strong> <span className="text-slate-400 italic text-[11px]">(≈ {formatNumber(o.quantity)} blocks)</span> · {o.product?.sizeLabel || "Consignment"} · {o.adhesiveBags ?? 0} Bags Morter · {formatDate(o.createdAt)}
                   </p>
                   {o.transport ? (
                     <p className="mt-0.5 text-xs text-indigo-700 font-semibold truncate">
@@ -297,9 +297,9 @@ export default async function CustomerDashboardPage() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
-                    <p className="font-black text-navy text-sm font-mono">{formatNumber(o.quantity)} blocks</p>
-                    <p className="text-[11px] text-[#13789B] font-black font-mono">
-                      {displayCbm.toFixed(2)} CBM
+                    <p className="font-black text-navy text-sm font-mono">{displayCbm.toFixed(3)} CBM</p>
+                    <p className="text-[11px] text-slate-400 italic">
+                      ≈ {formatNumber(o.quantity)} Blocks
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -379,7 +379,7 @@ export default async function CustomerDashboardPage() {
         {/* 2. Block Jointing Morter Section (Strictly 40 KG Bag Only, Zero Prices) */}
         <div>
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">
-            Block Jointing Morter
+            Block Jointing Mortar
           </h3>
           <div className="rounded-2xl border border-sky-200 bg-sky-50/40 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -390,7 +390,7 @@ export default async function CustomerDashboardPage() {
                 <span className="text-xs text-slate-400 font-semibold">• High Polymer Modified</span>
               </div>
               <h4 className="text-sm sm:text-base font-black text-navy mt-1">
-                Block Jointing Morter (40 KG)
+                Block Jointing Mortar (40 KG)
               </h4>
               <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
                 Factory-certified thin-bed jointing mortar engineered for high-strength AAC block wall masonry. Standard Packaging: <strong>40 KG Bag</strong>.

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { OrderStatus, PaymentMode, PaymentStatus, StockType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { getProductStock } from "@/lib/actions/stock";
+import { getProductStock, getProductCbm } from "@/lib/actions/stock";
 import { dispatchNotification } from "@/lib/push-dispatcher";
 import { formatNumber, formatBlockSizeName } from "@/lib/utils";
 
@@ -28,7 +28,8 @@ async function nextInvoiceNo() {
 
 export interface OrderItemInput {
   productId: string;
-  quantity: number;
+  quantity?: number;
+  cbm?: number;
 }
 
 // 1. Customer places order (Strictly order placement without pricing)
@@ -66,10 +67,13 @@ export async function placeCustomerOrderAction(formData: FormData) {
       const parsed = JSON.parse(itemsJson) as OrderItemInput[];
       if (Array.isArray(parsed)) {
         for (const it of parsed) {
-          if (it.productId && it.quantity > 0) {
+          const qty = it.quantity ? Math.floor(it.quantity) : 0;
+          const cbm = it.cbm ? Number(it.cbm) : 0;
+          if (it.productId && (qty > 0 || cbm > 0)) {
             orderItemsToProcess.push({
               productId: it.productId,
-              quantity: Math.floor(it.quantity),
+              quantity: qty,
+              cbm: cbm > 0 ? cbm : undefined,
             });
           }
         }
@@ -82,15 +86,24 @@ export async function placeCustomerOrderAction(formData: FormData) {
   // Fallback to legacy fields if JSON not present
   if (orderItemsToProcess.length === 0) {
     const primaryProductId = String(formData.get("productId") ?? "").trim();
+    const primaryCbm = Number(formData.get("cbm") ?? 0);
     const primaryQuantity = Math.floor(Number(formData.get("quantity") ?? 0));
-    if (primaryProductId && primaryQuantity > 0) {
-      orderItemsToProcess.push({ productId: primaryProductId, quantity: primaryQuantity });
+    if (primaryProductId && (primaryCbm > 0 || primaryQuantity > 0)) {
+      orderItemsToProcess.push({
+        productId: primaryProductId,
+        quantity: primaryQuantity,
+        cbm: primaryCbm > 0 ? primaryCbm : undefined,
+      });
     }
   }
 
-  // Ensure adhesive is added to items if adhesiveBags > 0
+  // Ensure mortar / adhesive is added to items if adhesiveBags > 0
   const activeAdhesiveProduct = await prisma.product.findFirst({
-    where: { category: "ADHESIVE", active: true },
+    where: {
+      category: { in: ["MORTAR", "ADHESIVE", "BLOCK_JOINTING_MORTAR"] },
+      active: true,
+      deletedAt: null,
+    },
   });
 
   if (activeAdhesiveProduct && adhesiveBags > 0) {
@@ -147,16 +160,24 @@ export async function placeCustomerOrderAction(formData: FormData) {
     let sqftPerUnit = 0;
     let totalSqft = 0;
 
+    let itemQty = it.quantity ?? 0;
+
     if (prod.category === "AAC_BLOCK") {
       cbmPerUnit = Number(prod.cbmPerBlock) || 0;
-      totalCbm = Number((it.quantity * cbmPerUnit).toFixed(4));
+      if (it.cbm && it.cbm > 0 && cbmPerUnit > 0) {
+        totalCbm = Number(it.cbm.toFixed(4));
+        itemQty = Math.round(totalCbm / cbmPerUnit);
+      } else {
+        totalCbm = Number((itemQty * cbmPerUnit).toFixed(4));
+      }
+      it.quantity = itemQty;
       // Formula: Blocks * (Length * Height / 1,000,000) * 10.7639104167 = Qty * 1.29166925
       sqftPerUnit = 1.29;
-      totalSqft = Number((it.quantity * 1.29166925).toFixed(2));
+      totalSqft = Number((itemQty * 1.29166925).toFixed(2));
       combinedCbm += totalCbm;
       combinedSqft += totalSqft;
-      totalBlocks += it.quantity;
-    } else if (prod.category === "ADHESIVE") {
+      totalBlocks += itemQty;
+    } else if (prod.category === "ADHESIVE" || prod.category === "MORTAR" || prod.category === "BLOCK_JOINTING_MORTAR") {
       hasAdhesive = true;
     }
 
@@ -166,7 +187,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
       productName: prod.name,
       sizeLabel: prod.sizeLabel,
       dimensions: prod.dimensions,
-      quantity: it.quantity,
+      quantity: itemQty,
       cbmPerUnit,
       totalCbm,
       sqftPerUnit,
@@ -202,7 +223,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
         totalAmount: 0,
         totalCbm: combinedCbm > 0 ? Number(combinedCbm.toFixed(4)) : null,
         totalSqft: combinedSqft > 0 ? Number(combinedSqft.toFixed(2)) : null,
-        hasMortar: false,
+        hasMortar: adhesiveBags > 0,
         hasAdhesive,
         adhesiveBags,
         deliveryAddress,
@@ -232,7 +253,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
           create: {
             status: OrderStatus.PENDING,
             title: "Order Placed",
-            note: `Order booked: ${totalBlocks.toLocaleString()} AAC Blocks (${combinedCbm.toFixed(2)} CBM) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)`,
+            note: `Order booked: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)`,
             createdById: session.id,
           },
         },
@@ -252,7 +273,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
   await dispatchNotification({
     role: "ADMIN",
     title: "New AAC Block Order Received",
-    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nQuantity: ${totalBlocks.toLocaleString()} Blocks\nTotal CBM: ${combinedCbm.toFixed(2)}\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}`,
+    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}`,
     link: `/admin/orders/${order.id}`,
     orderId: order.id,
     type: "NEW_ORDER",
@@ -262,7 +283,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
   await dispatchNotification({
     userId: session.id,
     title: "Order Placed Successfully",
-    message: `Your order ${order.orderNo} for ${totalBlocks.toLocaleString()} AAC Blocks has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
+    message: `Your order ${order.orderNo} for ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
     link: `/customer/orders/${order.id}`,
     orderId: order.id,
     type: "STATUS_CHANGE",
@@ -294,14 +315,26 @@ export async function confirmOrderAction(formData: FormData) {
     redirect(`/admin/orders/${orderId}?error=Order%20is%20not%20pending`);
   }
 
-  const finalQty = quantity > 0 ? quantity : order.quantity;
+  const cbmRaw = formData.get("cbm");
+  const cbmPerBlock = Number(order.product?.cbmPerBlock || 0.018);
+  let finalCbm = cbmRaw && Number(cbmRaw) > 0 ? Number(cbmRaw) : Number(order.totalCbm || 0);
+  let finalQty = quantity > 0 ? quantity : order.quantity;
+
+  if (cbmRaw && Number(cbmRaw) > 0 && cbmPerBlock > 0) {
+    finalCbm = Number(cbmRaw);
+    finalQty = Math.round(finalCbm / cbmPerBlock);
+  } else if (quantity > 0 && cbmPerBlock > 0) {
+    finalQty = quantity;
+    finalCbm = Number((finalQty * cbmPerBlock).toFixed(4));
+  }
+
   const finalRate = rate > 0 ? rate : Number(order.rate);
 
   let subtotal = order.subtotal;
   let gstAmount = order.gstAmount;
   let totalAmount = order.totalAmount;
 
-  if (quantity > 0 || rate > 0) {
+  if (quantity > 0 || rate > 0 || (cbmRaw && Number(cbmRaw) > 0)) {
     const s = finalQty * finalRate;
     const g = s * (Number(order.gstRate) / 100);
     subtotal = s as any;
@@ -316,6 +349,7 @@ export async function confirmOrderAction(formData: FormData) {
     where: { id: orderId },
     data: {
       quantity: finalQty,
+      totalCbm: finalCbm > 0 ? finalCbm : null,
       rate: finalRate,
       subtotal,
       gstAmount,
@@ -518,16 +552,20 @@ export async function startLoadingAction(formData: FormData) {
   redirect(`/staff/orders/${orderId}`);
 }
 
-// 6. Staff marks loading done with actual counted blocks
+// 6. Staff marks loading done with actual counted blocks / CBM
 export async function completeLoadingAction(formData: FormData) {
   const session = await getSession();
   if (!session || !["ADMIN", "STAFF"].includes(session.role)) redirect("/login");
 
   const orderId = String(formData.get("orderId") ?? "");
-  const loadedQuantity = Math.floor(Number(formData.get("loadedQuantity") ?? 0));
+  const loadedQuantityRaw = formData.get("loadedQuantity");
+  const loadedCbmRaw = formData.get("loadedCbm");
   const shortageReason = String(formData.get("shortageReason") ?? "").trim();
 
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { product: true },
+  });
   if (!order) {
     redirect("/staff/dashboard?error=Order%20not%20found");
   }
@@ -541,7 +579,17 @@ export async function completeLoadingAction(formData: FormData) {
     redirect(`/staff/orders/${orderId}?error=Order%20is%20not%20in%20loading%20state`);
   }
 
-  if (loadedQuantity <= 0) {
+  const cbmPerBlock = Number(order.product?.cbmPerBlock || 0.018);
+  let loadedQuantity = Math.floor(Number(loadedQuantityRaw ?? 0));
+  let loadedCbm = Number(loadedCbmRaw ?? 0);
+
+  if (loadedCbm > 0 && loadedQuantity <= 0 && cbmPerBlock > 0) {
+    loadedQuantity = Math.round(loadedCbm / cbmPerBlock);
+  } else if (loadedQuantity > 0 && loadedCbm <= 0 && cbmPerBlock > 0) {
+    loadedCbm = Number((loadedQuantity * cbmPerBlock).toFixed(4));
+  }
+
+  if (loadedQuantity <= 0 && loadedCbm <= 0) {
     redirect(`/staff/orders/${orderId}?error=Please%20enter%20a%20valid%20positive%20loaded%20quantity`);
   }
 
@@ -552,17 +600,19 @@ export async function completeLoadingAction(formData: FormData) {
   }
 
   const isShortage = loadedQuantity < order.quantity;
+  const shortageCbm = order.totalCbm ? Number(order.totalCbm) - loadedCbm : 0;
   const noteText = isShortage
-    ? `Partially loaded: ${loadedQuantity.toLocaleString()} / ${order.quantity.toLocaleString()} blocks (Shortage of ${(
+    ? `Partially loaded: ${loadedCbm.toFixed(3)} CBM (≈ ${loadedQuantity.toLocaleString()} blocks) / ${Number(order.totalCbm || 0).toFixed(3)} CBM (Shortage of ${shortageCbm.toFixed(3)} CBM / ${(
         order.quantity - loadedQuantity
       ).toLocaleString()} blocks). Note: ${shortageReason || "Truck capacity limit"}`
-    : `${loadedQuantity.toLocaleString()} blocks physically verified and loaded into truck by ${session.name}`;
+    : `${loadedCbm.toFixed(3)} CBM (≈ ${loadedQuantity.toLocaleString()} blocks) physically verified and loaded into truck by ${session.name}`;
 
   await prisma.order.update({
     where: { id: orderId },
     data: {
       status: OrderStatus.LOADED,
       loadedQuantity,
+      loadedCbm: loadedCbm > 0 ? loadedCbm : null,
       events: {
         create: {
           status: OrderStatus.LOADED,
@@ -578,7 +628,7 @@ export async function completeLoadingAction(formData: FormData) {
   await dispatchNotification({
     role: "ADMIN",
     title: "Loading Completed — Ready for Dispatch",
-    message: `Order ${order.orderNo} loaded (${loadedQuantity.toLocaleString()} blocks counted). Ready for gate out.`,
+    message: `Order ${order.orderNo} loaded (${loadedCbm.toFixed(3)} CBM, ≈ ${loadedQuantity.toLocaleString()} blocks counted). Ready for gate out.`,
     link: `/admin/orders/${orderId}`,
     orderId,
     type: "STATUS_CHANGE",
@@ -591,7 +641,7 @@ export async function completeLoadingAction(formData: FormData) {
   redirect(`/staff/orders/${orderId}`);
 }
 
-// 7. Admin dispatches loaded order (Automatic Stock Out with stock check)
+// 7. Admin dispatches loaded order (Automatic Stock Out with CBM stock check)
 export async function dispatchOrderAction(formData: FormData) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/login");
@@ -608,26 +658,53 @@ export async function dispatchOrderAction(formData: FormData) {
 
   // Deduct stock for all items
   const itemsToDeduct = order.items.length > 0
-    ? order.items.map((it) => ({
-        productId: it.productId,
-        qty: it.loadedQuantity > 0 ? it.loadedQuantity : it.quantity,
-      }))
+    ? order.items.map((it) => {
+        const isBlock = it.productType === "AAC_BLOCK";
+        const cbmPerUnit = Number(it.cbmPerUnit || 0);
+        let qty = it.loadedQuantity && it.loadedQuantity > 0 ? it.loadedQuantity : it.quantity;
+        let cbm = it.loadedCbm && Number(it.loadedCbm) > 0 ? Number(it.loadedCbm) : Number(it.totalCbm || 0);
+        if (isBlock && cbm <= 0 && cbmPerUnit > 0) {
+          cbm = Number((qty * cbmPerUnit).toFixed(4));
+        }
+        return {
+          productId: it.productId,
+          productType: it.productType,
+          qty,
+          cbm,
+          cbmPerUnit,
+        };
+      })
     : order.productId
     ? [
         {
           productId: order.productId,
-          qty: order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity,
+          productType: order.product?.category || "AAC_BLOCK",
+          qty: order.loadedQuantity && order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity,
+          cbm: order.loadedCbm && Number(order.loadedCbm) > 0 ? Number(order.loadedCbm) : Number(order.totalCbm || 0),
+          cbmPerUnit: Number(order.product?.cbmPerBlock || 0),
         },
       ]
     : [];
 
-  // Check stock for each
+  // Check stock for each item before deducting
   for (const it of itemsToDeduct) {
-    const currentStock = await getProductStock(it.productId);
-    if (currentStock < it.qty) {
-      redirect(
-        `/admin/orders/${orderId}?error=Not%20enough%20stock%20for%20product.%20Available:%20${currentStock},%20required:%20${it.qty}.`
-      );
+    if (it.productType === "AAC_BLOCK") {
+      const currentCbm = await getProductCbm(it.productId);
+      const reqCbm = it.cbm > 0 ? it.cbm : (it.cbmPerUnit > 0 ? Number((it.qty * it.cbmPerUnit).toFixed(4)) : 0);
+      it.cbm = reqCbm;
+      // Precision margin 0.0001
+      if (currentCbm < reqCbm - 0.0001) {
+        redirect(
+          `/admin/orders/${orderId}?error=Not%20enough%20stock%20for%20product.%20Available:%20${currentCbm.toFixed(3)}%20CBM,%20required:%20${reqCbm.toFixed(3)}%20CBM.`
+        );
+      }
+    } else {
+      const currentStock = await getProductStock(it.productId);
+      if (currentStock < it.qty) {
+        redirect(
+          `/admin/orders/${orderId}?error=Not%20enough%20stock%20for%20mortar/accessory.%20Available:%20${currentStock}%20bags,%20required:%20${it.qty}%20bags.`
+        );
+      }
     }
   }
 
@@ -640,6 +717,7 @@ export async function dispatchOrderAction(formData: FormData) {
           orderId: order.id,
           type: StockType.OUT,
           quantityDelta: -it.qty,
+          cbmDelta: it.cbm > 0 ? -it.cbm : null,
           referenceNo: order.orderNo,
           note: `Automatic stock out on dispatch of ${order.orderNo}`,
           createdById: session.id,

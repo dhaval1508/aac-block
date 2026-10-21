@@ -29,7 +29,6 @@ import {
 import { OrderStatus, Role, StockType } from "@prisma/client";
 import { resolveDateRange, buildPrismaDateFilter } from "@/lib/date-utils";
 import { DateRangeFilter } from "@/components/date-range-filter";
-import { DashboardCharts } from "@/components/dashboard-charts";
 
 export const dynamic = "force-dynamic";
 
@@ -86,13 +85,13 @@ export default async function AdminDashboardPage({
     }),
     // Period Stock In
     prisma.stockMovement.aggregate({
-      where: { ...movementWhere, type: StockType.IN },
-      _sum: { quantityDelta: true },
+      where: { ...movementWhere, type: StockType.IN, product: { category: "AAC_BLOCK" } },
+      _sum: { quantityDelta: true, cbmDelta: true },
     }),
     // Period Stock Out
     prisma.stockMovement.aggregate({
-      where: { ...movementWhere, type: StockType.OUT },
-      _sum: { quantityDelta: true },
+      where: { ...movementWhere, type: StockType.OUT, product: { category: "AAC_BLOCK" } },
+      _sum: { quantityDelta: true, cbmDelta: true },
     }),
     // Recent orders
     prisma.order.findMany({
@@ -109,7 +108,7 @@ export default async function AdminDashboardPage({
       take: 5,
       orderBy: { createdAt: "desc" },
       include: {
-        product: { select: { sizeLabel: true } },
+        product: { select: { sizeLabel: true, cbmPerBlock: true } },
         order: { select: { orderNo: true } },
         createdBy: { select: { name: true } },
       },
@@ -156,6 +155,8 @@ export default async function AdminDashboardPage({
   const isFiltered = dateRange.preset !== "all_time";
   const inboundTotal = Number(periodStockIn._sum.quantityDelta ?? 0);
   const outboundTotal = Number(periodStockOut._sum.quantityDelta ?? 0);
+  const inboundCbm = Math.abs(Number(periodStockIn._sum.cbmDelta ?? 0));
+  const outboundCbm = Math.abs(Number(periodStockOut._sum.cbmDelta ?? 0));
 
   // Low stock alert products (< 500 blocks)
   const lowStockProducts = products.filter((p) => p.currentStock < 500);
@@ -280,14 +281,16 @@ export default async function AdminDashboardPage({
           <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 sm:p-4 shadow-xs border-l-4 border-l-emerald-600 min-w-0">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
-                Physical Available Stock
+                Available Yard Stock
               </span>
               <Boxes className="h-4 w-4 text-emerald-600 shrink-0" />
             </div>
             <div className="mt-1.5 text-xl sm:text-2xl font-black text-navy tracking-tight truncate">
-              {formatNumber(stockSummary.current)} <span className="text-xs font-semibold text-slate-400">blocks</span>
+              {stockSummary.currentCbm.toFixed(3)} <span className="text-xs font-semibold text-slate-400">CBM</span>
             </div>
-            <p className="mt-0.5 text-[11px] text-emerald-600 font-semibold truncate">Live physical blocks in yard</p>
+            <p className="mt-0.5 text-xs text-slate-500 italic truncate">
+              ≈ {formatNumber(stockSummary.current)} Blocks
+            </p>
           </div>
 
           {/* 5. Production Intake */}
@@ -299,9 +302,11 @@ export default async function AdminDashboardPage({
               <TrendingUp className="h-4 w-4 text-teal-600 shrink-0" />
             </div>
             <div className="mt-1.5 text-xl sm:text-2xl font-black text-teal-700 tracking-tight truncate">
-              {inboundTotal > 0 ? `+${formatNumber(inboundTotal)}` : "0"} <span className="text-xs font-semibold text-slate-400">blocks</span>
+              {inboundCbm > 0 ? `+${inboundCbm.toFixed(3)}` : "0.000"} <span className="text-xs font-semibold text-teal-600">CBM</span>
             </div>
-            <p className="mt-0.5 text-[11px] text-slate-400 truncate">Autoclave manufacturing intake</p>
+            <p className="mt-0.5 text-xs text-slate-500 italic truncate">
+              ≈ +{formatNumber(inboundTotal)} Blocks
+            </p>
           </div>
 
           {/* 6. Dispatches & Yard Outflows */}
@@ -313,9 +318,11 @@ export default async function AdminDashboardPage({
               <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0" />
             </div>
             <div className="mt-1.5 text-xl sm:text-2xl font-black text-navy tracking-tight truncate">
-              {outboundTotal > 0 ? `-${formatNumber(outboundTotal)}` : "0"} <span className="text-xs font-semibold text-slate-400">blocks</span>
+              {outboundCbm > 0 ? `-${outboundCbm.toFixed(3)}` : "0.000"} <span className="text-xs font-semibold text-slate-400">CBM</span>
             </div>
-            <p className="mt-0.5 text-[11px] text-slate-400 truncate">Truck shipments & dispatches</p>
+            <p className="mt-0.5 text-xs text-slate-500 italic truncate">
+              ≈ -{formatNumber(outboundTotal)} Blocks
+            </p>
           </div>
         </div>
       </div>
@@ -362,47 +369,35 @@ export default async function AdminDashboardPage({
             <span className="text-[10px] text-slate-400 truncate block">Trucks in transit</span>
           </div>
 
-          {/* 5. Total AAC Blocks Ordered */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-blue-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 truncate block">Total Blocks Ordered</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(totalOrderedBlocks)}</div>
-            <span className="text-[10px] text-slate-400 truncate block">AAC physical blocks</span>
+          {/* 5. Total AAC Block Volume */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-emerald-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 truncate block">Total Ordered Volume</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-emerald-700 truncate">{totalOrderedCbm.toFixed(3)} CBM</div>
+            <span className="text-[11px] text-slate-500 italic truncate block">≈ {formatNumber(totalOrderedBlocks)} Blocks</span>
           </div>
 
-          {/* 6. Total AAC Block CBM */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-emerald-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 truncate block">Total AAC Block CBM</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-emerald-700 truncate">{totalOrderedCbm.toFixed(2)} m³</div>
-            <span className="text-[10px] text-slate-400 truncate block">Total cubic meters</span>
+          {/* 6. Available Factory Stock */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-teal-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 truncate block">Available Yard Stock</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{stockSummary.currentCbm.toFixed(3)} CBM</div>
+            <span className="text-[11px] text-teal-700 italic font-medium truncate block">≈ {formatNumber(stockSummary.current)} Blocks</span>
           </div>
 
           {/* 7. Total Block Jointing Morter Bags */}
           <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-orange-500">
             <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 truncate block">Block Jointing Morter</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(totalMortarBags)}</div>
+            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(totalMortarBags)} Bags</div>
             <span className="text-[10px] text-slate-400 truncate block">40 KG bags ordered</span>
           </div>
 
-          {/* 8. Available Factory Stock */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-teal-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 truncate block">Available Yard Stock</span>
-            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(stockSummary.current)}</div>
-            <span className="text-[10px] text-teal-600 font-bold truncate block">Ready for dispatch</span>
+          {/* 8. Available Mortar Stock */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-sky-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 truncate block">Mortar Yard Stack</span>
+            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(mortarStock.stock)} Bags</div>
+            <span className="text-[10px] text-sky-600 font-bold truncate block">40 KG bags ready</span>
           </div>
         </div>
       </div>
-
-      {/* =========================================================================
-          SECTION 3: REAL-TIME INTERACTIVE ANALYTICS CHARTS
-      ========================================================================= */}
-      <DashboardCharts
-        ordersByStatus={statusCounts}
-        stockMovementTotals={{
-          inboundTotal,
-          outboundTotal,
-        }}
-        periodLabel={dateRange.label}
-      />
 
       {/* =========================================================================
           SECTION 4: 7-STAGE ORDER EXECUTION PIPELINE STEPPER
@@ -518,9 +513,12 @@ export default async function AdminDashboardPage({
 
                   <div className="mt-3 flex items-baseline justify-between gap-1">
                     <div className="min-w-0">
-                      <span className="text-[10px] text-slate-400 block truncate">Available Stack</span>
+                      <span className="text-[10px] text-slate-400 block truncate">Available Yard Stock</span>
                       <span className="text-base sm:text-lg font-black text-navy truncate block">
-                        {formatNumber(p.currentStock)}
+                        {p.currentCbm.toFixed(3)} CBM
+                      </span>
+                      <span className="text-[11px] text-slate-500 italic block">
+                        ≈ {formatNumber(p.currentStock)} Blocks
                       </span>
                     </div>
                     <span
@@ -542,29 +540,35 @@ export default async function AdminDashboardPage({
           })}
         </div>
 
-        {/* Dedicated Live Block Jointing Morter Stock Specification Card */}
+        {/* Dedicated Live Block Jointing Mortar Stock Specification Card */}
         <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-xl bg-[#13789B] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+            <div className="h-10 w-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
               40 KG
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-navy text-xs sm:text-sm">Block Jointing Morter</span>
+                <span className="font-bold text-navy text-xs sm:text-sm">Block Jointing Mortar (40 KG)</span>
                 <span className="rounded-md bg-sky-100 border border-sky-200 text-sky-800 px-2 py-0.5 text-[10px] font-bold">
                   40 KG Bag Only
                 </span>
+                <span className="rounded-md bg-emerald-100 border border-emerald-200 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                  High Polymer Modified
+                </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                Pre-mixed thin bed jointing mortar formulation for AAC masonry. Packaging: 40 KG Bag only.
+                Factory-certified thin-bed jointing mortar engineered for high-strength AAC block wall masonry. Packaging: 40 KG Bag Only.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-4 self-end sm:self-auto shrink-0">
             <div className="text-right">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Available Stack</span>
-              <span className="text-base sm:text-lg font-black text-navy">
+              <span className="text-base sm:text-lg font-black text-navy font-mono">
                 {formatNumber(mortarStock.stock)} <span className="text-xs font-semibold text-slate-400">Bags</span>
+              </span>
+              <span className="text-[10px] text-slate-400 block font-medium">
+                {((mortarStock.stock * 40) / 1000).toFixed(2)} MT Total
               </span>
             </div>
             <span
@@ -624,7 +628,7 @@ export default async function AdminDashboardPage({
                     )}
                   </div>
                   <p className="mt-1 text-xs text-slate-700 font-semibold truncate">
-                    {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks {o.product ? `(${formatBlockSizeName(o.product.sizeLabel)})` : ""}
+                    {o.customer.companyName || o.customer.name} · {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} blocks`} {o.product ? `(${formatBlockSizeName(o.product.sizeLabel)})` : ""}
                   </p>
                   {o.transport && (
                     <p className="text-[11px] text-slate-400 mt-0.5 truncate">
@@ -636,7 +640,10 @@ export default async function AdminDashboardPage({
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <div className="text-right">
                     <span className="font-black text-navy text-xs block">
-                      {formatNumber(o.quantity)} blk
+                      {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} blk`}
+                    </span>
+                    <span className="text-[10px] text-slate-500 italic block">
+                      ≈ {formatNumber(o.quantity)} Blocks
                     </span>
                     <span className="text-[10px] text-[#13789B] font-bold">
                       {o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "Standard"}
@@ -669,13 +676,20 @@ export default async function AdminDashboardPage({
                     <span className="font-bold text-navy truncate max-w-[130px]">
                       {formatBlockSizeName(m.product.sizeLabel)}
                     </span>
-                    <span
-                      className={`font-black text-xs ${
-                        m.quantityDelta > 0 ? "text-emerald-700" : "text-rose-700"
-                      }`}
-                    >
-                      {m.quantityDelta > 0 ? `+${formatNumber(m.quantityDelta)}` : formatNumber(m.quantityDelta)}
-                    </span>
+                    <div className="text-right">
+                      <span
+                        className={`font-black text-xs block ${
+                          (m.cbmDelta != null ? Number(m.cbmDelta) > 0 : m.quantityDelta > 0) ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        {m.cbmDelta != null
+                          ? `${Number(m.cbmDelta) > 0 ? "+" : ""}${Number(m.cbmDelta).toFixed(3)} CBM`
+                          : `${m.quantityDelta > 0 ? "+" : ""}${formatNumber(m.quantityDelta)} blk`}
+                      </span>
+                      <span className="text-[10px] text-slate-400 italic block">
+                        ≈ {m.quantityDelta > 0 ? "+" : ""}{formatNumber(m.quantityDelta)} Blocks
+                      </span>
+                    </div>
                   </div>
                   <div className="mt-1 flex justify-between text-[10px] text-slate-400">
                     <span className="truncate max-w-[120px]">{m.note || m.type}</span>

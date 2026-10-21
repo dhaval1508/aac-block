@@ -370,15 +370,16 @@ export async function GET(
       </div>
     </div>
 
-    <!-- Metrics Banner (Blocks, CBM, Sq.Ft., Adhesive) -->
+    <!-- Metrics Banner (CBM, Blocks, Sq.Ft., Adhesive) -->
     <div class="metrics-banner">
       <div>
-        <div class="metric-label">Total Blocks</div>
-        <div class="metric-val">${formatNumber(totalBlocks)}</div>
+        <div class="metric-label">Total Volume (CBM)</div>
+        <div class="metric-val">${totalCbm.toFixed(3)} CBM</div>
+        <div style="font-size:10px; color:#64748b; font-style:italic; margin-top:2px;">≈ ${formatNumber(totalBlocks)} Blocks</div>
       </div>
       <div>
-        <div class="metric-label">Total Volume (CBM)</div>
-        <div class="metric-val">${totalCbm.toFixed(2)} m³</div>
+        <div class="metric-label">Estimated Total Blocks</div>
+        <div class="metric-val">${formatNumber(totalBlocks)}</div>
       </div>
       <div>
         <div class="metric-label">Total Wall Area</div>
@@ -396,7 +397,7 @@ export async function GET(
         <tr>
           <th>#</th>
           <th>AAC Block Size & Specification</th>
-          <th class="text-center">Block Quantity</th>
+          <th class="text-center">Volume & Quantity</th>
           <th class="text-right">CBM / Block</th>
           <th class="text-right">Total CBM</th>
           <th class="text-right">Total Sq.Ft.</th>
@@ -410,9 +411,12 @@ export async function GET(
               <strong>${formatBlockSizeName(it.sizeLabel)}</strong><br>
               <span style="font-size:10px; color:#64748b;">${it.dimensions || it.productType}</span>
             </td>
-            <td class="text-center"><strong>${formatNumber(it.quantity)} Blocks</strong></td>
-            <td class="text-right" style="font-family:monospace;">${it.cbmPerUnit ? Number(it.cbmPerUnit).toFixed(4) : "—"} m³</td>
-            <td class="text-right" style="font-family:monospace; font-weight:bold; color:#13789b;">${it.totalCbm ? Number(it.totalCbm).toFixed(2) : "—"} m³</td>
+            <td class="text-center">
+              <strong>${it.totalCbm ? Number(it.totalCbm).toFixed(3) : "—"} CBM</strong><br>
+              <span style="font-size:10px; color:#64748b; font-style:italic;">≈ ${formatNumber(it.quantity)} Blocks</span>
+            </td>
+            <td class="text-right" style="font-family:monospace;">${it.cbmPerUnit ? Number(it.cbmPerUnit).toFixed(4) : "—"} CBM</td>
+            <td class="text-right" style="font-family:monospace; font-weight:bold; color:#13789b;">${it.totalCbm ? Number(it.totalCbm).toFixed(3) : "—"} CBM</td>
             <td class="text-right" style="font-family:monospace;">${it.totalSqft ? Number(it.totalSqft).toFixed(1) : (it.quantity * 1.29).toFixed(1)} Sq.Ft.</td>
           </tr>
         `).join("")}

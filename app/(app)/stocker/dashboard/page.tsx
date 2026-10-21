@@ -12,9 +12,11 @@ import {
   Layers,
   Activity,
   Calendar,
+  Package,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { getMortarStock } from "@/lib/data";
 import { formatNumber, formatDate, ORDER_STATUS_CLASS, ORDER_STATUS_LABEL } from "@/lib/utils";
 import { OrderStatus, StockType } from "@prisma/client";
 
@@ -38,6 +40,7 @@ export default async function StockerDashboardPage() {
     deliveredOrders,
     recentMovements,
     recentOrders,
+    mortarStock,
   ] = await Promise.all([
     prisma.stockMovement.aggregate({
       _sum: { quantityDelta: true },
@@ -104,6 +107,7 @@ export default async function StockerDashboardPage() {
         transport: { select: { truckNumber: true, driverName: true, driverMobile: true } },
       },
     }),
+    getMortarStock(),
   ]);
 
   const currentTotalStock = stockAgg._sum.quantityDelta ?? 0;
@@ -155,16 +159,31 @@ export default async function StockerDashboardPage() {
         </div>
       </div>
 
-      {/* Top 4 Operational Stock Metrics */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4 min-w-0">
+      {/* Top 5 Operational Stock Metrics */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5 min-w-0">
         <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm min-w-0 flex flex-col justify-between h-full">
           <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate block">
-            Total Current Stock
+            AAC Blocks Stock
           </span>
           <p className="mt-1 text-xl sm:text-2xl lg:text-3xl font-black text-navy tracking-tight truncate">
             {formatNumber(currentTotalStock)}
           </p>
           <span className="text-[10px] sm:text-xs text-slate-500 truncate block mt-0.5">Live blocks in yard</span>
+        </div>
+
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3.5 sm:p-4 shadow-sm min-w-0 flex flex-col justify-between h-full border-l-4 border-l-sky-500">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] sm:text-[11px] font-bold text-sky-800 uppercase tracking-wider truncate block">
+              Mortar Stock
+            </span>
+            <Package className="h-4 w-4 text-sky-600 shrink-0" />
+          </div>
+          <p className="mt-1 text-xl sm:text-2xl lg:text-3xl font-black text-sky-950 tracking-tight truncate">
+            {formatNumber(mortarStock.stock)} <span className="text-xs font-semibold text-sky-700">Bags</span>
+          </p>
+          <span className="text-[10px] sm:text-xs text-sky-700 truncate block mt-0.5">
+            {((mortarStock.stock * 40) / 1000).toFixed(2)} MT · 40 KG Bags
+          </span>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm min-w-0 flex flex-col justify-between h-full">
@@ -187,7 +206,7 @@ export default async function StockerDashboardPage() {
           <span className="text-[10px] sm:text-xs text-slate-500 truncate block mt-0.5">Dispatches & manual out</span>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm min-w-0 flex flex-col justify-between h-full">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm min-w-0 flex flex-col justify-between h-full col-span-2 sm:col-span-1">
           <span className="text-[10px] sm:text-[11px] font-bold text-amber-600 uppercase tracking-wider truncate block">
             Active Loading Tasks
           </span>
@@ -299,6 +318,48 @@ export default async function StockerDashboardPage() {
               </div>
             );
           })}
+        </div>
+
+        {/* Dedicated Live Block Jointing Mortar Card for Stockers */}
+        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+              40 KG
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-navy text-xs sm:text-sm">
+                  Block Jointing Mortar (40 KG)
+                </span>
+                <span className="rounded-md bg-sky-100 border border-sky-200 text-sky-800 px-2 py-0.5 text-[10px] font-bold">
+                  40 KG Bag Only
+                </span>
+                <span className="rounded-md bg-emerald-100 border border-emerald-200 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                  High Polymer Modified
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                Pre-mixed thin bed jointing mortar for AAC masonry. Packaging: 40 KG Bag only.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 self-end sm:self-auto shrink-0">
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Available Stack</span>
+              <span className="text-base sm:text-lg font-black text-navy font-mono">
+                {formatNumber(mortarStock.stock)} <span className="text-xs font-semibold text-slate-400">Bags</span>
+              </span>
+              <span className="text-[10px] text-slate-400 block font-medium">
+                {((mortarStock.stock * 40) / 1000).toFixed(2)} MT Total
+              </span>
+            </div>
+            <Link
+              href="/stocker/stock"
+              className="rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold px-3 py-1.5 text-xs transition-colors shrink-0"
+            >
+              Add Stock →
+            </Link>
+          </div>
         </div>
       </div>
 

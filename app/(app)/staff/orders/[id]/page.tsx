@@ -334,6 +334,8 @@ export default async function StaffOrderDetailPage({
           <StaffLoadingForm
             orderId={order.id}
             orderedQuantity={order.quantity}
+            orderedCbm={order.totalCbm ? Number(order.totalCbm) : undefined}
+            cbmPerBlock={order.product?.cbmPerBlock ? Number(order.product.cbmPerBlock) : 0.018}
             status={order.status}
           />
         ) : null}
@@ -345,9 +347,11 @@ export default async function StaffOrderDetailPage({
               Loading Verified & Completed
             </h3>
             <p className="text-xs text-emerald-800 max-w-md mx-auto">
-              Physical count of{" "}
-              <strong>{formatNumber(order.loadedQuantity || order.quantity)} blocks</strong> is
-              locked. Vehicle <strong>{order.transport?.truckNumber}</strong> is staged for Super
+              Physical volume of{" "}
+              <strong>
+                {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM (≈ ${formatNumber(order.loadedQuantity || order.quantity)} blocks)` : `${formatNumber(order.loadedQuantity || order.quantity)} blocks`}
+              </strong>{" "}
+              is locked. Vehicle <strong>{order.transport?.truckNumber}</strong> is staged for Super
               Admin dispatch.
             </p>
           </div>

@@ -49,6 +49,7 @@ export interface CustomerDefaults {
 interface BlockOrderItem {
   id: string;
   productId: string;
+  cbm: number | "";
   quantity: number | "";
 }
 
@@ -73,13 +74,18 @@ export function CustomerOrderForm({
     defaultProductId && aacProducts.some((p) => p.id === defaultProductId)
       ? defaultProductId
       : aacProducts.find((p) => p.sizeLabel.includes("6"))?.id || aacProducts[0]?.id || "";
+  const initialProd = aacProducts.find((p) => p.id === initialAacId) || aacProducts[0];
+  const initialRate = initialProd ? Number(initialProd.cbmPerBlock) : 0.018;
+  const initialQty = defaultQuantity || 1000;
+  const initialCbm = Number((initialQty * initialRate).toFixed(3));
 
-  // Section A: Multiple AAC block sizes
+  // Section A: Multiple AAC block sizes (CBM is primary)
   const [blockItems, setBlockItems] = useState<BlockOrderItem[]>([
     {
       id: "initial-1",
       productId: initialAacId,
-      quantity: defaultQuantity || 1000,
+      cbm: initialCbm,
+      quantity: initialQty,
     },
   ]);
 
@@ -103,11 +109,13 @@ export function CustomerOrderForm({
     // Pick an unused block size if available, or first
     const usedIds = new Set(blockItems.map((b) => b.productId));
     const nextProduct = aacProducts.find((p) => !usedIds.has(p.id)) || aacProducts[0];
+    const rate = nextProduct ? Number(nextProduct.cbmPerBlock) : 0.018;
     setBlockItems((prev) => [
       ...prev,
       {
         id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         productId: nextProduct?.id || "",
+        cbm: Number((500 * rate).toFixed(3)),
         quantity: 500,
       },
     ]);
@@ -128,9 +136,13 @@ export function CustomerOrderForm({
   const rowCalculations = useMemo(() => {
     return blockItems.map((item) => {
       const prod = aacProducts.find((p) => p.id === item.productId);
-      const qty = typeof item.quantity === "number" ? Math.max(0, item.quantity) : 0;
       const cbmPerBlock = prod ? Number(prod.cbmPerBlock) : 0.018;
-      const totalCbm = qty * cbmPerBlock;
+      const cbmVal = typeof item.cbm === "number" ? Math.max(0, item.cbm) : 0;
+      let qty = typeof item.quantity === "number" ? Math.max(0, item.quantity) : 0;
+      if (cbmVal > 0 && qty === 0 && cbmPerBlock > 0) {
+        qty = Math.round(cbmVal / cbmPerBlock);
+      }
+      const totalCbm = cbmVal > 0 ? cbmVal : Number((qty * cbmPerBlock).toFixed(4));
       // Formula: Blocks * (Length * Height / 1,000,000) * 10.7639104167 = Qty * 1.29166925 sq.ft.
       const totalSqft = qty * 1.29166925;
 
@@ -165,10 +177,14 @@ export function CustomerOrderForm({
 
   // JSON Items for submission
   const itemsJson = useMemo(() => {
-    const list: Array<{ productId: string; quantity: number }> = [];
+    const list: Array<{ productId: string; quantity: number; cbm?: number }> = [];
     for (const r of rowCalculations) {
-      if (r.productId && r.numericQty > 0) {
-        list.push({ productId: r.productId, quantity: r.numericQty });
+      if (r.productId && (r.numericQty > 0 || r.totalCbm > 0)) {
+        list.push({
+          productId: r.productId,
+          quantity: r.numericQty,
+          cbm: r.totalCbm > 0 ? r.totalCbm : undefined,
+        });
       }
     }
     if (adhesiveProduct && numAdhesiveBags > 0) {
@@ -270,36 +286,44 @@ export function CustomerOrderForm({
                     </select>
                   </div>
 
-                  {/* Enter Number of Blocks */}
+                  {/* Enter CBM Quantity (Primary) */}
                   <div className="sm:col-span-5 space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700">
-                      Number of Blocks
+                      Order Quantity (CBM) *
                     </label>
                     <div className="relative flex items-center">
                       <input
                         type="number"
-                        min="1"
-                        step="1"
+                        min="0.001"
+                        step="0.001"
                         required
-                        value={item.quantity}
-                        onChange={(e) =>
+                        value={item.cbm}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? "" : Number(e.target.value);
+                          const rate = Number(currentProduct?.cbmPerBlock || 0.018);
+                          const calcQty = val !== "" && rate > 0 ? Math.round(Number(val) / rate) : "";
                           updateBlockSizeRow(item.id, {
-                            quantity:
-                              e.target.value === "" ? "" : Math.max(1, parseInt(e.target.value, 10) || 0),
-                          })
-                        }
-                        placeholder="e.g. 1000"
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-16 text-xs sm:text-sm font-mono font-bold text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            cbm: val,
+                            quantity: calcQty,
+                          });
+                        }}
+                        placeholder="e.g. 100.000"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-14 text-xs sm:text-sm font-mono font-black text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <span className="pointer-events-none absolute right-3 text-xs font-bold text-slate-400 select-none">
-                        Blocks
+                        CBM
                       </span>
                     </div>
+                    <p className="text-[11px] text-slate-500 italic mt-0.5">
+                      {typeof item.quantity === "number" && item.quantity > 0
+                        ? `≈ ${formatNumber(item.quantity)} Blocks`
+                        : "Calculated automatically from CBM"}
+                    </p>
                   </div>
                 </div>
 
                 {/* Auto Calculated Row Metrics */}
-                {rowCalc && rowCalc.numericQty > 0 ? (
+                {rowCalc && (rowCalc.totalCbm > 0 || rowCalc.numericQty > 0) ? (
                   <div className="grid grid-cols-3 gap-2 rounded-xl bg-white border border-slate-200/80 p-2.5 text-center">
                     <div>
                       <span className="block text-[10px] font-bold text-slate-400 uppercase">
@@ -311,10 +335,13 @@ export function CustomerOrderForm({
                     </div>
                     <div>
                       <span className="block text-[10px] font-bold text-teal-800 uppercase">
-                        Size CBM
+                        Total CBM
                       </span>
                       <span className="text-xs font-black font-mono text-[#13789B]">
-                        {rowCalc.totalCbm.toFixed(2)} m³
+                        {rowCalc.totalCbm.toFixed(3)} CBM
+                      </span>
+                      <span className="text-[10px] text-slate-400 italic block">
+                        ≈ {formatNumber(rowCalc.numericQty)} Blocks
                       </span>
                     </div>
                     <div>
@@ -352,29 +379,35 @@ export function CustomerOrderForm({
               {blockItems.length} Size{blockItems.length > 1 ? "s" : ""} Selected
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-            <div>
-              <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
-                Total Blocks
-              </span>
-              <span className="text-lg sm:text-2xl font-black font-mono text-white">
-                {formatNumber(totalBlocks)}
-              </span>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 text-center">
             <div>
               <span className="block text-[10px] sm:text-xs font-semibold text-teal-300 uppercase">
-                Total CBM
+                Total Order Volume
               </span>
-              <span className="text-lg sm:text-2xl font-black font-mono text-teal-300">
-                {combinedCbm.toFixed(2)} m³
+              <span className="text-lg sm:text-2xl font-black font-mono text-teal-300 block">
+                {combinedCbm.toFixed(3)} CBM
+              </span>
+              <span className="text-[11px] text-slate-300 italic block mt-0.5">
+                ≈ {formatNumber(totalBlocks)} Blocks
               </span>
             </div>
             <div>
               <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
-                Total Sq.Ft.
+                Wall Coverage
               </span>
-              <span className="text-lg sm:text-2xl font-black font-mono text-white">
-                {combinedSqft.toFixed(1)}
+              <span className="text-lg sm:text-2xl font-black font-mono text-white block">
+                {combinedSqft.toFixed(1)} Sq.Ft.
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                Masonry Face Area
+              </span>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
+                Standard Block Spec
+              </span>
+              <span className="text-sm sm:text-base font-bold text-slate-200 block mt-1">
+                {blockItems.length} Size{blockItems.length > 1 ? "s" : ""}
               </span>
             </div>
           </div>
@@ -627,10 +660,10 @@ export function CustomerOrderForm({
                 </div>
                 <div className="text-right">
                   <span className="font-mono font-black text-navy text-sm block">
-                    {formatNumber(r.numericQty)} Blocks
+                    {r.totalCbm.toFixed(3)} CBM
                   </span>
-                  <span className="text-[11px] font-mono text-[#13789B] font-bold">
-                    {r.totalCbm.toFixed(2)} m³ ({r.totalSqft.toFixed(1)} Sq.Ft.)
+                  <span className="text-[11px] text-slate-500 italic block">
+                    ≈ {formatNumber(r.numericQty)} Blocks
                   </span>
                 </div>
               </div>

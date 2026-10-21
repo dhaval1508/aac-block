@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { getProductStock } from "@/lib/actions/stock";
+import { getProductStock, getProductCbm } from "@/lib/actions/stock";
 import {
   formatDate,
   formatDateTime,
@@ -85,8 +85,12 @@ export default async function AdminOrderDetailPage({
   if (!order) notFound();
 
   const currentStock = order.productId ? await getProductStock(order.productId) : 0;
+  const currentCbm = order.productId ? await getProductCbm(order.productId) : 0;
+  const orderCbm = Number(order.totalCbm ?? 0);
+  const outCbm = Number(order.loadedCbm ?? 0) > 0 ? Number(order.loadedCbm) : orderCbm;
   const outQty = order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity;
-  const hasEnoughStock = currentStock >= outQty;
+  const isAacBlock = order.product?.category === "AAC_BLOCK" || (!order.product?.category && (order.totalCbm !== null || order.quantity > 0));
+  const hasEnoughStock = isAacBlock && orderCbm > 0 ? (currentCbm >= (outCbm - 0.0001)) : (currentStock >= outQty);
 
   // WhatsApp Helpers
   const whatsappInfo = {
@@ -256,10 +260,12 @@ export default async function AdminOrderDetailPage({
       ========================================================================= */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 min-w-0">
         <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-4 shadow-xs border-l-4 border-l-[#13789B] min-w-0">
-          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate block">Ordered Quantity</span>
-          <div className="mt-1 text-xl sm:text-2xl font-black text-navy truncate">{formatNumber(order.quantity)} <span className="text-xs font-semibold text-slate-400">blocks</span></div>
-          <p className="mt-1 text-xs text-slate-500 truncate">
-            {order.totalCbm ? `Total CBM: ${Number(order.totalCbm).toFixed(3)} m³` : "Standard manufactured blocks"}
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate block">Ordered Volume</span>
+          <div className="mt-1 text-xl sm:text-2xl font-black text-navy truncate">
+            {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : `${formatNumber(order.quantity)} units`}
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500 italic truncate">
+            ≈ {formatNumber(order.quantity)} Blocks
           </p>
         </div>
 
@@ -290,13 +296,16 @@ export default async function AdminOrderDetailPage({
         }`}>
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate block">Factory Yard Stock</span>
           <div className={`mt-1 text-xl sm:text-2xl font-black truncate ${hasEnoughStock ? "text-navy" : "text-rose-600"}`}>
-            {formatNumber(currentStock)} <span className="text-xs font-semibold text-slate-400">blocks</span>
+            {currentCbm.toFixed(3)} CBM
           </div>
+          <p className="mt-0.5 text-xs text-slate-500 italic truncate">
+            ≈ {formatNumber(currentStock)} Blocks
+          </p>
           <p className="mt-1 text-xs truncate">
             {hasEnoughStock ? (
               <span className="text-emerald-600 font-bold">✓ Sufficient stock</span>
             ) : (
-              <span className="text-rose-600 font-bold">⚠️ Insufficient ({outQty - currentStock} short)</span>
+              <span className="text-rose-600 font-bold">⚠️ Insufficient ({(outCbm - currentCbm).toFixed(3)} CBM short)</span>
             )}
           </p>
         </div>
@@ -384,7 +393,7 @@ export default async function AdminOrderDetailPage({
                       <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
                         <th className="p-2.5">Item Description</th>
                         <th className="p-2.5 text-center">Unit Specs</th>
-                        <th className="p-2.5 text-right">Quantity</th>
+                        <th className="p-2.5 text-right">Volume & Quantity</th>
                         <th className="p-2.5 text-right">Unit CBM</th>
                         <th className="p-2.5 text-right">Total CBM</th>
                       </tr>
@@ -405,14 +414,21 @@ export default async function AdminOrderDetailPage({
                               "-"
                             )}
                           </td>
-                          <td className="p-2.5 text-right font-black text-navy">
-                            {formatNumber(item.quantity)} {item.product.category === "AAC_BLOCK" ? "Blocks" : "Bags"}
+                          <td className="p-2.5 text-right">
+                            {item.totalCbm ? (
+                              <>
+                                <div className="font-black text-navy">{Number(item.totalCbm).toFixed(3)} CBM</div>
+                                <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(item.quantity)} Blocks</div>
+                              </>
+                            ) : (
+                              <div className="font-black text-navy">{formatNumber(item.quantity)} Bags</div>
+                            )}
                           </td>
                           <td className="p-2.5 text-right text-slate-600 font-mono">
-                            {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} m³` : "-"}
+                            {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} CBM` : "-"}
                           </td>
                           <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
-                            {item.totalCbm ? `${Number(item.totalCbm).toFixed(3)} m³` : "-"}
+                            {item.totalCbm ? `${Number(item.totalCbm).toFixed(3)} CBM` : "-"}
                           </td>
                         </tr>
                       ))}
@@ -420,12 +436,13 @@ export default async function AdminOrderDetailPage({
                     <tfoot>
                       <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold">
                         <td colSpan={2} className="p-2.5 text-slate-700">Combined Totals:</td>
-                        <td className="p-2.5 text-right font-black text-navy">
-                          {formatNumber(order.quantity)} Blocks
+                        <td className="p-2.5 text-right">
+                          <div className="font-black text-navy">{order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}</div>
+                          <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(order.quantity)} Blocks</div>
                         </td>
                         <td></td>
                         <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
-                          {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} m³` : "-"}
+                          {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}
                         </td>
                       </tr>
                     </tfoot>
@@ -521,14 +538,20 @@ export default async function AdminOrderDetailPage({
                 <input type="hidden" name="orderId" value={order.id} />
                 <input type="hidden" name="rate" value={Number(order.rate) || 50} />
                 <div>
-                  <label className="label">Final Approved Quantity (Blocks)</label>
+                  <label className="label">Approved Volume (CBM) *</label>
                   <input
-                    name="quantity"
+                    name="cbm"
                     type="number"
-                    min="1"
-                    defaultValue={order.quantity}
+                    step="0.001"
+                    min="0.001"
+                    defaultValue={order.totalCbm ? Number(order.totalCbm).toFixed(3) : undefined}
+                    placeholder="Enter CBM quantity"
                     className="field text-sm font-black"
                   />
+                  <input type="hidden" name="quantity" value={order.quantity} />
+                  <p className="mt-1 text-[11px] text-slate-500 italic">
+                    Current: <strong>{order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}</strong> (≈ {formatNumber(order.quantity)} Blocks)
+                  </p>
                 </div>
                 <button
                   type="submit"
@@ -677,9 +700,14 @@ export default async function AdminOrderDetailPage({
                 </div>
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-slate-400">Physically Loaded</span>
-                  <strong className="font-black text-emerald-700">
-                    {formatNumber(order.loadedQuantity || order.quantity)} / {formatNumber(order.quantity)} Blocks
-                  </strong>
+                  <div className="text-right">
+                    <strong className="font-black text-emerald-700 block">
+                      {Number(order.loadedCbm || order.totalCbm || 0).toFixed(3)} CBM
+                    </strong>
+                    <span className="text-[11px] text-slate-400 italic">
+                      ≈ {formatNumber(order.loadedQuantity || order.quantity)} Blocks
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -687,8 +715,8 @@ export default async function AdminOrderDetailPage({
                 <>
                   {!hasEnoughStock ? (
                     <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 sm:p-3.5 text-xs text-rose-800">
-                      <strong>Cannot Dispatch:</strong> Current factory yard stock ({currentStock}) is lower than
-                      loaded quantity ({outQty}). Please record production stock-in before dispatching.
+                      <strong>Cannot Dispatch:</strong> Current factory yard stock ({currentCbm.toFixed(3)} CBM) is lower than
+                      loaded quantity ({outCbm.toFixed(3)} CBM). Please record production stock-in before dispatching.
                     </div>
                   ) : (
                     <form action={dispatchOrderAction}>
@@ -773,8 +801,15 @@ export default async function AdminOrderDetailPage({
                   <strong className="font-mono font-bold text-navy truncate">{order.invoiceNo}</strong>
                 </div>
                 <div className="flex justify-between items-center gap-2">
-                  <span className="text-slate-400">Order Quantity</span>
-                  <strong className="font-bold text-navy">{formatNumber(order.quantity)} blocks</strong>
+                  <span className="text-slate-400">Order Volume</span>
+                  <div className="text-right">
+                    <strong className="font-bold text-navy block">
+                      {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : `${formatNumber(order.quantity)} units`}
+                    </strong>
+                    <span className="text-[11px] text-slate-400 italic">
+                      ≈ {formatNumber(order.quantity)} Blocks
+                    </span>
+                  </div>
                 </div>
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-slate-400">HSN Classification</span>

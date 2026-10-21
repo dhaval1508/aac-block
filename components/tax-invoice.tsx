@@ -13,6 +13,8 @@ type InvoiceOrder = {
   createdAt: Date | string;
   quantity: number;
   loadedQuantity?: number;
+  totalCbm?: number | { toString(): string } | null;
+  loadedCbm?: number | { toString(): string } | null;
   rate: number | { toString(): string };
   gstRate: number | { toString(): string };
   subtotal: number | { toString(): string };
@@ -52,6 +54,13 @@ export function TaxInvoiceView({
   const handlePrint = () => {
     window.print();
   };
+
+  const totalCbmNum = order.totalCbm
+    ? Number(order.totalCbm)
+    : order.product
+    ? Number(order.product.cbmPerBlock) * order.quantity
+    : 0;
+  const loadedCbmNum = order.loadedCbm ? Number(order.loadedCbm) : 0;
 
   const waMessage = buildWhatsAppMessage("invoice", {
     orderNo: order.orderNo,
@@ -178,9 +187,9 @@ export function TaxInvoiceView({
                 <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-600 font-bold uppercase tracking-wider">
                   <th className="py-2.5 px-3">Item Description</th>
                   <th className="py-2.5 px-3">Dimensions</th>
-                  <th className="py-2.5 px-3 text-right">Unit Volume</th>
+                  <th className="py-2.5 px-3 text-right">Unit CBM</th>
                   <th className="py-2.5 px-3 text-right">HSN Code</th>
-                  <th className="py-2.5 px-3 text-right">Quantity (Blocks)</th>
+                  <th className="py-2.5 px-3 text-right">Volume (CBM) & Blocks</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -193,11 +202,16 @@ export function TaxInvoiceView({
                   </td>
                   <td className="py-3 px-3 font-mono text-slate-700 font-semibold">{order.product?.dimensions || "-"}</td>
                   <td className="py-3 px-3 text-right font-mono text-slate-700 font-semibold">
-                    {order.product ? `${Number(order.product.cbmPerBlock).toFixed(4)} m³` : "-"}
+                    {order.product ? `${Number(order.product.cbmPerBlock).toFixed(4)} CBM` : "-"}
                   </td>
                   <td className="py-3 px-3 text-right text-slate-600 font-mono">6810</td>
-                  <td className="py-3 px-3 text-right font-black text-navy text-sm font-mono">
-                    {formatNumber(order.quantity)} Blocks
+                  <td className="py-3 px-3 text-right">
+                    <p className="font-black text-navy text-sm font-mono">
+                      {totalCbmNum.toFixed(3)} CBM
+                    </p>
+                    <p className="text-[11px] text-slate-400 italic">
+                      ≈ {formatNumber(order.quantity)} Blocks
+                    </p>
                   </td>
                 </tr>
               </tbody>
@@ -215,18 +229,28 @@ export function TaxInvoiceView({
             </div>
 
             <div className="w-full sm:w-auto rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5 space-y-1.5 min-w-[240px]">
-              <div className="flex justify-between text-slate-600">
-                <span>Total Quantity Dispatched</span>
-                <strong className="text-navy font-mono text-sm">{formatNumber(order.quantity)} Blocks</strong>
+              <div className="flex justify-between items-start text-slate-600">
+                <span>Total Volume Dispatched</span>
+                <div className="text-right">
+                  <strong className="text-navy font-mono text-sm block">{totalCbmNum.toFixed(3)} CBM</strong>
+                  <span className="text-[11px] text-slate-400 italic">≈ {formatNumber(order.quantity)} Blocks</span>
+                </div>
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Block Specification</span>
                 <strong className="text-[#13789B] font-mono text-sm">{order.product?.sizeLabel || "Standard"}</strong>
               </div>
               {order.loadedQuantity && order.loadedQuantity > 0 ? (
-                <div className="flex justify-between text-emerald-700 border-t border-slate-200 pt-1">
-                  <span>Verified Yard Loaded Count</span>
-                  <strong className="font-mono">{formatNumber(order.loadedQuantity)} Blocks</strong>
+                <div className="flex justify-between items-start text-emerald-700 border-t border-slate-200 pt-1">
+                  <span>Verified Yard Loaded</span>
+                  <div className="text-right">
+                    <strong className="font-mono text-sm block">
+                      {loadedCbmNum > 0 ? `${loadedCbmNum.toFixed(3)} CBM` : `${totalCbmNum.toFixed(3)} CBM`}
+                    </strong>
+                    <span className="text-[11px] text-emerald-600 italic">
+                      ≈ {formatNumber(order.loadedQuantity)} Blocks
+                    </span>
+                  </div>
                 </div>
               ) : null}
             </div>

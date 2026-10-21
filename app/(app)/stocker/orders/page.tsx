@@ -52,6 +52,8 @@ export default async function StockerOrdersPage({
       orderNo: true,
       quantity: true,
       loadedQuantity: true,
+      totalCbm: true,
+      loadedCbm: true,
       status: true,
       deliveryAddress: true,
       requestedDate: true,
@@ -177,7 +179,7 @@ export default async function StockerOrdersPage({
                   </span>
                 </div>
                 <p className="mt-1 text-sm font-semibold text-slate-800">
-                  {o.customer.companyName || o.customer.name} · {formatNumber(o.quantity)} blocks {o.product ? `(${o.product.sizeLabel})` : ""}
+                  {o.customer.companyName || o.customer.name} · <strong className="text-navy">{o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}</strong> <span className="text-slate-400 italic text-xs">(≈ {formatNumber(o.quantity)} blocks)</span> {o.product ? `· ${o.product.sizeLabel}` : ""}
                 </p>
               </div>
 

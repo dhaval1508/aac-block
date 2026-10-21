@@ -96,6 +96,8 @@ model Product {
   jointThicknessMm Decimal?      @default(3.0) @db.Decimal(5, 2)
   price          Decimal         @default(0) @db.Decimal(12, 2)
   gstRate        Decimal         @default(18.00) @db.Decimal(5, 2)
+  description    String?
+  productType    String?
   active         Boolean         @default(true)
   deletedAt      DateTime?
   createdAt      DateTime        @default(now())
@@ -121,6 +123,7 @@ model Order {
   quantity        Int             @default(0)
   loadedQuantity  Int             @default(0)
   totalCbm        Decimal?        @db.Decimal(12, 4)
+  loadedCbm       Decimal?        @default(0) @db.Decimal(12, 4)
   totalSqft       Decimal?        @db.Decimal(12, 2)
   hasMortar       Boolean         @default(false)
   hasAdhesive     Boolean         @default(false)
@@ -174,6 +177,7 @@ model OrderItem {
   loadedQuantity Int             @default(0)
   cbmPerUnit     Decimal?        @db.Decimal(10, 4)
   totalCbm       Decimal?        @db.Decimal(12, 4)
+  loadedCbm      Decimal?        @default(0) @db.Decimal(12, 4)
   sqftPerUnit    Decimal?        @db.Decimal(10, 2)
   totalSqft      Decimal?        @db.Decimal(12, 2)
   rate           Decimal         @db.Decimal(12, 2)
@@ -237,16 +241,23 @@ model StockMovement {
   orderId       String?
   order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
   type          StockType // IN or OUT
-  quantityDelta Int       // Positive for IN, Negative for OUT
+  quantityDelta Int       // Positive for IN, Negative for OUT (blocks or bags)
+  cbmDelta      Decimal?  @default(0) @db.Decimal(14, 4) // Primary CBM delta for AAC Blocks
   referenceNo   String?
   note          String?
+  purchasePrice Decimal?  @db.Decimal(12, 2)
+  sellingPrice  Decimal?  @db.Decimal(12, 2)
+  supplier      String?
+  entryDate     DateTime? @default(now())
   createdById   String?
   createdBy     User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
 
   @@index([productId])
   @@index([type])
   @@index([createdAt])
+  @@index([entryDate])
 }
 
 model MessageLog {

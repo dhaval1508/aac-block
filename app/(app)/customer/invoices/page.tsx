@@ -21,6 +21,13 @@ export default async function CustomerInvoicesPage() {
   });
 
   const totalQuantity = invoices.reduce((sum, inv) => sum + inv.quantity, 0);
+  const totalCbmAll = invoices.reduce(
+    (sum, inv) =>
+      sum +
+      (Number(inv.totalCbm) ||
+        (inv.product ? Number(inv.product.cbmPerBlock) * inv.quantity : 0)),
+    0
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 max-w-5xl mx-auto min-w-0 max-w-full">
@@ -41,9 +48,9 @@ export default async function CustomerInvoicesPage() {
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs border-l-4 border-l-emerald-600 min-w-0">
-          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-700">Total Blocks Dispatched</span>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-800 font-mono">{formatNumber(totalQuantity)}</p>
-          <p className="text-[10px] sm:text-[11px] text-emerald-600 mt-0.5">Physical blocks staged/delivered</p>
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-700">Total Volume Dispatched</span>
+          <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-800 font-mono">{totalCbmAll.toFixed(3)} CBM</p>
+          <p className="text-[10px] sm:text-[11px] text-emerald-600 mt-0.5 italic">≈ {formatNumber(totalQuantity)} Blocks</p>
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs border-l-4 border-l-sky-500 min-w-0">
@@ -100,10 +107,12 @@ export default async function CustomerInvoicesPage() {
                   <p className="text-[11px] text-slate-500 font-mono">{inv.product?.dimensions || "-"}</p>
                 </div>
                 <div>
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">Material Quantity</span>
-                  <p className="font-black text-navy mt-0.5 font-mono text-sm">{formatNumber(inv.quantity)} Blocks</p>
-                  <p className="text-[11px] text-slate-500 font-mono">
-                    {inv.product ? `${Number(inv.product.cbmPerBlock).toFixed(4)} m³/block` : "-"}
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Volume & Quantity</span>
+                  <p className="font-black text-navy mt-0.5 font-mono text-sm">
+                    {inv.totalCbm ? `${Number(inv.totalCbm).toFixed(3)} CBM` : `${formatNumber(inv.quantity)} units`}
+                  </p>
+                  <p className="text-[11px] text-slate-500 italic">
+                    ≈ {formatNumber(inv.quantity)} Blocks
                   </p>
                 </div>
                 <div>

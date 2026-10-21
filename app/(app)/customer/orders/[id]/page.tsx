@@ -215,20 +215,20 @@ export default async function CustomerOrderDetailPage({
                   </div>
                   <p className="text-slate-500 font-mono mt-0.5">
                     {it.dimensions || it.productType}
-                    {it.totalCbm ? ` • ${Number(it.totalCbm).toFixed(2)} CBM` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-4 sm:text-right">
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Quantity</span>
-                    <span className="font-mono font-bold text-navy text-sm">{formatNumber(it.quantity)} Units</span>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Volume & Quantity</span>
+                    <span className="font-mono font-bold text-navy text-sm">
+                      {it.totalCbm ? `${Number(it.totalCbm).toFixed(3)} CBM` : `${formatNumber(it.quantity)} Units`}
+                    </span>
+                    {it.totalCbm ? (
+                      <span className="text-[10px] text-slate-400 italic block">
+                        ≈ {formatNumber(it.quantity)} Blocks
+                      </span>
+                    ) : null}
                   </div>
-                  {it.totalCbm ? (
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Volume</span>
-                      <span className="font-mono font-bold text-[#13789B] text-sm">{Number(it.totalCbm).toFixed(2)} m³</span>
-                    </div>
-                  ) : null}
                 </div>
               </div>
             ))}
@@ -244,12 +244,12 @@ export default async function CustomerOrderDetailPage({
               <strong className="text-navy font-mono">{Number(order.product.cbmPerBlock).toFixed(4)} CBM</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Ordered Quantity:</span>
-              <strong className="text-navy font-mono">{formatNumber(order.quantity)} Blocks</strong>
+              <span className="text-slate-500">Total Volume (CBM):</span>
+              <strong className="text-navy font-mono font-bold text-sm">{totalCbm.toFixed(3)} CBM</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Calculated Volume:</span>
-              <strong className="text-[#13789B] font-mono font-bold">{totalCbm.toFixed(2)} CBM</strong>
+              <span className="text-slate-500">Estimated Blocks:</span>
+              <strong className="text-slate-500 font-mono italic">≈ {formatNumber(order.quantity)} Blocks</strong>
             </div>
           </div>
         ) : null}
@@ -325,13 +325,12 @@ export default async function CustomerOrderDetailPage({
             <span>Consignment Summary</span>
           </h2>
           <div className="space-y-2.5 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>Total AAC Blocks:</span>
-              <strong className="text-navy font-mono">{formatNumber(order.quantity)} Blocks</strong>
-            </div>
-            <div className="flex justify-between text-slate-600">
+            <div className="flex justify-between items-start text-slate-600">
               <span>Total Volume (CBM):</span>
-              <strong className="text-[#13789B] font-mono">{totalCbm.toFixed(2)} m³</strong>
+              <div className="text-right">
+                <strong className="text-navy font-mono text-sm block">{totalCbm.toFixed(3)} CBM</strong>
+                <span className="text-[11px] text-slate-400 italic">≈ {formatNumber(order.quantity)} Blocks</span>
+              </div>
             </div>
             <div className="flex justify-between text-slate-600">
               <span>Total Wall Area:</span>

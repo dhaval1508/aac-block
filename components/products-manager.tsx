@@ -34,6 +34,7 @@ type ProductWithStock = {
   gstRate: number | { toString(): string };
   active: boolean;
   currentStock: number;
+  currentCbm?: number;
 };
 
 export function ProductsManager({
@@ -204,9 +205,13 @@ export function ProductsManager({
         </div>
 
         <div className="card p-3 sm:p-4 border-l-4 border-l-amber-500 min-w-0">
-          <span className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 truncate block">Yard Stock</span>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-slate-900 truncate">{formatNumber(totalStock)}</p>
-          <span className="text-[10px] sm:text-[11px] text-slate-500 truncate block">Physical blocks</span>
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 truncate block">Total Yard Stock</span>
+          <p className="mt-1 text-xl sm:text-2xl font-black text-slate-900 truncate">
+            {items.reduce((sum, p) => sum + (p.currentCbm || (p.currentStock * Number(p.cbmPerBlock))), 0).toFixed(3)} CBM
+          </p>
+          <span className="text-[10px] sm:text-[11px] text-slate-500 truncate block italic">
+            ≈ {formatNumber(totalStock)} Blocks
+          </span>
         </div>
       </div>
 
@@ -322,8 +327,10 @@ export function ProductsManager({
                       Yard Stock
                     </span>
                     <p className="text-base font-black text-slate-900">
-                      {formatNumber(p.currentStock)}
-                      <span className="text-[10px] font-normal text-slate-400"> blocks</span>
+                      {(p.currentCbm !== undefined ? p.currentCbm : (p.currentStock * cbmVal)).toFixed(3)} CBM
+                    </p>
+                    <p className="text-[11px] text-slate-400 italic">
+                      ≈ {formatNumber(p.currentStock)} Blocks
                     </p>
                   </div>
 
@@ -388,13 +395,18 @@ export function ProductsManager({
                   <td className="py-3 px-4 font-black text-slate-900">{formatBlockSizeName(p.sizeLabel)}</td>
                   <td className="py-3 px-4 text-slate-600 font-mono">{p.dimensions}</td>
                   <td className="py-3 px-4 font-bold text-slate-800">
-                    {Number(p.cbmPerBlock).toFixed(4)} m³
+                    {Number(p.cbmPerBlock).toFixed(4)} CBM
                   </td>
                   <td className="py-3 px-4 font-bold text-slate-800">
                     {Number(p.blocksPerCbm).toFixed(2)}
                   </td>
-                  <td className="py-3 px-4 font-black text-slate-900">
-                    {formatNumber(p.currentStock)} blocks
+                  <td className="py-3 px-4">
+                    <p className="font-black text-slate-900">
+                      {(p.currentCbm !== undefined ? p.currentCbm : (p.currentStock * Number(p.cbmPerBlock))).toFixed(3)} CBM
+                    </p>
+                    <p className="text-[11px] text-slate-400 italic">
+                      ≈ {formatNumber(p.currentStock)} Blocks
+                    </p>
                   </td>
                   <td className="py-3 px-4">
                     <span

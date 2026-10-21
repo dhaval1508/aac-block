@@ -8,18 +8,26 @@ import { startLoadingAction, completeLoadingAction } from "@/lib/actions/orders"
 export function StaffLoadingForm({
   orderId,
   orderedQuantity,
+  orderedCbm,
+  cbmPerBlock = 0.018,
   status,
 }: {
   orderId: string;
   orderedQuantity: number;
+  orderedCbm?: number;
+  cbmPerBlock?: number;
   status: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const initialCbm = orderedCbm || Number((orderedQuantity * cbmPerBlock).toFixed(3));
+  const [loadedCbm, setLoadedCbm] = useState<number | "">(initialCbm);
   const [loadedQty, setLoadedQty] = useState<number>(orderedQuantity);
   const [shortageReason, setShortageReason] = useState<string>("");
 
-  const isShortage = loadedQty < orderedQuantity;
-  const shortageCount = orderedQuantity - loadedQty;
+  const numCbm = typeof loadedCbm === "number" ? loadedCbm : 0;
+  const isShortage = numCbm < initialCbm - 0.0001;
+  const shortageCbm = Math.max(0, Number((initialCbm - numCbm).toFixed(3)));
+  const shortageCount = Math.max(0, orderedQuantity - loadedQty);
 
   const handleStartLoading = (formData: FormData) => {
     startTransition(async () => {
@@ -69,44 +77,55 @@ export function StaffLoadingForm({
       <form action={handleCompleteLoading} className="space-y-4">
         <input type="hidden" name="orderId" value={orderId} />
         <div>
-          <h3 className="text-base font-bold text-navy">Physical Count Verification</h3>
+          <h3 className="text-base font-bold text-navy">Physical Volume Verification</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Count the actual blocks physically loaded onto the truck. Enter the verified total count.
+            Verify the actual material volume physically loaded onto the truck. Enter the verified CBM volume.
           </p>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-bold uppercase text-slate-700 tracking-wider">
-              Verified Loaded Count (Blocks) *
+              Verified Loaded Volume (CBM) *
             </label>
             <span className="text-xs text-slate-400">
-              Ordered: <strong className="text-navy">{formatNumber(orderedQuantity)}</strong>
+              Ordered: <strong className="text-navy">{initialCbm.toFixed(3)} CBM</strong> (≈ {formatNumber(orderedQuantity)} blk)
             </span>
           </div>
           <input
-            name="loadedQuantity"
+            name="loadedCbm"
             type="number"
-            min="1"
-            max={orderedQuantity}
+            step="0.001"
+            min="0.001"
+            max={initialCbm}
             required
-            value={loadedQty || ""}
-            onChange={(e) => setLoadedQty(Number(e.target.value))}
-            className="w-full min-h-[52px] rounded-2xl border-2 border-slate-300 bg-white px-4 text-xl font-black text-navy focus:border-[#1E72A8] focus:outline-none transition-colors"
+            value={loadedCbm}
+            onChange={(e) => {
+              const val = e.target.value === "" ? "" : Number(e.target.value);
+              setLoadedCbm(val);
+              if (val !== "" && cbmPerBlock > 0) {
+                setLoadedQty(Math.round(Number(val) / cbmPerBlock));
+              }
+            }}
+            className="w-full min-h-[52px] rounded-2xl border-2 border-slate-300 bg-white px-4 text-xl font-black text-navy focus:border-[#1E72A8] focus:outline-none transition-colors font-mono"
           />
+          <input type="hidden" name="loadedQuantity" value={loadedQty} />
+          <p className="mt-1 text-xs text-slate-500 italic">
+            ≈ {formatNumber(loadedQty)} Blocks physically verified
+          </p>
         </div>
 
         {/* Shortage indicator & explanation input */}
-        {isShortage && loadedQty > 0 ? (
+        {isShortage && numCbm > 0 ? (
           <div className="rounded-2xl border border-amber-300 bg-amber-50/70 p-4 space-y-3 animate-in fade-in duration-200">
             <div className="flex items-start gap-2.5 text-amber-900">
               <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold">
-                  Material Shortage Detected: {formatNumber(shortageCount)} Blocks Short
+                  Material Shortage Detected: {shortageCbm.toFixed(3)} CBM (≈ {formatNumber(shortageCount)} Blocks Short)
                 </p>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  The truck is carrying fewer blocks than ordered. Please specify the yard reason below.
+                  The truck is carrying less volume than ordered. Please specify the yard reason below.
                 </p>
               </div>
             </div>
@@ -135,7 +154,7 @@ export function StaffLoadingForm({
 
         <button
           type="submit"
-          disabled={isPending || loadedQty <= 0 || loadedQty > orderedQuantity}
+          disabled={isPending || numCbm <= 0 || numCbm > initialCbm + 0.0001}
           style={{ backgroundColor: isShortage ? "#d97706" : "#059669", color: "#ffffff" }}
           className="w-full min-h-[52px] rounded-2xl py-3.5 px-6 font-bold text-base shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -145,11 +164,11 @@ export function StaffLoadingForm({
             </>
           ) : isShortage ? (
             <>
-              <CheckCircle2 className="h-5 w-5" /> Confirm Partial Loading ({formatNumber(loadedQty)} Blocks)
+              <CheckCircle2 className="h-5 w-5" /> Confirm Partial Loading ({numCbm.toFixed(3)} CBM / ≈ {formatNumber(loadedQty)} Blocks)
             </>
           ) : (
             <>
-              <CheckCircle2 className="h-5 w-5" /> Confirm & Complete Loading ({formatNumber(loadedQty)} Blocks)
+              <CheckCircle2 className="h-5 w-5" /> Confirm & Complete Loading ({numCbm.toFixed(3)} CBM / ≈ {formatNumber(loadedQty)} Blocks)
             </>
           )}
         </button>

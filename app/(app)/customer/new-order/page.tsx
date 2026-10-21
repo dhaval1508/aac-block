@@ -59,7 +59,15 @@ export default async function CustomerNewOrderPage({
   }));
 
   const aacProducts = allProducts.filter((p) => p.category === "AAC_BLOCK");
-  const adhesiveProduct = allProducts.find((p) => p.category === "ADHESIVE") || null;
+  const adhesiveProduct =
+    allProducts.find(
+      (p) =>
+        p.category === "MORTAR" ||
+        p.category === "ADHESIVE" ||
+        p.category === "BLOCK_JOINTING_MORTAR" ||
+        p.name.includes("Mortar") ||
+        p.name.includes("Morter")
+    ) || null;
 
   const defaultQty = quantity ? parseInt(quantity, 10) : undefined;
   const defaultAdhesive = adhesiveBags ? parseInt(adhesiveBags, 10) : 0;

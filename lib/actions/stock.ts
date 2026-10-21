@@ -8,11 +8,48 @@ import { getSession } from "@/lib/session";
 import { canManageStock } from "@/lib/utils";
 
 export async function getProductStock(productId: string): Promise<number> {
-  const result = await prisma.stockMovement.aggregate({
-    where: { productId },
-    _sum: { quantityDelta: true },
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { category: true, cbmPerBlock: true },
   });
-  return result._sum.quantityDelta ?? 0;
+  if (!product) return 0;
+
+  const movements = await prisma.stockMovement.findMany({
+    where: { productId },
+    select: { quantityDelta: true, cbmDelta: true },
+  });
+
+  if (product.category === "AAC_BLOCK") {
+    const cbmRate = Number(product.cbmPerBlock) || 0.018;
+    const totalCbm = movements.reduce((acc, m) => {
+      if (m.cbmDelta != null && Number(m.cbmDelta) !== 0) return acc + Number(m.cbmDelta);
+      return acc + m.quantityDelta * cbmRate;
+    }, 0);
+    return cbmRate > 0 ? Math.round(totalCbm / cbmRate) : 0;
+  }
+
+  return movements.reduce((acc, m) => acc + m.quantityDelta, 0);
+}
+
+export async function getProductCbm(productId: string): Promise<number> {
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { category: true, cbmPerBlock: true },
+  });
+  if (!product) return 0;
+
+  const movements = await prisma.stockMovement.findMany({
+    where: { productId },
+    select: { quantityDelta: true, cbmDelta: true },
+  });
+
+  const cbmRate = Number(product.cbmPerBlock) || 0.018;
+  const totalCbm = movements.reduce((acc, m) => {
+    if (m.cbmDelta != null && Number(m.cbmDelta) !== 0) return acc + Number(m.cbmDelta);
+    return acc + m.quantityDelta * cbmRate;
+  }, 0);
+
+  return Number(totalCbm.toFixed(4));
 }
 
 export async function addStockAction(formData: FormData) {
@@ -21,16 +58,35 @@ export async function addStockAction(formData: FormData) {
     redirect("/stock?error=Not%20authorized");
   }
 
-  const productId = String(formData.get("productId") ?? "");
-  const quantity = Math.floor(Number(formData.get("quantity") ?? 0));
-  const type = String(formData.get("type") ?? "IN") as StockType;
+  const returnPath = session.role === "ADMIN" ? "/admin/stock" : "/stocker/stock";
+
+  const productId = String(formData.get("productId") ?? "").trim();
+  const rawQuantity = Number(formData.get("quantity") ?? 0);
+  const type = (String(formData.get("type") ?? "IN").toUpperCase() as StockType) || StockType.IN;
   const referenceNo = String(formData.get("referenceNo") ?? "").trim() || null;
   const note = String(formData.get("note") ?? "").trim() || null;
 
-  const returnPath = session.role === "ADMIN" ? "/admin/stock" : "/stocker/stock";
+  const rawPurchasePrice = formData.get("purchasePrice");
+  const purchasePrice =
+    rawPurchasePrice !== null && rawPurchasePrice !== "" && !isNaN(Number(rawPurchasePrice))
+      ? Number(rawPurchasePrice)
+      : null;
 
-  if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
-    redirect(`${returnPath}?error=Please%20select%20a%20block%20size%20and%20enter%20valid%20quantity`);
+  const rawSellingPrice = formData.get("sellingPrice");
+  const sellingPrice =
+    rawSellingPrice !== null && rawSellingPrice !== "" && !isNaN(Number(rawSellingPrice))
+      ? Number(rawSellingPrice)
+      : null;
+
+  const supplier = String(formData.get("supplier") ?? "").trim() || null;
+  const rawEntryDate = formData.get("entryDate");
+  const entryDate =
+    rawEntryDate && typeof rawEntryDate === "string" && rawEntryDate.trim() !== ""
+      ? new Date(rawEntryDate)
+      : new Date();
+
+  if (!productId || !Number.isFinite(rawQuantity) || rawQuantity <= 0) {
+    redirect(`${returnPath}?error=Please%20select%20a%20valid%20product%20and%20enter%20quantity`);
   }
 
   const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -38,28 +94,60 @@ export async function addStockAction(formData: FormData) {
     redirect(`${returnPath}?error=Product%20not%20found`);
   }
 
+  const isMortar =
+    product.category === "MORTAR" ||
+    product.category === "ADHESIVE" ||
+    product.category === "BLOCK_JOINTING_MORTAR";
+
+  // For AAC Blocks: input quantity is in CBM.
+  // For Mortar: input quantity is in 40 KG Bags.
+  const cbmPerBlock = Number(product.cbmPerBlock) || 0.018;
+  const cbmValue = isMortar ? 0 : Number(rawQuantity.toFixed(4));
+  const blockQuantity = isMortar
+    ? Math.floor(rawQuantity)
+    : Math.max(1, Math.round(cbmValue / cbmPerBlock));
+
   try {
     if (type === "OUT") {
       // Concurrency protection: Atomic transaction with balance verification
       await prisma.$transaction(async (tx) => {
-        const agg = await tx.stockMovement.aggregate({
+        const movements = await tx.stockMovement.findMany({
           where: { productId },
-          _sum: { quantityDelta: true },
+          select: { cbmDelta: true, quantityDelta: true },
         });
-        const currentStock = agg._sum.quantityDelta ?? 0;
-        if (quantity > currentStock) {
-          throw new Error(
-            `Insufficient stock for ${product.sizeLabel}. Available: ${currentStock} blocks, requested: ${quantity} blocks.`
-          );
+
+        if (isMortar) {
+          const currentBags = movements.reduce((acc, m) => acc + m.quantityDelta, 0);
+          if (blockQuantity > currentBags) {
+            throw new Error(
+              `Insufficient stock for ${product.name}. Available: ${currentBags} bags (40 KG), requested: ${blockQuantity} bags.`
+            );
+          }
+        } else {
+          const currentCbm = movements.reduce((acc, m) => {
+            if (m.cbmDelta != null && Number(m.cbmDelta) !== 0) return acc + Number(m.cbmDelta);
+            return acc + m.quantityDelta * cbmPerBlock;
+          }, 0);
+
+          if (cbmValue > currentCbm) {
+            throw new Error(
+              `Insufficient stock for ${product.name} (${product.sizeLabel}). Available: ${currentCbm.toFixed(3)} CBM (≈ ${Math.round(currentCbm / cbmPerBlock)} blocks), requested: ${cbmValue.toFixed(3)} CBM.`
+            );
+          }
         }
 
         await tx.stockMovement.create({
           data: {
             productId,
             type: StockType.OUT,
-            quantityDelta: -quantity,
+            quantityDelta: -blockQuantity,
+            cbmDelta: isMortar ? 0 : -cbmValue,
             referenceNo,
-            note: note || "Manual stock out",
+            note: note || (isMortar ? "Manual mortar stock outflow" : "Manual stock out"),
+            purchasePrice: purchasePrice !== null ? purchasePrice : null,
+            sellingPrice: sellingPrice !== null ? sellingPrice : null,
+            supplier,
+            entryDate,
             createdById: session.id,
           },
         });
@@ -70,15 +158,242 @@ export async function addStockAction(formData: FormData) {
         data: {
           productId,
           type: StockType.IN,
-          quantityDelta: quantity,
+          quantityDelta: blockQuantity,
+          cbmDelta: isMortar ? 0 : cbmValue,
           referenceNo,
-          note: note || "Stock received from production",
+          note: note || (isMortar ? "Mortar production/purchase intake" : "Stock received from production"),
+          purchasePrice: purchasePrice !== null ? purchasePrice : null,
+          sellingPrice: sellingPrice !== null ? sellingPrice : null,
+          supplier,
+          entryDate,
           createdById: session.id,
         },
       });
     }
   } catch (err: any) {
     const errorMsg = encodeURIComponent(err?.message || "Stock transaction failed");
+    redirect(`${returnPath}?error=${errorMsg}`);
+  }
+
+  revalidatePath("/admin/stock");
+  revalidatePath("/stocker/stock");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/stocker/dashboard");
+  revalidatePath("/stock");
+  revalidatePath("/stocker/activity");
+  revalidatePath("/admin/activity");
+
+  redirect(returnPath);
+}
+
+export async function updateStockAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !canManageStock(session.role)) {
+    redirect("/stock?error=Not%20authorized");
+  }
+
+  const returnPath = session.role === "ADMIN" ? "/admin/stock" : "/stocker/stock";
+
+  const movementId = String(formData.get("movementId") ?? "").trim();
+  const rawQuantity = Number(formData.get("quantity") ?? 0);
+  const referenceNo = String(formData.get("referenceNo") ?? "").trim() || null;
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  const rawPurchasePrice = formData.get("purchasePrice");
+  const purchasePrice =
+    rawPurchasePrice !== null && rawPurchasePrice !== "" && !isNaN(Number(rawPurchasePrice))
+      ? Number(rawPurchasePrice)
+      : null;
+
+  const rawSellingPrice = formData.get("sellingPrice");
+  const sellingPrice =
+    rawSellingPrice !== null && rawSellingPrice !== "" && !isNaN(Number(rawSellingPrice))
+      ? Number(rawSellingPrice)
+      : null;
+
+  const supplier = String(formData.get("supplier") ?? "").trim() || null;
+  const rawEntryDate = formData.get("entryDate");
+  const entryDate =
+    rawEntryDate && typeof rawEntryDate === "string" && rawEntryDate.trim() !== ""
+      ? new Date(rawEntryDate)
+      : undefined;
+
+  if (!movementId || !Number.isFinite(rawQuantity) || rawQuantity <= 0) {
+    redirect(`${returnPath}?error=Invalid%20entry%20data%20for%20update`);
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.stockMovement.findUnique({
+        where: { id: movementId },
+        include: { product: true },
+      });
+
+      if (!existing) {
+        throw new Error("Stock movement record not found");
+      }
+
+      const isMortar =
+        existing.product.category === "MORTAR" ||
+        existing.product.category === "ADHESIVE" ||
+        existing.product.category === "BLOCK_JOINTING_MORTAR";
+
+      const cbmPerBlock = Number(existing.product.cbmPerBlock) || 0.018;
+
+      let newCbmDelta = 0;
+      let newQuantityDelta = 0;
+
+      if (isMortar) {
+        const bags = Math.floor(rawQuantity);
+        newQuantityDelta = existing.type === StockType.OUT ? -bags : bags;
+        newCbmDelta = 0;
+      } else {
+        const cbmVal = Number(rawQuantity.toFixed(4));
+        const blocks = Math.max(1, Math.round(cbmVal / cbmPerBlock));
+        newCbmDelta = existing.type === StockType.OUT ? -cbmVal : cbmVal;
+        newQuantityDelta = existing.type === StockType.OUT ? -blocks : blocks;
+      }
+
+      const movements = await tx.stockMovement.findMany({
+        where: { productId: existing.productId },
+        select: { id: true, cbmDelta: true, quantityDelta: true },
+      });
+
+      if (isMortar) {
+        const currentBags = movements.reduce((acc, m) => acc + m.quantityDelta, 0);
+        const deltaDiff = newQuantityDelta - existing.quantityDelta;
+        const projectedBags = currentBags + deltaDiff;
+        if (projectedBags < 0) {
+          throw new Error(
+            `Cannot update stock: resulting balance would be negative (${projectedBags} bags). Available: ${currentBags} bags.`
+          );
+        }
+      } else {
+        const currentCbm = movements.reduce((acc, m) => {
+          if (m.cbmDelta != null && Number(m.cbmDelta) !== 0) return acc + Number(m.cbmDelta);
+          return acc + m.quantityDelta * cbmPerBlock;
+        }, 0);
+
+        const oldMovementCbm =
+          existing.cbmDelta != null && Number(existing.cbmDelta) !== 0
+            ? Number(existing.cbmDelta)
+            : existing.quantityDelta * cbmPerBlock;
+
+        const deltaDiffCbm = newCbmDelta - oldMovementCbm;
+        const projectedCbm = currentCbm + deltaDiffCbm;
+
+        if (projectedCbm < 0) {
+          throw new Error(
+            `Cannot update stock: resulting balance would be negative (${projectedCbm.toFixed(3)} CBM). Available: ${currentCbm.toFixed(3)} CBM.`
+          );
+        }
+      }
+
+      await tx.stockMovement.update({
+        where: { id: movementId },
+        data: {
+          quantityDelta: newQuantityDelta,
+          cbmDelta: isMortar ? 0 : newCbmDelta,
+          referenceNo,
+          note,
+          purchasePrice: purchasePrice !== null ? purchasePrice : existing.purchasePrice,
+          sellingPrice: sellingPrice !== null ? sellingPrice : existing.sellingPrice,
+          supplier: supplier !== null ? supplier : existing.supplier,
+          ...(entryDate ? { entryDate } : {}),
+        },
+      });
+    });
+  } catch (err: any) {
+    const errorMsg = encodeURIComponent(err?.message || "Stock update failed");
+    redirect(`${returnPath}?error=${errorMsg}`);
+  }
+
+  revalidatePath("/admin/stock");
+  revalidatePath("/stocker/stock");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/stocker/dashboard");
+  revalidatePath("/stock");
+  revalidatePath("/stocker/activity");
+  revalidatePath("/admin/activity");
+
+  redirect(returnPath);
+}
+
+export async function deleteStockAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !canManageStock(session.role)) {
+    redirect("/stock?error=Not%20authorized");
+  }
+
+  const returnPath = session.role === "ADMIN" ? "/admin/stock" : "/stocker/stock";
+  const movementId = String(formData.get("movementId") ?? "").trim();
+
+  if (!movementId) {
+    redirect(`${returnPath}?error=No%20stock%20entry%20selected%20for%20deletion`);
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.stockMovement.findUnique({
+        where: { id: movementId },
+        include: { product: true, order: true },
+      });
+
+      if (!existing) {
+        throw new Error("Stock movement record not found");
+      }
+
+      if (existing.orderId) {
+        throw new Error(
+          `Cannot delete stock entry linked to automated dispatch order ${existing.order?.orderNo || ""}.`
+        );
+      }
+
+      const isMortar =
+        existing.product.category === "MORTAR" ||
+        existing.product.category === "ADHESIVE" ||
+        existing.product.category === "BLOCK_JOINTING_MORTAR";
+
+      const movements = await tx.stockMovement.findMany({
+        where: { productId: existing.productId },
+        select: { id: true, cbmDelta: true, quantityDelta: true },
+      });
+
+      if (isMortar) {
+        const currentBags = movements.reduce((acc, m) => acc + m.quantityDelta, 0);
+        const projectedBags = currentBags - existing.quantityDelta;
+        if (projectedBags < 0) {
+          throw new Error(
+            `Cannot delete entry: remaining stock would drop below zero (${projectedBags} bags). Available: ${currentBags} bags.`
+          );
+        }
+      } else {
+        const cbmPerBlock = Number(existing.product.cbmPerBlock) || 0.018;
+        const currentCbm = movements.reduce((acc, m) => {
+          if (m.cbmDelta != null && Number(m.cbmDelta) !== 0) return acc + Number(m.cbmDelta);
+          return acc + m.quantityDelta * cbmPerBlock;
+        }, 0);
+
+        const movementCbm =
+          existing.cbmDelta != null && Number(existing.cbmDelta) !== 0
+            ? Number(existing.cbmDelta)
+            : existing.quantityDelta * cbmPerBlock;
+
+        const projectedCbm = currentCbm - movementCbm;
+
+        if (projectedCbm < 0) {
+          throw new Error(
+            `Cannot delete entry: remaining stock would drop below zero (${projectedCbm.toFixed(3)} CBM). Available: ${currentCbm.toFixed(3)} CBM.`
+          );
+        }
+      }
+
+      await tx.stockMovement.delete({
+        where: { id: movementId },
+      });
+    });
+  } catch (err: any) {
+    const errorMsg = encodeURIComponent(err?.message || "Stock deletion failed");
     redirect(`${returnPath}?error=${errorMsg}`);
   }
 

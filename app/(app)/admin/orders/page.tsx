@@ -305,8 +305,7 @@ export default async function AdminOrdersPage({
                 <th className="py-3.5 px-4">Order ID & Date</th>
                 <th className="py-3.5 px-4">Customer Name & Site</th>
                 <th className="py-3.5 px-4">Block Size</th>
-                <th className="py-3.5 px-4 text-right">Block Quantity</th>
-                <th className="py-3.5 px-4 text-right">Total CBM</th>
+                <th className="py-3.5 px-4 text-right">Order Volume</th>
                 <th className="py-3.5 px-4 text-center">Block Jointing Morter (40 KG Bags)</th>
                 <th className="py-3.5 px-4">Transport</th>
                 <th className="py-3.5 px-4">Status</th>
@@ -343,14 +342,12 @@ export default async function AdminOrdersPage({
                   </td>
 
                   <td className="py-3.5 px-4 text-right">
-                    <p className="font-black text-navy">{formatNumber(o.quantity)}</p>
-                    <span className="text-[10px] text-slate-400">Blocks</span>
-                  </td>
-
-                  <td className="py-3.5 px-4 text-right">
-                    <p className="font-black text-[#13789B] font-mono">
-                      {o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : "-"}
+                    <p className="font-black text-navy">
+                      {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
                     </p>
+                    <span className="text-[11px] text-slate-400 italic block">
+                      ≈ {formatNumber(o.quantity)} Blocks
+                    </span>
                   </td>
 
                   <td className="py-3.5 px-4 text-center">
@@ -426,10 +423,10 @@ export default async function AdminOrdersPage({
 
                 <div className="text-right shrink-0">
                   <p className="font-black text-sm text-navy">
-                    {formatNumber(o.quantity)} blocks
+                    {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
                   </p>
-                  <span className="text-[10px] font-bold text-[#13789B]">
-                    {o.totalCbm ? `${Number(o.totalCbm).toFixed(2)} m³` : o.product?.sizeLabel || "Standard"}
+                  <span className="text-[10px] text-slate-400 italic block">
+                    ≈ {formatNumber(o.quantity)} Blocks
                   </span>
                 </div>
               </div>

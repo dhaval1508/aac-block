@@ -393,16 +393,16 @@ export default async function StaffDashboardPage({
 
                 <div>
                   <span className="text-[11px] font-semibold text-slate-400 uppercase">
-                    Order Quantity & Morter
+                    Order Quantity & Mortar
                   </span>
-                  <p className="mt-0.5 font-black text-navy font-mono">
-                    {formatNumber(o.quantity)} blocks
+                  <p className="mt-0.5 font-black text-navy font-mono text-base">
+                    {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} blocks`}
+                  </p>
+                  <p className="text-[11px] text-slate-500 italic">
+                    ≈ {formatNumber(o.quantity)} Blocks
                   </p>
                   <span className="text-[11px] font-bold text-sky-800 block mt-0.5">
-                    Block Jointing Morter: {o.adhesiveBags ?? 0} Bags (40 KG)
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-semibold">
-                    Physical Count
+                    Block Jointing Mortar: {o.adhesiveBags ?? 0} Bags (40 KG)
                   </span>
                 </div>
               </div>

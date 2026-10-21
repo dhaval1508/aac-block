@@ -31,6 +31,8 @@ export default async function StockerOrderDetailPage({
       orderNo: true,
       quantity: true,
       loadedQuantity: true,
+      totalCbm: true,
+      loadedCbm: true,
       status: true,
       deliveryAddress: true,
       requestedDate: true,
@@ -137,12 +139,19 @@ export default async function StockerOrderDetailPage({
             <div className="flex justify-between">
               <span className="text-slate-500">CBM / Block</span>
               <strong className="text-navy">
-                {order.product ? `${Number(order.product.cbmPerBlock).toFixed(4)} m³` : "-"}
+                {order.product ? `${Number(order.product.cbmPerBlock).toFixed(4)} CBM` : "-"}
               </strong>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Order Quantity</span>
-              <strong className="text-navy">{formatNumber(order.quantity)} Blocks</strong>
+            <div className="flex justify-between items-start">
+              <span className="text-slate-500">Ordered Volume</span>
+              <div className="text-right">
+                <strong className="text-navy text-sm font-black block">
+                  {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : `${formatNumber(order.quantity)} units`}
+                </strong>
+                <span className="text-slate-400 italic text-xs">
+                  ≈ {formatNumber(order.quantity)} Blocks
+                </span>
+              </div>
             </div>
             <div className="border-t border-slate-100 pt-3">
               <span className="text-[11px] text-slate-400 uppercase font-semibold">

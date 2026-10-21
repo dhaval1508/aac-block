@@ -123,7 +123,7 @@ export function ProductFormModal({
               </div>
               <div className="rounded-xl bg-white p-2">
                 <span className="text-slate-400">CBM / Block</span>
-                <p className="mt-0.5 font-bold text-navy">{cbm} m³</p>
+                <p className="mt-0.5 font-bold text-navy">{cbm} CBM</p>
               </div>
               <div className="rounded-xl bg-white p-2">
                 <span className="text-slate-400">Blocks / CBM</span>
