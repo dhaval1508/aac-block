@@ -45,7 +45,6 @@ export async function GET(req: Request) {
     "Block Size",
     "Block Quantity",
     "Total CBM",
-    "Total Sq.Ft.",
     "Block Jointing Morter (40 KG Bags)",
     "Truck Number",
     "Driver Name",
@@ -92,10 +91,6 @@ export async function GET(req: Request) {
       ? (Number(o.product.cbmPerBlock) * o.quantity).toFixed(2)
       : "0";
 
-    const sqft = o.totalSqft
-      ? Number(o.totalSqft).toFixed(1)
-      : (o.quantity * 1.29).toFixed(1);
-
     // Format block size(s) cleanly
     let blockSizeDesc = formatBlockSizeName(o.product?.sizeLabel) || "Standard";
     if (o.items && o.items.length > 0) {
@@ -126,7 +121,6 @@ export async function GET(req: Request) {
       escapeCsv(blockSizeDesc),
       escapeCsv(o.quantity),
       escapeCsv(cbm),
-      escapeCsv(sqft),
       escapeCsv(mortarBags),
       escapeCsv(o.transport?.truckNumber || ""),
       escapeCsv(o.transport?.driverName || ""),

@@ -324,13 +324,13 @@ export function CustomerOrderForm({
 
                 {/* Auto Calculated Row Metrics */}
                 {rowCalc && (rowCalc.totalCbm > 0 || rowCalc.numericQty > 0) ? (
-                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-white border border-slate-200/80 p-2.5 text-center">
+                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-white border border-slate-200/80 p-2.5 text-center">
                     <div>
                       <span className="block text-[10px] font-bold text-slate-400 uppercase">
                         CBM / Block
                       </span>
                       <span className="text-xs font-bold font-mono text-slate-700">
-                        {rowCalc.cbmPerBlock.toFixed(4)} m³
+                        {rowCalc.cbmPerBlock.toFixed(4)} CBM
                       </span>
                     </div>
                     <div>
@@ -342,14 +342,6 @@ export function CustomerOrderForm({
                       </span>
                       <span className="text-[10px] text-slate-400 italic block">
                         ≈ {formatNumber(rowCalc.numericQty)} Blocks
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[10px] font-bold text-slate-400 uppercase">
-                        Wall Area
-                      </span>
-                      <span className="text-xs font-bold font-mono text-slate-700">
-                        {rowCalc.totalSqft.toFixed(1)} Sq.Ft.
                       </span>
                     </div>
                   </div>
@@ -379,7 +371,7 @@ export function CustomerOrderForm({
               {blockItems.length} Size{blockItems.length > 1 ? "s" : ""} Selected
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-center">
             <div>
               <span className="block text-[10px] sm:text-xs font-semibold text-teal-300 uppercase">
                 Total Order Volume
@@ -393,21 +385,13 @@ export function CustomerOrderForm({
             </div>
             <div>
               <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
-                Wall Coverage
-              </span>
-              <span className="text-lg sm:text-2xl font-black font-mono text-white block">
-                {combinedSqft.toFixed(1)} Sq.Ft.
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                Masonry Face Area
-              </span>
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <span className="block text-[10px] sm:text-xs font-semibold text-slate-300 uppercase">
                 Standard Block Spec
               </span>
-              <span className="text-sm sm:text-base font-bold text-slate-200 block mt-1">
-                {blockItems.length} Size{blockItems.length > 1 ? "s" : ""}
+              <span className="text-base sm:text-xl font-bold text-slate-200 block mt-1">
+                {blockItems.length} Size{blockItems.length > 1 ? "s" : ""} Configured
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                Factory Manufactured
               </span>
             </div>
           </div>

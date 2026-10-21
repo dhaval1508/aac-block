@@ -140,7 +140,7 @@ export function calculateBlockMetrics(lengthMm: number, heightMm: number, widthM
   };
 }
 
-export type CalcMode = 'quantity' | 'cbm' | 'area';
+export type CalcMode = 'quantity' | 'cbm';
 
 export interface CalculatorInput {
   size: string; // e.g. '6"'
@@ -188,11 +188,6 @@ export function computeBlockRequirement(input: CalculatorInput): CalculatorResul
     const targetCbm = Math.max(0, input.cbm || 0);
     // Math.ceil(Required CBM / CBM per Block)
     baseBlocks = Math.ceil(targetCbm / spec.cbmPerBlock);
-  } else if (input.mode === 'area') {
-    const targetArea = Math.max(0, input.wallAreaSqft || 0);
-    // Math.ceil(Required Wall Area in Sq.Ft. / Sq.Ft. per Block)
-    const exactSqftPerBlock = ((spec.lengthMm * spec.heightMm) / 1_000_000) * SQFT_CONVERSION_FACTOR;
-    baseBlocks = Math.ceil(targetArea / exactSqftPerBlock);
   }
 
   const wastageBlocks = Math.ceil(baseBlocks * (wastage / 100));

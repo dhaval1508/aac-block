@@ -42,7 +42,6 @@ export function AACBlockCalculator({
   const [mode, setMode] = useState<CalcMode>("quantity");
   const [quantityInput, setQuantityInput] = useState<number>(1000);
   const [cbmInput, setCbmInput] = useState<number>(18.0);
-  const [sqftInput, setSqftInput] = useState<number>(1292);
   const [wastagePercent, setWastagePercent] = useState<number>(0);
   const [includeMortar, setIncludeMortar] = useState<boolean>(true);
   const [jointThickness, setJointThickness] = useState<number>(3.0);
@@ -55,11 +54,10 @@ export function AACBlockCalculator({
       mode,
       quantity: quantityInput,
       cbm: cbmInput,
-      wallAreaSqft: sqftInput,
       wastagePercent,
       ratePerBlock: currentRate,
     });
-  }, [selectedSize, mode, quantityInput, cbmInput, sqftInput, wastagePercent, currentRate]);
+  }, [selectedSize, mode, quantityInput, cbmInput, wastagePercent, currentRate]);
 
   const mortarResult = useMemo(() => {
     return computeMortarRequirement({
@@ -109,8 +107,6 @@ export function AACBlockCalculator({
                 <th className="py-2.5 px-3 text-right">Width</th>
                 <th className="py-2.5 px-3 text-right">CBM / Block</th>
                 <th className="py-2.5 px-3 text-right">Blocks / CBM</th>
-                <th className="py-2.5 px-3 text-right">Sq.Ft. / Block</th>
-                <th className="py-2.5 px-3 text-right">Sq.Ft. / CBM</th>
                 <th className="py-2.5 px-3 text-center">Select</th>
               </tr>
             </thead>
@@ -144,12 +140,6 @@ export function AACBlockCalculator({
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono">
                       {s.blocksPerCbm.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono">
-                      {s.sqftPerBlock.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-semibold">
-                      {s.sqftPerCbm.toFixed(2)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <span
@@ -221,7 +211,7 @@ export function AACBlockCalculator({
             <label className="block text-xs font-bold text-slate-700 mb-2">
               2. Calculate Requirement By
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setMode("quantity")}
@@ -245,18 +235,6 @@ export function AACBlockCalculator({
                 )}
               >
                 Total CBM (m³)
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("area")}
-                className={cn(
-                  "py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center",
-                  mode === "area"
-                    ? "border-[#13789B] bg-teal-50 text-[#13789B] ring-1 ring-[#13789B]"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                )}
-              >
-                Wall Area (Sq.Ft.)
               </button>
             </div>
           </div>
@@ -298,26 +276,6 @@ export function AACBlockCalculator({
               />
               <p className="text-[11px] text-slate-400 mt-1">
                 Blocks calculated as: <code>Math.ceil(CBM / CBM_per_block)</code>
-              </p>
-            </div>
-          )}
-
-          {mode === "area" && (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Enter Total Wall Area (Sq.Ft.):
-              </label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={sqftInput || ""}
-                onChange={(e) => setSqftInput(Number(e.target.value) || 0)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-bold text-navy focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 outline-none"
-                placeholder="e.g. 1292"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Each block covers ~1.29 Sq.Ft. wall face area
               </p>
             </div>
           )}
@@ -383,7 +341,7 @@ export function AACBlockCalculator({
           </div>
 
           {/* Primary Metric Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-2xs">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Total Required Blocks
@@ -409,18 +367,6 @@ export function AACBlockCalculator({
                 {result.cbmPerBlock.toFixed(4)} CBM/block
               </span>
             </div>
-
-            <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-2xs col-span-2 sm:col-span-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Total Wall Face Area
-              </span>
-              <p className="text-xl font-black text-navy mt-0.5">
-                {result.totalSqft.toLocaleString()} Sq.Ft.
-              </p>
-              <span className="text-[10px] text-slate-500 font-medium">
-                ~1.29 Sq.Ft./block
-              </span>
-            </div>
           </div>
 
           {/* Formula Breakdown Details */}
@@ -432,10 +378,6 @@ export function AACBlockCalculator({
             <div className="flex justify-between text-slate-600">
               <span>Blocks per CBM:</span>
               <strong className="text-navy">{result.blocksPerCbm.toFixed(2)} blocks</strong>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <span>Square Feet per CBM:</span>
-              <strong className="text-navy">{result.spec.sqftPerCbm.toFixed(2)} Sq.Ft./m³</strong>
             </div>
             {result.ratePerBlock > 0 && (
               <>

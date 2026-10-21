@@ -333,12 +333,6 @@ export default async function CustomerOrderDetailPage({
               </div>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>Total Wall Area:</span>
-              <strong className="text-navy font-mono">
-                {order.totalSqft ? Number(order.totalSqft).toFixed(1) : (order.quantity * 1.29).toFixed(1)} Sq.Ft.
-              </strong>
-            </div>
-            <div className="flex justify-between text-slate-600">
               <span>Block Jointing Morter (40 KG):</span>
               <strong className="text-navy font-mono">{order.adhesiveBags ?? 0} Bags</strong>
             </div>

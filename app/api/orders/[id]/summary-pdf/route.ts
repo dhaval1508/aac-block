@@ -202,7 +202,7 @@ export async function GET(
       border-radius: 12px;
       padding: 16px 20px;
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
       text-align: center;
       margin-bottom: 24px;
@@ -370,7 +370,7 @@ export async function GET(
       </div>
     </div>
 
-    <!-- Metrics Banner (CBM, Blocks, Sq.Ft., Adhesive) -->
+    <!-- Metrics Banner (CBM, Blocks, Adhesive) -->
     <div class="metrics-banner">
       <div>
         <div class="metric-label">Total Volume (CBM)</div>
@@ -380,10 +380,6 @@ export async function GET(
       <div>
         <div class="metric-label">Estimated Total Blocks</div>
         <div class="metric-val">${formatNumber(totalBlocks)}</div>
-      </div>
-      <div>
-        <div class="metric-label">Total Wall Area</div>
-        <div class="metric-val">${totalSqft.toFixed(1)} Sq.Ft.</div>
       </div>
       <div>
         <div class="metric-label">Block Jointing Morter</div>
@@ -400,7 +396,6 @@ export async function GET(
           <th class="text-center">Volume & Quantity</th>
           <th class="text-right">CBM / Block</th>
           <th class="text-right">Total CBM</th>
-          <th class="text-right">Total Sq.Ft.</th>
         </tr>
       </thead>
       <tbody>
@@ -417,7 +412,6 @@ export async function GET(
             </td>
             <td class="text-right" style="font-family:monospace;">${it.cbmPerUnit ? Number(it.cbmPerUnit).toFixed(4) : "—"} CBM</td>
             <td class="text-right" style="font-family:monospace; font-weight:bold; color:#13789b;">${it.totalCbm ? Number(it.totalCbm).toFixed(3) : "—"} CBM</td>
-            <td class="text-right" style="font-family:monospace;">${it.totalSqft ? Number(it.totalSqft).toFixed(1) : (it.quantity * 1.29).toFixed(1)} Sq.Ft.</td>
           </tr>
         `).join("")}
       </tbody>

@@ -39,7 +39,7 @@ export function DashboardCalculatorSection({
               AAC Block & Mortar Engineering Calculator
             </h2>
             <p className="text-xs text-slate-500">
-              Calculate exact volume (CBM), blocks required by wall area (Sq.Ft.), and thin-bed mortar bags.
+              Calculate exact volume (CBM), required physical blocks, and thin-bed mortar bags.
             </p>
           </div>
         </div>
