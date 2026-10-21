@@ -86,3 +86,70 @@ export function buildWhatsAppMessage(
       return `Hello ${name}, update for order ${order.orderNo}: ${order.statusLabel || "Processing"}.\n- ${brand}`;
   }
 }
+
+export function buildCustomerInvitationWhatsAppMessage(
+  first: string | { customerName: string; salesmanName: string; inviteUrl: string },
+  second?: string,
+  third?: string
+): string {
+  let customerName = "";
+  let salesmanName = "";
+  let inviteUrl = "";
+
+  if (typeof first === "object" && first !== null) {
+    customerName = first.customerName;
+    salesmanName = first.salesmanName;
+    inviteUrl = first.inviteUrl;
+  } else {
+    customerName = String(first || "Valued Customer");
+    salesmanName = String(second || "Your Representative");
+    inviteUrl = String(third || "");
+  }
+
+  return `Hello ${customerName},
+
+Welcome to Swarnim AAC Block Private Limited.
+
+I am ${salesmanName}, your assigned Salesman.
+
+You can register and place your AAC Block orders using the secure link below:
+
+${inviteUrl}
+
+You can order AAC Blocks by CBM and add Block Jointing Morter (40 KG bags) as required.
+
+Thank you,
+${salesmanName}
+Swarnim AAC Block Private Limited`;
+}
+
+export function buildDriverDeliveryWhatsAppMessage(params: {
+  driverName: string;
+  orderNo: string;
+  vehicleNumber: string;
+  totalMaterialCbm?: string | number;
+  totalCbm?: string | number;
+  deliveryAddress: string;
+  googleMapsLocation?: string | null;
+  googleMapsUrl?: string | null;
+}): string {
+  const cbm = params.totalMaterialCbm ?? params.totalCbm ?? "";
+  const mapsUrl = params.googleMapsLocation || params.googleMapsUrl;
+  const mapsPart = mapsUrl ? `\n\nGoogle Maps Location:\n${mapsUrl}` : "";
+  return `Hello ${params.driverName},
+
+Your delivery details:
+
+Order ID: ${params.orderNo}
+
+Vehicle Number: ${params.vehicleNumber}
+
+Total Material: ${cbm} CBM
+
+Delivery Address: ${params.deliveryAddress}${mapsPart}
+
+Please deliver the material to this location.
+
+Thank you,
+Swarnim AAC Block Private Limited`;
+}

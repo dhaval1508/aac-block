@@ -29,6 +29,7 @@ import {
   Clock,
   PlayCircle,
   CheckCircle2,
+  Send,
 } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import { cn, ROLE_LABEL } from "@/lib/utils";
@@ -55,6 +56,7 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
           items: [
             { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
             { href: "/admin/orders", label: "All Orders", icon: ShoppingCart, badge: pendingCount },
+            { href: "/admin/salesmen", label: "Salesmen Management", icon: Users },
           ],
         },
         {
@@ -70,6 +72,25 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
             { href: "/admin/company-profile", label: "Company Profile", icon: Building2 },
             { href: "/admin/users", label: "Users & Team", icon: Users },
             { href: "/admin/activity", label: "Activity Audit", icon: Activity },
+          ],
+        },
+      ];
+    case "SALESMAN":
+      return [
+        {
+          title: "SALES & CLIENTS",
+          items: [
+            { href: "/salesman/dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { href: "/salesman/customers", label: "My Customers", icon: Users },
+            { href: "/salesman/customers/new", label: "Add Customer", icon: PlusCircle },
+            { href: "/salesman/invitations", label: "Invite via WhatsApp", icon: Send },
+          ],
+        },
+        {
+          title: "CUSTOMER ORDERS",
+          items: [
+            { href: "/salesman/orders", label: "Customer Orders", icon: ShoppingCart },
+            { href: "/salesman/profile", label: "My Profile", icon: UserIcon },
           ],
         },
       ];
@@ -117,11 +138,19 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
 function getPageTitle(pathname: string): { title: string; category: string } {
   if (pathname.includes("/admin/dashboard")) return { title: "Super Admin Dashboard", category: "Operations" };
   if (pathname.includes("/admin/orders")) return { title: "Order Management", category: "Operations" };
+  if (pathname.includes("/admin/salesmen")) return { title: "Salesmen Management", category: "Administration" };
   if (pathname.includes("/admin/stock")) return { title: "Stock In / Out Inventory", category: "Yard Management" };
   if (pathname.includes("/admin/products")) return { title: "AAC Block Specifications", category: "Catalog & Specs" };
   if (pathname.includes("/admin/payments")) return { title: "Order Transactions", category: "Audit" };
   if (pathname.includes("/admin/users")) return { title: "Users & Access Management", category: "Administration" };
   if (pathname.includes("/admin/activity")) return { title: "System Audit Activity Log", category: "Security" };
+
+  if (pathname.includes("/salesman/dashboard")) return { title: "Salesman Dashboard", category: "Sales Portal" };
+  if (pathname.includes("/salesman/customers/new")) return { title: "Add Customer", category: "Sales Portal" };
+  if (pathname.includes("/salesman/customers")) return { title: "My Assigned Customers", category: "Sales Portal" };
+  if (pathname.includes("/salesman/invitations")) return { title: "WhatsApp Invitations", category: "Sales Portal" };
+  if (pathname.includes("/salesman/orders")) return { title: "Customer Order Tracking", category: "Sales Portal" };
+  if (pathname.includes("/salesman/profile")) return { title: "Salesman Profile", category: "Account" };
 
   if (pathname.includes("/stocker/dashboard")) return { title: "Stocker Overview", category: "Inventory" };
   if (pathname.includes("/stocker/orders")) return { title: "Order Logistics Tracking", category: "Logistics" };
@@ -822,7 +851,99 @@ export function AppShell({
             </div>
           )}
 
+          {user.role === "SALESMAN" && (
+            <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
+              <Link
+                href="/salesman/dashboard"
+                className={cn(
+                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
+                  pathname === "/salesman/dashboard"
+                    ? "text-[#13789B] font-black"
+                    : "text-slate-500 hover:text-navy"
+                )}
+              >
+                <LayoutDashboard
+                  className={cn(
+                    "h-5 w-5 transition-transform",
+                    pathname === "/salesman/dashboard" ? "text-[#13789B] scale-110" : "text-slate-400"
+                  )}
+                />
+                <span className="mt-0.5 truncate max-w-[62px]">Dashboard</span>
+              </Link>
 
+              <Link
+                href="/salesman/customers"
+                className={cn(
+                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
+                  pathname.startsWith("/salesman/customers")
+                    ? "text-[#13789B] font-black"
+                    : "text-slate-500 hover:text-navy"
+                )}
+              >
+                <Users
+                  className={cn(
+                    "h-5 w-5 transition-transform",
+                    pathname.startsWith("/salesman/customers") ? "text-[#13789B] scale-110" : "text-slate-400"
+                  )}
+                />
+                <span className="mt-0.5 truncate max-w-[62px]">Customers</span>
+              </Link>
+
+              <Link
+                href="/salesman/invitations"
+                className={cn(
+                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
+                  pathname.startsWith("/salesman/invitations")
+                    ? "text-emerald-700 font-black"
+                    : "text-slate-500 hover:text-navy"
+                )}
+              >
+                <Send
+                  className={cn(
+                    "h-5 w-5 transition-transform",
+                    pathname.startsWith("/salesman/invitations") ? "text-emerald-600 scale-110" : "text-slate-400"
+                  )}
+                />
+                <span className="mt-0.5 truncate max-w-[62px]">WhatsApp</span>
+              </Link>
+
+              <Link
+                href="/salesman/orders"
+                className={cn(
+                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
+                  pathname.startsWith("/salesman/orders")
+                    ? "text-[#13789B] font-black"
+                    : "text-slate-500 hover:text-navy"
+                )}
+              >
+                <ShoppingCart
+                  className={cn(
+                    "h-5 w-5 transition-transform",
+                    pathname.startsWith("/salesman/orders") ? "text-[#13789B] scale-110" : "text-slate-400"
+                  )}
+                />
+                <span className="mt-0.5 truncate max-w-[62px]">Orders</span>
+              </Link>
+
+              <Link
+                href="/salesman/profile"
+                className={cn(
+                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
+                  pathname.startsWith("/salesman/profile")
+                    ? "text-[#13789B] font-black"
+                    : "text-slate-500 hover:text-navy"
+                )}
+              >
+                <UserIcon
+                  className={cn(
+                    "h-5 w-5 transition-transform",
+                    pathname.startsWith("/salesman/profile") ? "text-[#13789B] scale-110" : "text-slate-400"
+                  )}
+                />
+                <span className="mt-0.5 truncate max-w-[62px]">Profile</span>
+              </Link>
+            </div>
+          )}
 
           {user.role === "CUSTOMER" && (
             <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">

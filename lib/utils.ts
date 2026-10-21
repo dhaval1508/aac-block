@@ -131,12 +131,15 @@ export const ROLE_LABEL: Record<Role, string> = {
   STOCKER: "Loading & Stock Staff",
   STAFF: "Loading & Stock Staff",
   CUSTOMER: "Customer",
+  SALESMAN: "Salesman",
 };
 
 export function roleHome(role: Role): string {
   switch (role) {
     case "ADMIN":
       return "/admin/dashboard";
+    case "SALESMAN":
+      return "/salesman/dashboard";
     case "STOCKER":
     case "STAFF":
       return "/staff/dashboard";

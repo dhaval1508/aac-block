@@ -22,6 +22,7 @@ import {
   X,
   ArrowLeft,
   Boxes,
+  ExternalLink,
 } from "lucide-react";
 import { calculateBlockMetrics } from "@/lib/aac-calculator";
 import {
@@ -613,7 +614,7 @@ export function CustomerOrderForm({
           </div>
 
           {/* Delivery Site Address & Google Maps Location Picker */}
-          <div className="sm:col-span-2 space-y-1.5">
+          <div id="delivery-location-section" className="sm:col-span-2 space-y-1.5 scroll-mt-24">
             <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 text-[#13789B]" />
               <span>Delivery Site Location (Google Maps Search & Custom Entry) *</span>
@@ -632,6 +633,7 @@ export function CustomerOrderForm({
             <input type="hidden" name="deliveryAddress" value={deliveryAddress} />
             <input type="hidden" name="city" value={city} />
             <input type="hidden" name="pincode" value={pincode} />
+            <input type="hidden" name="googleMapsUrl" value={deliveryLocation.googleMapsUrl || ""} />
             <input type="hidden" name="googlePlaceId" value={deliveryLocation.googlePlaceId || ""} />
             <input type="hidden" name="latitude" value={deliveryLocation.latitude ?? ""} />
             <input type="hidden" name="longitude" value={deliveryLocation.longitude ?? ""} />
@@ -863,10 +865,25 @@ export function CustomerOrderForm({
               </div>
 
               {/* Customer & Destination */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-                <span className="font-black text-navy uppercase tracking-wider text-[11px] block border-b border-slate-200/80 pb-2">
-                  Customer & Delivery Site
-                </span>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                  <span className="font-black text-navy uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-[#13789B]" />
+                    <span>Customer & Delivery Location</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPreviewOpen(false);
+                      const el = document.getElementById("delivery-location-section");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline cursor-pointer"
+                  >
+                    <span>Edit Location</span>
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Customer Name</span>
@@ -882,20 +899,57 @@ export function CustomerOrderForm({
                       <span className="text-slate-700">{customerEmail}</span>
                     </div>
                   )}
-                  <div className="col-span-2 pt-1 border-t border-slate-200/60">
-                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Delivery Site</span>
-                    <span className="text-navy font-semibold block">{deliveryAddress}</span>
+
+                  <div className="col-span-2 pt-2 border-t border-slate-200/60 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">Location Source:</span>
+                      <span className="text-[11px] font-bold text-[#13789B] bg-teal-100/70 px-2 py-0.5 rounded-md">
+                        {deliveryLocation.locationSource === "GPS"
+                          ? "GPS Location"
+                          : deliveryLocation.locationSource === "GOOGLE_MAPS_LINK"
+                          ? "Google Maps Link"
+                          : "Manual Address"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Delivery Address:</span>
+                      <span className="text-navy font-semibold block text-xs mt-0.5">{deliveryAddress}</span>
+                    </div>
+
                     {deliveryLocation.nearbyLandmark && (
-                      <span className="text-slate-600 text-[11px] block mt-0.5">
-                        <strong>Landmark:</strong> {deliveryLocation.nearbyLandmark}
-                      </span>
+                      <div className="text-[11px] text-slate-600">
+                        <strong>Nearby Landmark:</strong> {deliveryLocation.nearbyLandmark}
+                      </div>
                     )}
+
                     {deliveryLocation.latitude && deliveryLocation.longitude && (
-                      <span className="text-[11px] text-[#13789B] font-mono block mt-0.5">
-                        Coordinates: {deliveryLocation.latitude}, {deliveryLocation.longitude}
-                      </span>
+                      <div className="text-[11px] font-mono text-slate-600">
+                        <strong>Coordinates:</strong> {deliveryLocation.latitude}, {deliveryLocation.longitude}
+                      </div>
+                    )}
+
+                    {(deliveryLocation.googleMapsUrl || (deliveryLocation.latitude && deliveryLocation.longitude) || deliveryAddress) && (
+                      <div className="pt-1 flex items-center justify-between">
+                        <span className="text-slate-500 text-[10px] uppercase font-bold">Google Maps:</span>
+                        <a
+                          href={
+                            deliveryLocation.googleMapsUrl ||
+                            (deliveryLocation.latitude && deliveryLocation.longitude
+                              ? `https://www.google.com/maps?q=${deliveryLocation.latitude},${deliveryLocation.longitude}`
+                              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryAddress)}`)
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline"
+                        >
+                          <span>View Location</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
                     )}
                   </div>
+
                   {notes && (
                     <div className="col-span-2 pt-1 border-t border-slate-200/60">
                       <span className="text-slate-500 block text-[10px] uppercase font-bold">Unloading Instructions</span>

@@ -23,6 +23,16 @@ export default async function CustomerProfilePage({
 
   const user = await prisma.user.findUnique({
     where: { id: session.id },
+    include: {
+      salesman: {
+        select: {
+          name: true,
+          mobile: true,
+          email: true,
+          salesmanCode: true,
+        },
+      },
+    },
   });
 
   if (!user) redirect("/login");
@@ -35,6 +45,35 @@ export default async function CustomerProfilePage({
         <p className="text-sm text-slate-500">
           Manage your contact credentials, company GST details, delivery destinations, and account security.
         </p>
+      </div>
+
+      {/* Assigned Salesman Card */}
+      <div className="rounded-3xl border border-purple-200/80 bg-gradient-to-br from-purple-50/70 via-indigo-50/30 to-white p-4 sm:p-5 shadow-xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-600 text-white font-bold shadow-xs">
+              <User className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase text-purple-800 tracking-wider">
+                Assigned Sales Representative
+              </span>
+              <p className="text-sm font-black text-navy mt-0.5">
+                {user.salesman ? user.salesman.name : "Factory Direct Customer (Unassigned)"}
+              </p>
+              {user.salesman?.mobile && (
+                <p className="text-xs text-slate-500 font-mono mt-0.5">
+                  Direct Line: {user.salesman.mobile} {user.salesman.email ? `• ${user.salesman.email}` : ""}
+                </p>
+              )}
+            </div>
+          </div>
+          {user.salesman?.salesmanCode && (
+            <span className="hidden sm:inline-block rounded-lg bg-white border border-purple-200 px-2.5 py-1 text-xs font-mono font-bold text-purple-800">
+              {user.salesman.salesmanCode}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Profile Form Feedback */}

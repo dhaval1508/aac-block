@@ -69,6 +69,7 @@ export default async function AdminOrderDetailPage({
       include: {
         customer: true,
         product: true,
+        salesman: true,
         transport: true,
         assignedStaff: true,
         weighbridgeSlip: true,
@@ -184,7 +185,13 @@ export default async function AdminOrderDetailPage({
               )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 truncate">
-              Client: <strong className="font-semibold text-navy">{order.customer.companyName || order.customer.name}</strong> · Booked on {formatDateTime(order.createdAt)}
+              Client: <strong className="font-semibold text-navy">{order.customer.companyName || order.customer.name}</strong>
+              {(order.salesman?.name || order.salesmanNameSnapshot) && (
+                <span className="inline-block ml-2 rounded-md bg-purple-50 px-2 py-0.5 text-xs font-bold text-purple-700 border border-purple-200">
+                  Sales: {order.salesman?.name || order.salesmanNameSnapshot}
+                </span>
+              )}{" "}
+              · Booked on {formatDateTime(order.createdAt)}
             </p>
           </div>
         </div>

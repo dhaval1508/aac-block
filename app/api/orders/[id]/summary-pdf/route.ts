@@ -21,6 +21,7 @@ export async function GET(
       include: {
         customer: true,
         product: true,
+        salesman: true,
         items: { include: { product: true } },
         transport: true,
         weighbridgeSlip: true,
@@ -36,6 +37,11 @@ export async function GET(
 
   // Security Guard: Customer can only view their own order
   if (session.role === "CUSTOMER" && order.customerId !== session.id) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // Security Guard: Salesman can only view their assigned customers' orders
+  if (session.role === "SALESMAN" && order.salesmanId !== session.id) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
@@ -376,11 +382,15 @@ export async function GET(
         <div class="info-text">Contact Person: ${order.customer.name}</div>
         <div class="info-text">Mobile: ${order.customer.mobile}</div>
         <div class="info-text">Email: ${order.customer.email}</div>
+        <div class="info-text" style="color:#6b21a8; font-weight:700; margin-top:3px;">
+          Assigned Salesman: ${order.salesman?.name || order.salesmanNameSnapshot || "Factory Direct (Unassigned)"}
+        </div>
       </div>
       <div>
         <div class="info-title">Delivery & Unloading Site</div>
         <div class="info-text-bold">${order.deliveryAddress}</div>
         ${order.formattedAddress && order.formattedAddress !== order.deliveryAddress ? `<div class="info-text" style="color:#64748b;font-size:11px;">Mapped: ${order.formattedAddress}</div>` : ""}
+        ${order.googleMapsUrl ? `<div class="info-text" style="color:#0284c7;font-size:11px;margin-top:2px;">📍 Google Maps: <a href="${order.googleMapsUrl}" target="_blank" style="color:#0284c7;text-decoration:underline;">View Site Location</a></div>` : ""}
         ${order.requestedDate ? `<div class="info-text">Requested Delivery: <strong>${new Date(order.requestedDate).toLocaleDateString("en-IN")}</strong></div>` : ""}
         ${order.notes ? `<div class="info-text">Site Notes: <em>${order.notes}</em></div>` : ""}
         ${order.transport ? `<div class="info-text" style="margin-top:6px; color:#13789b;"><strong>Allocated Truck: ${order.transport.truckNumber}</strong> (Driver: ${order.transport.driverName} - ${order.transport.driverMobile})</div>` : ""}

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { saveWeighbridgeSlipAction, saveLoadingAndVehicleAction } from "@/lib/actions/orders";
 import { mapsHref, normalizeWhatsAppPhone } from "@/lib/utils";
+import { buildDriverDeliveryWhatsAppMessage } from "@/lib/whatsapp";
 
 interface Props {
   order: {
@@ -26,6 +27,7 @@ interface Props {
     dcNumber?: string | null;
     status: string;
     deliveryAddress: string;
+    googleMapsUrl?: string | null;
     formattedAddress?: string | null;
     latitude?: any;
     longitude?: any;
@@ -162,45 +164,23 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
 
   // Google Maps URL
   const destinationAddress = order.formattedAddress || order.deliveryAddress;
-  const mapsUrl = mapsHref(
-    order.latitude ? Number(order.latitude) : null,
-    order.longitude ? Number(order.longitude) : null,
-    destinationAddress
-  );
+  const mapsUrl =
+    order.googleMapsUrl ||
+    mapsHref(
+      order.latitude ? Number(order.latitude) : null,
+      order.longitude ? Number(order.longitude) : null,
+      destinationAddress
+    );
 
-  // Block sizes summary string
-  const blockSizesSummary =
-    order.items && order.items.length > 0
-      ? order.items.map((i) => `${i.sizeLabel || i.productName} (${i.totalCbm ? Number(i.totalCbm).toFixed(3) : ""} CBM)`).join(", ")
-      : `${order.product?.sizeLabel || "Standard AAC Block"} (${Number(order.totalCbm || 0).toFixed(3)} CBM)`;
-
-  // Generate WhatsApp Message Template (Section 8)
-  const challanOrOrder = order.dcNumber || order.orderNo;
-  const verifiedWeightString = calculatedNetWeight > 0 ? `${calculatedNetWeight.toLocaleString()} KG` : "Pending Weighbridge";
-  const rstString = rstNumber ? rstNumber : "Pending";
-  const mortarString = `${order.adhesiveBags ?? 0} Bags (40 KG Each)`;
-
-  const whatsappMessageText = `Hello ${driverName || "Driver"},
-
-You have been assigned a delivery for:
-*SWARNIM AAC BLOCK PRIVATE LIMITED*
-
-Delivery Challan No.: ${order.dcNumber || challanOrOrder}
-Order ID: ${order.orderNo}
-Vehicle Number: ${vehicleNumber || "Assigned Vehicle"}
-AAC Block Size: ${blockSizesSummary}
-Total Quantity: ${Number(order.totalCbm || 0).toFixed(3)} CBM
-Approximate Blocks: ${order.quantity.toLocaleString()} Nos
-Block Jointing Morter: ${mortarString}
-Net Loaded Weight: ${verifiedWeightString}
-Weighbridge Slip RST No.: ${rstString}
-Delivery Address: ${destinationAddress}
-Google Maps Location: ${mapsUrl || "Direct Coordinates On File"}
-
-Please deliver the material to the above location and contact the responsible person if needed.
-
-Thank you,
-Swarnim AAC Block Private Limited`;
+  // Generate WhatsApp Message Template (Section 6)
+  const whatsappMessageText = buildDriverDeliveryWhatsAppMessage({
+    driverName: driverName || "Driver",
+    orderNo: order.orderNo,
+    vehicleNumber: vehicleNumber || "Assigned Vehicle",
+    totalMaterialCbm: Number(order.totalCbm || 0).toFixed(3),
+    deliveryAddress: destinationAddress,
+    googleMapsLocation: mapsUrl,
+  });
 
   const whatsappHref = driverMobile
     ? `https://wa.me/${normalizeWhatsAppPhone(driverMobile)}?text=${encodeURIComponent(whatsappMessageText)}`

@@ -53,6 +53,7 @@ export default async function AdminOrdersPage({
   searchParams: Promise<{
     status?: string;
     q?: string;
+    salesman?: string;
     preset?: string;
     from?: string;
     to?: string;
@@ -67,6 +68,7 @@ export default async function AdminOrdersPage({
   const {
     status = "all",
     q = "",
+    salesman = "all",
     preset,
     from,
     to,
@@ -82,6 +84,12 @@ export default async function AdminOrdersPage({
   const whereClause: any = {};
   if (currentTab.status) {
     whereClause.status = currentTab.status;
+  }
+
+  if (salesman === "unassigned") {
+    whereClause.salesmanId = null;
+  } else if (salesman && salesman !== "all") {
+    whereClause.salesmanId = salesman;
   }
 
   if (dateFilter) {
@@ -105,7 +113,7 @@ export default async function AdminOrdersPage({
 
   const orderBy = sort === "oldest" ? { createdAt: "asc" as const } : { createdAt: "desc" as const };
 
-  const [orders, filteredTotalCount, statusGroups, allOrdersSummary] = await Promise.all([
+  const [orders, filteredTotalCount, statusGroups, allOrdersSummary, allSalesmen] = await Promise.all([
     prisma.order.findMany({
       where: whereClause,
       orderBy,
@@ -116,6 +124,7 @@ export default async function AdminOrdersPage({
         product: { select: { sizeLabel: true, dimensions: true, cbmPerBlock: true } },
         transport: true,
         assignedStaff: { select: { name: true } },
+        salesman: { select: { id: true, name: true } },
         items: { select: { id: true } },
       },
     }),
@@ -128,6 +137,11 @@ export default async function AdminOrdersPage({
     prisma.order.aggregate({
       where: dateFilter ? { createdAt: dateFilter } : {},
       _count: { id: true },
+    }),
+    prisma.user.findMany({
+      where: { role: "SALESMAN" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -282,6 +296,8 @@ export default async function AdminOrdersPage({
         initialSearch={q}
         status={status}
         sort={sort}
+        salesman={salesman}
+        salesmen={allSalesmen}
         preset={preset}
         from={from}
         to={to}
@@ -331,6 +347,11 @@ export default async function AdminOrdersPage({
                     <p className="font-bold text-navy truncate max-w-[180px]">
                       {o.customer.companyName || o.customer.name}
                     </p>
+                    {(o.salesman?.name || o.salesmanNameSnapshot) && (
+                      <span className="inline-block mt-0.5 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
+                        Sales: {o.salesman?.name || o.salesmanNameSnapshot}
+                      </span>
+                    )}
                     <p className="text-[11px] text-slate-500 truncate max-w-[180px] mt-0.5">
                       📍 {o.deliveryAddress}
                     </p>

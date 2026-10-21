@@ -266,20 +266,22 @@ export async function changePasswordAction(formData: FormData) {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const returnPath = session.role === "SALESMAN" ? "/salesman/profile" : "/customer/profile";
+
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const newPassword = String(formData.get("newPassword") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   if (!currentPassword || !newPassword || !confirmPassword) {
-    redirect("/customer/profile?pwdError=All%20password%20fields%20are%20required");
+    redirect(`${returnPath}?pwdError=All%20password%20fields%20are%20required`);
   }
 
   if (newPassword.length < 6) {
-    redirect("/customer/profile?pwdError=New%20password%20must%20be%20at%20least%206%20characters");
+    redirect(`${returnPath}?pwdError=New%20password%20must%20be%20at%20least%206%20characters`);
   }
 
   if (newPassword !== confirmPassword) {
-    redirect("/customer/profile?pwdError=New%20passwords%20do%20not%20match");
+    redirect(`${returnPath}?pwdError=New%20passwords%20do%20not%20match`);
   }
 
   const user = await prisma.user.findUnique({ where: { id: session.id } });
@@ -287,7 +289,7 @@ export async function changePasswordAction(formData: FormData) {
 
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) {
-    redirect("/customer/profile?pwdError=Current%20password%20is%20incorrect");
+    redirect(`${returnPath}?pwdError=Current%20password%20is%20incorrect`);
   }
 
   const newHash = await bcrypt.hash(newPassword, 10);
@@ -296,8 +298,8 @@ export async function changePasswordAction(formData: FormData) {
     data: { passwordHash: newHash },
   });
 
-  revalidatePath("/customer/profile");
-  redirect("/customer/profile?pwdSuccess=Password%20changed%20successfully");
+  revalidatePath(returnPath);
+  redirect(`${returnPath}?pwdSuccess=Password%20changed%20successfully`);
 }
 
 export async function logoutAction() {

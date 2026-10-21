@@ -7,6 +7,8 @@ function roleHome(role: string): string {
   switch (role) {
     case "ADMIN":
       return "/admin/dashboard";
+    case "SALESMAN":
+      return "/salesman/dashboard";
     case "STOCKER":
     case "STAFF":
       return "/staff/dashboard";
@@ -28,6 +30,7 @@ export async function middleware(request: NextRequest) {
 
   const isPublic =
     PUBLIC_EXACT.includes(pathname) ||
+    pathname.startsWith("/invite") ||
     pathname.startsWith("/invoice/share");
 
   const token = request.cookies.get("acc_session")?.value;
@@ -73,6 +76,11 @@ export async function middleware(request: NextRequest) {
   // Role-based route gating
   if (valid && userRole) {
     if (pathname.startsWith("/admin") && userRole !== "ADMIN") {
+      const url = request.nextUrl.clone();
+      url.pathname = roleHome(userRole);
+      return NextResponse.redirect(url);
+    }
+    if (pathname.startsWith("/salesman") && !["ADMIN", "SALESMAN"].includes(userRole)) {
       const url = request.nextUrl.clone();
       url.pathname = roleHome(userRole);
       return NextResponse.redirect(url);

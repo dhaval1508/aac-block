@@ -122,10 +122,10 @@ export default async function CustomerEditOrderPage({
 
   const initialDeliveryLocation = {
     address: order.formattedAddress || order.deliveryAddress,
-    locationSource: (order.locationSource === "GOOGLE_MAPS" ? "GOOGLE_MAPS" : "MANUAL") as
-      | "GOOGLE_MAPS"
-      | "MANUAL",
-    googlePlaceId: order.googlePlaceId || undefined,
+    locationSource: (order.locationSource === "GPS" || order.locationSource === "GOOGLE_MAPS_LINK"
+      ? order.locationSource
+      : "MANUAL") as "GPS" | "GOOGLE_MAPS_LINK" | "MANUAL",
+    googleMapsUrl: order.googleMapsUrl || undefined,
     latitude: order.latitude ? Number(order.latitude) : undefined,
     longitude: order.longitude ? Number(order.longitude) : undefined,
     customSiteName: order.customSiteName || undefined,

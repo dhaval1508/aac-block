@@ -1,21 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   MapPin,
-  Search,
-  ExternalLink,
-  Building,
   Navigation,
+  Link2,
+  Building,
   CheckCircle2,
-  Sparkles,
-  Map,
+  ExternalLink,
+  AlertCircle,
+  Loader2,
+  RotateCcw,
 } from "lucide-react";
-import { mapsHref } from "@/lib/utils";
 
 export interface DeliveryLocationData {
   address: string;
-  locationSource: "GOOGLE_MAPS" | "MANUAL";
+  locationSource: "GPS" | "GOOGLE_MAPS_LINK" | "MANUAL";
+  googleMapsUrl?: string;
   googlePlaceId?: string;
   latitude?: number;
   longitude?: number;
@@ -35,185 +36,429 @@ interface Props {
 }
 
 export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
-  const [activeTab, setActiveTab] = useState<"SEARCH" | "CUSTOM">(
-    value.locationSource === "MANUAL" && !value.googlePlaceId ? "CUSTOM" : "SEARCH"
+  const [activeTab, setActiveTab] = useState<"GPS" | "LINK" | "MANUAL">(
+    value.locationSource === "GPS"
+      ? "GPS"
+      : value.locationSource === "GOOGLE_MAPS_LINK"
+      ? "LINK"
+      : "MANUAL"
   );
-  const [searchQuery, setSearchQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // GPS state
+  const [isDetectingGps, setIsDetectingGps] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
-  // Fetch suggestions with debouncing
-  useEffect(() => {
-    if (!searchQuery.trim() || searchQuery.length < 2) {
-      setSuggestions([]);
-      setShowDropdown(false);
+  // Link state
+  const [mapsLinkInput, setMapsLinkInput] = useState(value.googleMapsUrl || "");
+  const [isVerifyingLink, setIsVerifyingLink] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Option 1: USE MY CURRENT LOCATION (Browser Geolocation API)
+  // ---------------------------------------------------------------------------
+  const handleUseCurrentLocation = () => {
+    setGpsError(null);
+
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setGpsError(
+        "Geolocation is not supported by your browser. Please paste a Google Maps link or enter your site address manually."
+      );
       return;
     }
 
-    const timer = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch(`/api/maps/places?input=${encodeURIComponent(searchQuery)}`);
-        if (res.ok) {
+    setIsDetectingGps(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+
+        let formattedAddress = `GPS Location: ${lat}, ${lng}`;
+        let city = value.city || "Ahmedabad";
+        let district = value.district || "Ahmedabad";
+        let state = value.state || "Gujarat";
+        let pincode = value.pincode || "";
+
+        try {
+          const res = await fetch("/api/maps/reverse-geocode", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat, lng }),
+          });
           const data = await res.json();
-          setSuggestions(data.predictions || []);
-          setShowDropdown(true);
+          if (data.success && data.address) {
+            formattedAddress = data.address;
+            if (data.city) city = data.city;
+            if (data.district) district = data.district;
+            if (data.state) state = data.state;
+            if (data.pincode) pincode = data.pincode;
+          }
+        } catch (err) {
+          console.warn("Reverse geocode network warning:", err);
         }
-      } catch (err) {
-        console.error("Failed to fetch location suggestions", err);
-      } finally {
-        setIsLoading(false);
+
+        const generatedMapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+
+        onChange({
+          ...value,
+          locationSource: "GPS",
+          latitude: lat,
+          longitude: lng,
+          address: formattedAddress,
+          googleMapsUrl: generatedMapsLink,
+          city,
+          district,
+          state,
+          pincode,
+        });
+
+        setIsDetectingGps(false);
+      },
+      (err) => {
+        setIsDetectingGps(false);
+        let msg = "Could not retrieve your location.";
+        if (err.code === 1) {
+          msg = "Location permission was denied. Please allow location access in your browser, or paste a Google Maps link / enter address manually.";
+        } else if (err.code === 2) {
+          msg = "GPS position is unavailable. Please check your network or enter address manually.";
+        } else if (err.code === 3) {
+          msg = "Location request timed out. Please try again or enter address manually.";
+        }
+        setGpsError(msg);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 10000,
       }
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const handleSelectSuggestion = (place: any) => {
-    setSearchQuery(place.description);
-    setShowDropdown(false);
-    onChange({
-      address: place.description,
-      locationSource: "GOOGLE_MAPS",
-      googlePlaceId: place.placeId,
-      latitude: place.lat ?? value.latitude,
-      longitude: place.lng ?? value.longitude,
-      city: place.city || value.city || "Ahmedabad",
-      district: place.district || value.district || "Ahmedabad",
-      state: place.state || value.state || "Gujarat",
-      pincode: place.pincode || value.pincode,
-      customSiteName: place.mainText,
-      villageArea: place.secondaryText,
-      nearbyLandmark: value.nearbyLandmark,
-    });
+    );
   };
 
-  const handleDetectGPS = () => {
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          onChange({
-            ...value,
-            latitude: Number(pos.coords.latitude.toFixed(6)),
-            longitude: Number(pos.coords.longitude.toFixed(6)),
-          });
-        },
-        (err) => {
-          console.warn("Geolocation warning:", err.message);
-        }
-      );
+  // ---------------------------------------------------------------------------
+  // Option 2: PASTE GOOGLE MAPS LOCATION LINK
+  // ---------------------------------------------------------------------------
+  const handleVerifyMapsLink = async () => {
+    setLinkError(null);
+    const trimmed = mapsLinkInput.trim();
+
+    if (!trimmed) {
+      setLinkError("Please paste your Google Maps link.");
+      return;
+    }
+
+    setIsVerifyingLink(true);
+
+    try {
+      const res = await fetch("/api/maps/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setLinkError(data.error || "Invalid Google Maps link. Please check the URL.");
+        setIsVerifyingLink(false);
+        return;
+      }
+
+      const confirmedAddress =
+        data.address ||
+        data.siteName ||
+        (data.latitude && data.longitude
+          ? `Google Maps Site (${data.latitude}, ${data.longitude})`
+          : value.address || "Google Maps Delivery Site");
+
+      onChange({
+        ...value,
+        locationSource: "GOOGLE_MAPS_LINK",
+        googleMapsUrl: data.originalUrl || trimmed,
+        latitude: data.latitude ?? value.latitude,
+        longitude: data.longitude ?? value.longitude,
+        address: confirmedAddress,
+        customSiteName: data.siteName || value.customSiteName,
+        city: data.city || value.city || "Ahmedabad",
+        state: data.state || value.state || "Gujarat",
+      });
+    } catch (err: any) {
+      setLinkError("Network error while verifying link. You may enter the site address manually.");
+    } finally {
+      setIsVerifyingLink(false);
     }
   };
 
-  const mapsUrl = mapsHref(value.latitude, value.longitude, value.address);
+  // Compute live Google Maps link for the preview
+  const liveMapsUrl =
+    value.googleMapsUrl ||
+    (value.latitude && value.longitude
+      ? `https://www.google.com/maps?q=${value.latitude},${value.longitude}`
+      : value.address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value.address)}`
+      : null);
 
   return (
     <div className="space-y-4">
-      {/* Mode Selection Tabs: Option A vs Option B */}
-      <div className="flex rounded-2xl bg-slate-100 p-1 border border-slate-200">
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => setActiveTab("SEARCH")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "SEARCH"
-              ? "bg-white text-[#13789B] shadow-xs"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <Search className="h-3.5 w-3.5" />
-          <span>Option A: Search on Google Maps</span>
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => setActiveTab("CUSTOM")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "CUSTOM"
-              ? "bg-white text-[#13789B] shadow-xs"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <Building className="h-3.5 w-3.5" />
-          <span>Option B: Enter Custom Delivery Location</span>
-        </button>
+      {/* SECTION TITLE & THREE SELECTION TABS */}
+      <div>
+        <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">
+          Select Delivery Location
+        </label>
+        <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-slate-100 border border-slate-200">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setActiveTab("GPS")}
+            className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "GPS"
+                ? "bg-white text-[#13789B] shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Navigation className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Use My Location</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setActiveTab("LINK")}
+            className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "LINK"
+                ? "bg-white text-[#13789B] shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Link2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Paste Maps Link</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setActiveTab("MANUAL")}
+            className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "MANUAL"
+                ? "bg-white text-[#13789B] shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Building className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">Enter Manually</span>
+          </button>
+        </div>
       </div>
 
-      {/* OPTION A: Google Maps Search */}
-      {activeTab === "SEARCH" && (
-        <div className="space-y-2 relative" ref={dropdownRef}>
-          <label className="block text-xs font-bold text-slate-700">
-            Search Delivery Location (Google Places)
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              disabled={disabled}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder='e.g. "Ganesh Glory Ahmedabad", "Sanand GIDC", "Science City"'
-              className="w-full rounded-2xl border border-slate-300 bg-white pl-10 pr-10 py-3 text-sm font-medium text-navy placeholder:text-slate-400 focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 outline-none transition-all"
-            />
-            {isLoading && (
-              <div className="absolute right-3.5 top-3.5">
-                <span className="block h-4 w-4 animate-spin rounded-full border-2 border-[#13789B] border-t-transparent" />
-              </div>
-            )}
+      {/* =========================================================================
+          OPTION 1: USE MY CURRENT LOCATION
+      ========================================================================= */}
+      {activeTab === "GPS" && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-black text-navy uppercase tracking-wider">
+                Option 1: Device GPS Location
+              </h4>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Quickly fetch your construction site coordinates directly from your phone or laptop.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={disabled || isDetectingGps}
+              onClick={handleUseCurrentLocation}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#13789B] hover:bg-[#0f607d] text-white px-4 py-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:bg-slate-300 shrink-0"
+            >
+              {isDetectingGps ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Locating Device...</span>
+                </>
+              ) : (
+                <>
+                  <Navigation className="h-3.5 w-3.5" />
+                  <span>Use My Current Location</span>
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Autocomplete Dropdown */}
-          {showDropdown && suggestions.length > 0 && (
-            <div className="absolute z-30 left-0 right-0 top-full mt-1.5 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl space-y-0.5 max-h-60 overflow-y-auto">
-              {suggestions.map((p, idx) => (
-                <button
-                  key={p.placeId || idx}
-                  type="button"
-                  onClick={() => handleSelectSuggestion(p)}
-                  className="w-full text-left flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-teal-50/70 transition-colors cursor-pointer group"
-                >
-                  <MapPin className="h-4 w-4 text-[#13789B] mt-0.5 shrink-0" />
-                  <div>
-                    <div className="text-xs font-black text-navy group-hover:text-[#13789B]">
-                      {p.mainText || p.description}
-                    </div>
-                    {p.secondaryText && (
-                      <div className="text-[11px] text-slate-500 line-clamp-1">
-                        {p.secondaryText}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
+          {gpsError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 flex items-start gap-2.5 text-rose-700 text-xs">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">GPS Unavailable</span>
+                <span>{gpsError}</span>
+              </div>
             </div>
           )}
 
-          <p className="text-[11px] text-slate-500">
-            Search cities, villages, areas, societies, construction sites, businesses, landmarks, and roads.
-          </p>
+          {value.locationSource === "GPS" && value.latitude && value.longitude && (
+            <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#13789B]">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Location Selected Successfully</span>
+                </span>
+                <span className="text-[11px] font-mono text-slate-600 bg-teal-100/80 px-2 py-0.5 rounded-md font-semibold">
+                  {value.latitude}, {value.longitude}
+                </span>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Confirmed Site Address (You can adjust below if needed)
+                </label>
+                <textarea
+                  rows={2}
+                  disabled={disabled}
+                  value={value.address || ""}
+                  onChange={(e) => onChange({ ...value, address: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
+                  placeholder="Street, area, landmarks..."
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={disabled || isDetectingGps}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-navy cursor-pointer"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Change Location</span>
+                </button>
+                {liveMapsUrl && (
+                  <a
+                    href={liveMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline ml-auto"
+                  >
+                    <span>View on Google Maps</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* OPTION B: Custom Address Details */}
-      {activeTab === "CUSTOM" && (
+      {/* =========================================================================
+          OPTION 2: PASTE GOOGLE MAPS LOCATION LINK
+      ========================================================================= */}
+      {activeTab === "LINK" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+          <div>
+            <h4 className="text-xs font-black text-navy uppercase tracking-wider">
+              Option 2: Paste Google Maps Link
+            </h4>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Open Google Maps on your phone or computer, select your site pin, click <strong>Share</strong>, copy the link, and paste it here.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Link2 className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                disabled={disabled || isVerifyingLink}
+                value={mapsLinkInput}
+                onChange={(e) => setMapsLinkInput(e.target.value)}
+                placeholder="Paste your Google Maps link here (e.g. https://maps.app.goo.gl/...)"
+                className="w-full rounded-xl border border-slate-300 pl-10 pr-3 py-2.5 text-xs font-medium text-navy placeholder:text-slate-400 focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={disabled || isVerifyingLink || !mapsLinkInput.trim()}
+              onClick={handleVerifyMapsLink}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#13789B] hover:bg-[#0f607d] text-white px-4 py-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:bg-slate-300 shrink-0"
+            >
+              {isVerifyingLink ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Verifying...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Verify Location</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {linkError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 flex items-start gap-2 text-rose-700 text-xs">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{linkError}</span>
+            </div>
+          )}
+
+          {value.locationSource === "GOOGLE_MAPS_LINK" && value.address && (
+            <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#13789B]">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Google Maps Link Verified Successfully</span>
+                </span>
+                {value.latitude && value.longitude && (
+                  <span className="text-[11px] font-mono text-slate-600 bg-teal-100/80 px-2 py-0.5 rounded-md font-semibold">
+                    {value.latitude}, {value.longitude}
+                  </span>
+                )}
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Delivery Site Address Confirmation
+                </label>
+                <textarea
+                  rows={2}
+                  disabled={disabled}
+                  value={value.address || ""}
+                  onChange={(e) => onChange({ ...value, address: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
+                  placeholder="Enter full address for the truck driver..."
+                />
+              </div>
+              {liveMapsUrl && (
+                <div className="pt-1 flex justify-end">
+                  <a
+                    href={liveMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline"
+                  >
+                    <span>View Destination on Google Maps</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          OPTION 3: ENTER ADDRESS MANUALLY
+      ========================================================================= */}
+      {activeTab === "MANUAL" && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+          <div>
+            <h4 className="text-xs font-black text-navy uppercase tracking-wider">
+              Option 3: Enter Address Manually
+            </h4>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Enter your complete construction site or unloading address directly.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Building / Project / Site Name
+                Site / Building / Project Name
               </label>
               <input
                 type="text"
@@ -226,13 +471,13 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
                     locationSource: "MANUAL",
                   })
                 }
-                placeholder="e.g. Shivalik Residency, Site #4"
+                placeholder="e.g. Ganesh Glory 11, Plot 42"
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Village / Area / Colony
+                Area / Village / Sector
               </label>
               <input
                 type="text"
@@ -245,7 +490,7 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
                     locationSource: "MANUAL",
                   })
                 }
-                placeholder="e.g. Jagatpur, Chenpur, Bopal"
+                placeholder="e.g. Jagatpur, GIDC, Bopal"
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
               />
             </div>
@@ -253,7 +498,7 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              Full Site Address <span className="text-red-500">*</span>
+              Full Delivery Address <span className="text-rose-500">*</span>
             </label>
             <textarea
               rows={2}
@@ -318,74 +563,42 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nearby Landmark
-              </label>
-              <input
-                type="text"
-                disabled={disabled}
-                value={value.nearbyLandmark || ""}
-                onChange={(e) => onChange({ ...value, nearbyLandmark: e.target.value })}
-                placeholder="e.g. Near Nirma University, Opposite Bharat Petrol Pump"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                GPS Map Pin / Coordinates (Optional)
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  disabled={disabled}
-                  value={
-                    value.latitude && value.longitude
-                      ? `${value.latitude}, ${value.longitude}`
-                      : ""
-                  }
-                  onChange={(e) => {
-                    const parts = e.target.value.split(",");
-                    if (parts.length === 2) {
-                      const lat = parseFloat(parts[0].trim());
-                      const lng = parseFloat(parts[1].trim());
-                      if (!isNaN(lat) && !isNaN(lng)) {
-                        onChange({ ...value, latitude: lat, longitude: lng });
-                      }
-                    }
-                  }}
-                  placeholder="23.1118, 72.5412"
-                  className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs font-mono text-navy focus:border-[#13789B] outline-none"
-                />
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={handleDetectGPS}
-                  title="Detect current device location pin"
-                  className="rounded-xl border border-slate-300 hover:border-[#13789B] hover:text-[#13789B] bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <Navigation className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">GPS</span>
-                </button>
-              </div>
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Nearby Landmark
+            </label>
+            <input
+              type="text"
+              disabled={disabled}
+              value={value.nearbyLandmark || ""}
+              onChange={(e) => onChange({ ...value, nearbyLandmark: e.target.value })}
+              placeholder="e.g. Near Nirma University, Opposite Bharat Petrol Pump"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
+            />
           </div>
         </div>
       )}
 
-      {/* Selected Location Confirmation & View on Google Maps Banner */}
+      {/* =========================================================================
+          SELECTED LOCATION SUMMARY BANNER (Always visible when address is selected)
+      ========================================================================= */}
       {value.address && (
-        <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="rounded-2xl border border-teal-200 bg-teal-50/70 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-start gap-2.5">
             <CheckCircle2 className="h-4 w-4 text-[#13789B] mt-0.5 shrink-0" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-[#13789B]">
-                  Confirmed Destination ({value.locationSource === "GOOGLE_MAPS" ? "Google Maps" : "Custom Site"})
+                  Confirmed Destination (
+                  {value.locationSource === "GPS"
+                    ? "Current GPS"
+                    : value.locationSource === "GOOGLE_MAPS_LINK"
+                    ? "Google Maps Link"
+                    : "Manual Address"}
+                  )
                 </span>
                 {value.latitude && value.longitude && (
-                  <span className="text-[10px] bg-teal-200/60 text-teal-900 font-mono px-1.5 py-0.2 rounded-md font-semibold">
+                  <span className="text-[10px] bg-teal-200/60 text-teal-900 font-mono px-1.5 py-0.5 rounded-md font-semibold">
                     {value.latitude}, {value.longitude}
                   </span>
                 )}
@@ -401,9 +614,9 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
             </div>
           </div>
 
-          {mapsUrl && (
+          {liveMapsUrl && (
             <a
-              href={mapsUrl}
+              href={liveMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#13789B] text-white px-3.5 py-2 text-xs font-bold hover:bg-[#0f607d] transition-colors shrink-0 shadow-xs"

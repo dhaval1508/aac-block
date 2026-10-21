@@ -34,6 +34,7 @@ export default async function CustomerOrderDetailPage({
     where: { id },
     include: {
       product: true,
+      salesman: true,
       items: { include: { product: true } },
       transport: true,
       weighbridgeSlip: true,
@@ -113,6 +114,11 @@ export default async function CustomerOrderDetailPage({
               </span>
             </div>
             <p className="text-xs text-slate-500">Ordered on {formatDateTime(order.createdAt)}</p>
+            {(order.salesman?.name || order.salesmanNameSnapshot) && (
+              <p className="text-xs text-purple-700 font-bold mt-0.5">
+                Assigned Salesman: {order.salesman?.name || order.salesmanNameSnapshot}
+              </p>
+            )}
           </div>
         </div>
 
@@ -288,17 +294,21 @@ export default async function CustomerOrderDetailPage({
                 <p className="mt-0.5 font-semibold text-navy">{formatDate(order.requestedDate)}</p>
               </div>
             )}
-            {mapsHref(
-              order.latitude ? Number(order.latitude) : null,
-              order.longitude ? Number(order.longitude) : null,
-              order.formattedAddress || order.deliveryAddress
-            ) && (
+            {(order.googleMapsUrl ||
+              mapsHref(
+                order.latitude ? Number(order.latitude) : null,
+                order.longitude ? Number(order.longitude) : null,
+                order.formattedAddress || order.deliveryAddress
+              )) && (
               <a
-                href={mapsHref(
-                  order.latitude ? Number(order.latitude) : null,
-                  order.longitude ? Number(order.longitude) : null,
-                  order.formattedAddress || order.deliveryAddress
-                )!}
+                href={
+                  order.googleMapsUrl ||
+                  mapsHref(
+                    order.latitude ? Number(order.latitude) : null,
+                    order.longitude ? Number(order.longitude) : null,
+                    order.formattedAddress || order.deliveryAddress
+                  )!
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-teal-50 border border-teal-200 text-[#13789B] hover:bg-teal-100 px-3.5 py-2 text-xs font-bold transition-colors shadow-2xs"

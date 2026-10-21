@@ -13,6 +13,7 @@ enum Role {
   STAFF
   STOCKER
   ADMIN
+  SALESMAN
 }
 
 enum OrderStatus {
@@ -64,18 +65,32 @@ model User {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
+  // Salesman specific profile fields
+  salesmanCode    String?         @unique // e.g. "SAB-SALES-001"
+  remarks         String?
+
+  // Customer-to-Salesman assignment (One active salesman per customer)
+  salesmanId      String?
+  salesman        User?           @relation("SalesmanCustomers", fields: [salesmanId], references: [id], onDelete: SetNull)
+  assignedCustomers User[]        @relation("SalesmanCustomers")
+  assignedAt      DateTime?
+
   customerOrders    Order[]            @relation("CustomerOrders")
   assignedOrders    Order[]            @relation("StaffAssignedOrders")
+  salesmanOrders    Order[]            @relation("SalesmanOrders")
   stockMovements    StockMovement[]
   paymentsCreated   Payment[]
   orderEvents       OrderEvent[]
   messageLogs       MessageLog[]
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
+  invitationsCreated CustomerInvitation[] @relation("SalesmanInvitations")
+  assignmentHistory  CustomerAssignmentHistory[] @relation("CustomerAssignments")
 
   @@index([role])
   @@index([mobile])
   @@index([deletedAt])
+  @@index([salesmanId])
 }
 
 model Product {
@@ -146,6 +161,7 @@ model Order {
   
   // Google Maps & Custom Delivery Location fields
   googlePlaceId   String?
+  googleMapsUrl   String?         // Validated Google Maps short/full link (e.g. maps.app.goo.gl/...)
   latitude        Decimal?        @db.Decimal(10, 7)
   longitude       Decimal?        @db.Decimal(10, 7)
   formattedAddress String?
@@ -156,7 +172,12 @@ model Order {
   state           String?
   pincode         String?
   nearbyLandmark  String?
-  locationSource  String?         @default("MANUAL") // "GOOGLE_MAPS" | "MANUAL"
+  locationSource  String?         @default("MANUAL") // "GPS" | "GOOGLE_MAPS_LINK" | "MANUAL"
+
+  // Salesman attribution
+  salesmanId      String?
+  salesman        User?           @relation("SalesmanOrders", fields: [salesmanId], references: [id], onDelete: SetNull)
+  salesmanNameSnapshot String?
 
   assignedStaffId String?
   assignedStaff   User?           @relation("StaffAssignedOrders", fields: [assignedStaffId], references: [id])
@@ -180,6 +201,7 @@ model Order {
   @@index([status])
   @@index([customerId])
   @@index([assignedStaffId])
+  @@index([salesmanId])
   @@index([dcNumber])
 }
 
@@ -450,5 +472,39 @@ model DeliveryChallanSequence {
   id           Int      @id @default(autoincrement())
   currentValue Int      @default(0)
   updatedAt    DateTime @updatedAt
+}
+
+model CustomerInvitation {
+  id                   String    @id @default(cuid())
+  salesmanId           String
+  salesman             User      @relation("SalesmanInvitations", fields: [salesmanId], references: [id], onDelete: Cascade)
+  customerName         String
+  mobile               String
+  token                String    @unique
+  status               String    @default("PENDING") // PENDING, ACCEPTED, EXPIRED, REVOKED
+  expiresAt            DateTime
+  acceptedAt           DateTime?
+  registeredCustomerId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([salesmanId])
+  @@index([token])
+  @@index([mobile])
+  @@index([status])
+}
+
+model CustomerAssignmentHistory {
+  id             String   @id @default(cuid())
+  customerId     String
+  customer       User     @relation("CustomerAssignments", fields: [customerId], references: [id], onDelete: Cascade)
+  fromSalesmanId String?
+  toSalesmanId   String?
+  assignedById   String?
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
 }
 

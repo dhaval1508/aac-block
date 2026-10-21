@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, ArrowUpDown, RotateCcw } from "lucide-react";
+import { Search, ArrowUpDown, RotateCcw, User } from "lucide-react";
 
 interface StatusTab {
   key: string;
@@ -15,6 +15,8 @@ interface OrdersFilterToolbarProps {
   status: string;
   payment?: string;
   sort: string;
+  salesman?: string;
+  salesmen?: Array<{ id: string; name: string }>;
   preset?: string;
   from?: string;
   to?: string;
@@ -26,6 +28,8 @@ export function OrdersFilterToolbar({
   initialSearch,
   status,
   sort,
+  salesman,
+  salesmen,
   preset,
   from,
   to,
@@ -76,6 +80,27 @@ export function OrdersFilterToolbar({
         </form>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Salesman Filter Dropdown */}
+          {salesmen && salesmen.length > 0 && (
+            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <User className="h-3.5 w-3.5 text-slate-400" />
+              <select
+                defaultValue={salesman || "all"}
+                onChange={(e) => updateFilters({ salesman: e.target.value })}
+                className="bg-transparent font-semibold text-navy outline-none cursor-pointer text-xs"
+                aria-label="Filter by Salesman"
+              >
+                <option value="all">All Salesmen</option>
+                <option value="unassigned">Unassigned Customers</option>
+                {salesmen.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Sort Dropdown */}
           <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
             <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />

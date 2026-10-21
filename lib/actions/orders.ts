@@ -36,7 +36,7 @@ export interface OrderItemInput {
 // 1. Customer places order (Strictly order placement without pricing)
 export async function placeCustomerOrderAction(formData: FormData) {
   const session = await getSession();
-  if (!session || !["CUSTOMER", "ADMIN"].includes(session.role)) {
+  if (!session || !["CUSTOMER", "ADMIN", "SALESMAN"].includes(session.role)) {
     redirect("/login");
   }
 
@@ -50,6 +50,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
   const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
 
   // Google Maps & Custom Location Details
+  const googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
   const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
   const latitudeRaw = formData.get("latitude");
   const longitudeRaw = formData.get("longitude");
@@ -60,7 +61,52 @@ export async function placeCustomerOrderAction(formData: FormData) {
   const district = String(formData.get("district") ?? "").trim() || null;
   const state = String(formData.get("state") ?? "").trim() || "Gujarat";
   const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
-  const locationSource = String(formData.get("locationSource") ?? (googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
+  const locationSource = String(formData.get("locationSource") ?? (googleMapsUrl ? "GOOGLE_MAPS_LINK" : googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
+
+  // Determine Customer and Salesman attribution
+  let targetCustomerId = session.id;
+  let targetSalesmanId: string | null = null;
+  let targetSalesmanNameSnapshot: string | null = null;
+
+  if (session.role === "SALESMAN") {
+    const rawCustomerId = String(formData.get("customerId") ?? "").trim();
+    if (!rawCustomerId) {
+      redirect("/salesman/orders?error=Please%20select%20an%20assigned%20customer");
+    }
+    const assignedCust = await prisma.user.findFirst({
+      where: { id: rawCustomerId, salesmanId: session.id },
+      select: { id: true, name: true, companyName: true },
+    });
+    if (!assignedCust) {
+      redirect("/salesman/orders?error=Customer%20is%20not%20assigned%20to%20you");
+    }
+    targetCustomerId = assignedCust.id;
+    targetSalesmanId = session.id;
+    targetSalesmanNameSnapshot = session.name;
+  } else if (session.role === "CUSTOMER") {
+    targetCustomerId = session.id;
+    const cust = await prisma.user.findUnique({
+      where: { id: session.id },
+      select: { salesmanId: true, salesman: { select: { id: true, name: true } } },
+    });
+    if (cust?.salesmanId) {
+      targetSalesmanId = cust.salesmanId;
+      targetSalesmanNameSnapshot = cust.salesman?.name ?? null;
+    }
+  } else if (session.role === "ADMIN") {
+    const rawCustomerId = String(formData.get("customerId") ?? "").trim();
+    if (rawCustomerId) {
+      targetCustomerId = rawCustomerId;
+      const cust = await prisma.user.findUnique({
+        where: { id: rawCustomerId },
+        select: { salesmanId: true, salesman: { select: { id: true, name: true } } },
+      });
+      if (cust?.salesmanId) {
+        targetSalesmanId = cust.salesmanId;
+        targetSalesmanNameSnapshot = cust.salesman?.name ?? null;
+      }
+    }
+  }
 
   // Append city and pincode to address if not already present
   if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
@@ -227,7 +273,10 @@ export async function placeCustomerOrderAction(formData: FormData) {
     const ord = await tx.order.create({
       data: {
         orderNo,
-        customerId: session.id,
+        customerId: targetCustomerId,
+        salesmanId: targetSalesmanId,
+        salesmanNameSnapshot: targetSalesmanNameSnapshot,
+        googleMapsUrl,
         productId: primaryItem.productId,
         quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
         rate: 0,
@@ -280,7 +329,9 @@ export async function placeCustomerOrderAction(formData: FormData) {
           create: {
             status: OrderStatus.PENDING,
             title: "Order Placed",
-            note: `Order booked: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)`,
+            note: `Order booked: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)${
+              targetSalesmanNameSnapshot ? ` • Assigned Salesman: ${targetSalesmanNameSnapshot}` : ""
+            }`,
             createdById: session.id,
           },
         },
@@ -292,23 +343,37 @@ export async function placeCustomerOrderAction(formData: FormData) {
 
   // Real-Time Notification to Admin (Strictly zero price)
   const customer = await prisma.user.findUnique({
-    where: { id: session.id },
+    where: { id: targetCustomerId },
     select: { name: true, companyName: true },
   });
-  const customerName = customer?.companyName || customer?.name || session.name;
+  const customerName = customer?.companyName || customer?.name || "Customer";
 
   await dispatchNotification({
     role: "ADMIN",
     title: "New AAC Block Order Received",
-    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}`,
+    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}${
+      targetSalesmanNameSnapshot ? `\nSalesman: ${targetSalesmanNameSnapshot}` : ""
+    }`,
     link: `/admin/orders/${order.id}`,
     orderId: order.id,
     type: "NEW_ORDER",
   });
 
+  // Notify the assigned Salesman if present
+  if (targetSalesmanId) {
+    await dispatchNotification({
+      userId: targetSalesmanId,
+      title: "New Order From Your Customer",
+      message: `Order ID: ${order.orderNo}\nCustomer: ${customerName}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nMorter: ${adhesiveBags} Bags`,
+      link: `/salesman/orders/${order.id}`,
+      orderId: order.id,
+      type: "NEW_ORDER",
+    });
+  }
+
   // Also notify the placing customer
   await dispatchNotification({
-    userId: session.id,
+    userId: targetCustomerId,
     title: "Order Placed Successfully",
     message: `Your order ${order.orderNo} for ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
     link: `/customer/orders/${order.id}`,
@@ -320,7 +385,12 @@ export async function placeCustomerOrderAction(formData: FormData) {
   revalidatePath("/customer/orders");
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/orders");
+  revalidatePath("/salesman/dashboard");
+  revalidatePath("/salesman/orders");
 
+  if (session.role === "SALESMAN") {
+    redirect(`/salesman/orders/${order.id}?success=Order%20placed%20successfully`);
+  }
   redirect(`/customer/orders/${order.id}?success=1`);
 }
 
@@ -406,9 +476,23 @@ export async function confirmOrderAction(formData: FormData) {
     type: "STATUS_CHANGE",
   });
 
+  if (order.salesmanId) {
+    await dispatchNotification({
+      userId: order.salesmanId,
+      title: "Customer Order Confirmed",
+      message: `Order ${order.orderNo} for customer ${order.customer?.name || "Customer"} was confirmed. Challan: ${invoiceNo}`,
+      link: `/salesman/orders/${orderId}`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  }
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   revalidatePath("/customer/orders");
+  revalidatePath("/salesman/dashboard");
+  revalidatePath("/salesman/orders");
+  revalidatePath(`/salesman/orders/${orderId}`);
   redirect(`/admin/orders/${orderId}`);
 }
 
@@ -455,8 +539,22 @@ export async function rejectOrderAction(formData: FormData) {
     });
   }
 
+  if (order.salesmanId) {
+    await dispatchNotification({
+      userId: order.salesmanId,
+      title: "Customer Order Cancelled / Rejected",
+      message: `Order ${order.orderNo} was cancelled/rejected: ${reason}`,
+      link: `/salesman/orders/${orderId}`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  }
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
+  revalidatePath("/salesman/dashboard");
+  revalidatePath("/salesman/orders");
+  revalidatePath(`/salesman/orders/${orderId}`);
   redirect(`/admin/orders/${orderId}`);
 }
 
@@ -805,10 +903,24 @@ export async function dispatchOrderAction(formData: FormData) {
     });
   }
 
+  if (order.salesmanId) {
+    await dispatchNotification({
+      userId: order.salesmanId,
+      title: "Customer Order Dispatched",
+      message: `Order ${order.orderNo} has been dispatched. Truck ${order.transport?.truckNumber || ""} is on its way. Challan: ${dcNumber}.`,
+      link: `/salesman/orders/${orderId}`,
+      orderId,
+      type: "DISPATCH",
+    });
+  }
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/stock");
   revalidatePath("/stocker/stock");
   revalidatePath("/admin/dashboard");
+  revalidatePath("/salesman/dashboard");
+  revalidatePath("/salesman/orders");
+  revalidatePath(`/salesman/orders/${orderId}`);
   redirect(`/admin/orders/${orderId}`);
 }
 
@@ -855,7 +967,21 @@ export async function deliverOrderAction(formData: FormData) {
     });
   }
 
+  if (order.salesmanId) {
+    await dispatchNotification({
+      userId: order.salesmanId,
+      title: "Customer Order Delivered",
+      message: `Order ${order.orderNo} has been confirmed delivered at customer site.`,
+      link: `/salesman/orders/${orderId}`,
+      orderId,
+      type: "DELIVERED",
+    });
+  }
+
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/salesman/dashboard");
+  revalidatePath("/salesman/orders");
+  revalidatePath(`/salesman/orders/${orderId}`);
   redirect(`/admin/orders/${orderId}`);
 }
 
@@ -920,7 +1046,7 @@ export async function recordPaymentAction(formData: FormData) {
 // ============================================================================
 export async function editCustomerOrderAction(formData: FormData) {
   const session = await getSession();
-  if (!session || !["CUSTOMER", "ADMIN"].includes(session.role)) {
+  if (!session || !["CUSTOMER", "ADMIN", "SALESMAN"].includes(session.role)) {
     redirect("/login");
   }
 
@@ -941,6 +1067,11 @@ export async function editCustomerOrderAction(formData: FormData) {
   // Security guard: Customers can only edit their own orders
   if (session.role === "CUSTOMER" && existingOrder.customerId !== session.id) {
     redirect("/customer/orders?error=Unauthorized%20access%20to%20order");
+  }
+
+  // Security guard: Salesmen can only edit their assigned customers' orders
+  if (session.role === "SALESMAN" && existingOrder.salesmanId !== session.id) {
+    redirect("/salesman/orders?error=Unauthorized%20access%20to%20order");
   }
 
   // Strict backend status check: Only editable before dispatch!
@@ -965,7 +1096,8 @@ export async function editCustomerOrderAction(formData: FormData) {
   const rawAdhesiveBags = formData.get("adhesiveBags");
   const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
 
-  // Google Maps fields
+  // Google Maps & Custom Location Details
+  const googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
   const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
   const latitudeRaw = formData.get("latitude");
   const longitudeRaw = formData.get("longitude");
@@ -976,7 +1108,7 @@ export async function editCustomerOrderAction(formData: FormData) {
   const district = String(formData.get("district") ?? "").trim() || null;
   const state = String(formData.get("state") ?? "").trim() || "Gujarat";
   const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
-  const locationSource = String(formData.get("locationSource") ?? (googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
+  const locationSource = String(formData.get("locationSource") ?? (googleMapsUrl ? "GOOGLE_MAPS_LINK" : googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
 
   if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
     deliveryAddress = `${deliveryAddress}, ${city}`;
@@ -1157,6 +1289,7 @@ export async function editCustomerOrderAction(formData: FormData) {
         adhesiveBags,
         deliveryAddress,
         notes,
+        googleMapsUrl: googleMapsUrl || existingOrder.googleMapsUrl,
         googlePlaceId,
         latitude,
         longitude,
@@ -1222,10 +1355,29 @@ export async function editCustomerOrderAction(formData: FormData) {
     });
   }
 
+  // Notify assigned Salesman if present
+  if (existingOrder.salesmanId) {
+    await dispatchNotification({
+      userId: existingOrder.salesmanId,
+      title: `ALERT: Order ${existingOrder.orderNo} Updated`,
+      message: `Customer updated Order ${existingOrder.orderNo} specifications. Volume: ${combinedCbm.toFixed(3)} CBM (Prev: ${prevCbm.toFixed(3)} CBM).`,
+      link: `/salesman/orders/${orderId}`,
+      orderId,
+      type: "ORDER_UPDATED",
+    });
+  }
+
   revalidatePath(`/customer/orders/${orderId}`);
   revalidatePath(`/customer/orders/${orderId}/edit`);
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
+  revalidatePath("/salesman/dashboard");
+  revalidatePath("/salesman/orders");
+  revalidatePath(`/salesman/orders/${orderId}`);
+
+  if (session.role === "SALESMAN") {
+    redirect(`/salesman/orders/${orderId}?success=Order%20updated%20successfully`);
+  }
   redirect(`/customer/orders/${orderId}?success=Order%20updated%20successfully`);
 }
 
