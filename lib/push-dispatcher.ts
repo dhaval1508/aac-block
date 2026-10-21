@@ -52,7 +52,11 @@ export async function dispatchNotification({
       where: userId
         ? { userId }
         : role
-        ? { user: { role } }
+        ? {
+            user: {
+              role: role === "STAFF" || role === "STOCKER" ? { in: ["STAFF", "STOCKER"] } : role,
+            },
+          }
         : {},
     });
 

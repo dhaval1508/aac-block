@@ -138,7 +138,6 @@ export function roleHome(role: Role): string {
     case "ADMIN":
       return "/admin/dashboard";
     case "STOCKER":
-      return "/stocker/dashboard";
     case "STAFF":
       return "/staff/dashboard";
     case "CUSTOMER":
@@ -152,7 +151,7 @@ export function canManageFinance(role: Role) {
 }
 
 export function canManageStock(role: Role) {
-  return role === "ADMIN" || role === "STOCKER";
+  return role === "ADMIN" || role === "STOCKER" || role === "STAFF";
 }
 
 export function canManageUsers(role: Role) {
@@ -160,7 +159,7 @@ export function canManageUsers(role: Role) {
 }
 
 export function canLoading(role: Role) {
-  return role === "ADMIN" || role === "STAFF";
+  return role === "ADMIN" || role === "STAFF" || role === "STOCKER";
 }
 
 export function avatarTone(name: string) {

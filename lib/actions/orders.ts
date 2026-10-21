@@ -444,6 +444,17 @@ export async function rejectOrderAction(formData: FormData) {
     type: "STATUS_CHANGE",
   });
 
+  if (order.assignedStaffId) {
+    await dispatchNotification({
+      userId: order.assignedStaffId,
+      title: `Assigned Order Cancelled: ${order.orderNo}`,
+      message: `Assigned Order ${order.orderNo} was cancelled/rejected: ${reason}`,
+      link: `/staff/dashboard`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  }
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   redirect(`/admin/orders/${orderId}`);
@@ -735,6 +746,8 @@ export async function dispatchOrderAction(formData: FormData) {
     }
   }
 
+  const dcNumber = order.dcNumber || (await getNextDeliveryChallanNumber());
+
   // Automatic Stock Out movements in transaction
   await prisma.$transaction(async (tx) => {
     for (const it of itemsToDeduct) {
@@ -751,8 +764,6 @@ export async function dispatchOrderAction(formData: FormData) {
         },
       });
     }
-
-    const dcNumber = order.dcNumber || (await getNextDeliveryChallanNumber());
 
     await tx.order.update({
       where: { id: orderId },
@@ -781,6 +792,18 @@ export async function dispatchOrderAction(formData: FormData) {
     orderId,
     type: "DISPATCH",
   });
+
+  // Notify assigned staff of dispatch status change
+  if (order.assignedStaffId) {
+    await dispatchNotification({
+      userId: order.assignedStaffId,
+      title: "Dispatch Status Changed",
+      message: `Order ${order.orderNo} has been dispatched from factory yard. Delivery Challan: ${dcNumber}.`,
+      link: `/staff/orders/${orderId}`,
+      orderId,
+      type: "DISPATCH",
+    });
+  }
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/stock");
@@ -820,6 +843,17 @@ export async function deliverOrderAction(formData: FormData) {
     orderId,
     type: "DELIVERED",
   });
+
+  if (order.assignedStaffId) {
+    await dispatchNotification({
+      userId: order.assignedStaffId,
+      title: "Delivery Completed",
+      message: `Order ${order.orderNo} has been confirmed delivered at customer site.`,
+      link: `/staff/orders/${orderId}`,
+      orderId,
+      type: "DELIVERED",
+    });
+  }
 
   revalidatePath(`/admin/orders/${orderId}`);
   redirect(`/admin/orders/${orderId}`);
@@ -1411,6 +1445,16 @@ export async function saveLoadingAndVehicleAction(formData: FormData) {
         transporterName,
       },
     });
+  });
+
+  // Notify Admin of loading & vehicle details update
+  await dispatchNotification({
+    role: "ADMIN",
+    title: "Loading & Vehicle Details Updated",
+    message: `Vehicle ${vehicleNumber} details recorded for Order by ${session.name}. Driver: ${driverName}.`,
+    link: `/admin/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
   });
 
   revalidatePath(`/staff/orders/${orderId}`);

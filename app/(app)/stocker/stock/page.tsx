@@ -12,7 +12,7 @@ export default async function StockerStockPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const session = await getSession();
-  if (!session || !["ADMIN", "STOCKER"].includes(session.role)) redirect("/login");
+  if (!session || !["ADMIN", "STOCKER", "STAFF"].includes(session.role)) redirect("/login");
 
   const { error } = await searchParams;
 

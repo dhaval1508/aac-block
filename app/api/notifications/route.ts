@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
 
 export async function GET() {
   const session = await getSession();
@@ -8,11 +9,16 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const roleCondition =
+    session.role === "STAFF" || session.role === "STOCKER"
+      ? { in: ["STAFF", "STOCKER"] as Role[] }
+      : session.role;
+
   const notifications = await prisma.notification.findMany({
     where: {
       OR: [
         { userId: session.id },
-        { role: session.role },
+        { role: roleCondition },
       ],
     },
     orderBy: { createdAt: "desc" },
@@ -24,7 +30,7 @@ export async function GET() {
       read: false,
       OR: [
         { userId: session.id },
-        { role: session.role },
+        { role: roleCondition },
       ],
     },
   });
@@ -42,13 +48,18 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const { notificationId, markAll } = body;
 
+    const roleCondition =
+      session.role === "STAFF" || session.role === "STOCKER"
+        ? { in: ["STAFF", "STOCKER"] as Role[] }
+        : session.role;
+
     if (markAll) {
       await prisma.notification.updateMany({
         where: {
           read: false,
           OR: [
             { userId: session.id },
-            { role: session.role },
+            { role: roleCondition },
           ],
         },
         data: { read: true },

@@ -423,69 +423,7 @@ export function AppShell({
               </div>
             )}
 
-            {user.role === "STOCKER" && (
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
-                  Inventory & Yard Audit
-                </span>
-                <Link
-                  href="/stocker/activity"
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
-                    pathname.startsWith("/stocker/activity")
-                      ? "bg-[#13789B] text-white shadow-xs"
-                      : "bg-slate-50 text-navy hover:bg-slate-100"
-                  )}
-                >
-                  <Activity className="h-4 w-4 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="block truncate">Movement Log & Audit Trail</span>
-                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/stocker/activity") ? "text-white/80" : "text-slate-400")}>
-                      Complete log of production intake and dispatches
-                    </span>
-                  </div>
-                </Link>
 
-                <Link
-                  href="/stocker/stock"
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
-                    pathname.startsWith("/stocker/stock")
-                      ? "bg-[#13789B] text-white shadow-xs"
-                      : "bg-slate-50 text-navy hover:bg-slate-100"
-                  )}
-                >
-                  <Boxes className="h-4 w-4 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="block truncate">Stock In / Out Entry</span>
-                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/stocker/stock") ? "text-white/80" : "text-slate-400")}>
-                      Record factory intake and manual adjustments
-                    </span>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/stocker/products"
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
-                    pathname.startsWith("/stocker/products")
-                      ? "bg-[#13789B] text-white shadow-xs"
-                      : "bg-slate-50 text-navy hover:bg-slate-100"
-                  )}
-                >
-                  <Layers className="h-4 w-4 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="block truncate">AAC Block Dimensions</span>
-                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/stocker/products") ? "text-white/80" : "text-slate-400")}>
-                      Physical dimensions, cubic volume & density
-                    </span>
-                  </div>
-                </Link>
-              </div>
-            )}
 
             {user.role === "CUSTOMER" && (
               <div className="space-y-1.5 pt-1">
@@ -551,11 +489,30 @@ export function AppShell({
               </div>
             )}
 
-            {user.role === "STAFF" && (
+            {(user.role === "STAFF" || user.role === "STOCKER") && (
               <div className="space-y-1.5 pt-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
-                  Loading Tasks & History
+                  Loading & Yard Operations
                 </span>
+                <Link
+                  href="/staff/dashboard"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname === "/staff/dashboard" && (!currentTab || currentTab === "active")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <PlayCircle className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">Active Yard Loading Tasks</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname === "/staff/dashboard" && (!currentTab || currentTab === "active") ? "text-white/80" : "text-slate-400")}>
+                      Currently assigned vehicles ready for loading
+                    </span>
+                  </div>
+                </Link>
+
                 <Link
                   href="/staff/dashboard?tab=all"
                   onClick={() => setMoreOpen(false)}
@@ -575,21 +532,62 @@ export function AppShell({
                   </div>
                 </Link>
 
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1 pt-2">
+                  Inventory & Yard Audit
+                </span>
                 <Link
-                  href="/staff/dashboard"
+                  href="/stocker/stock"
                   onClick={() => setMoreOpen(false)}
                   className={cn(
                     "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
-                    currentTab === "active"
+                    pathname.startsWith("/stocker/stock")
                       ? "bg-[#13789B] text-white shadow-xs"
                       : "bg-slate-50 text-navy hover:bg-slate-100"
                   )}
                 >
-                  <PlayCircle className="h-4 w-4 shrink-0" />
+                  <Boxes className="h-4 w-4 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <span className="block truncate">Active Yard Loading Tasks</span>
-                    <span className={cn("text-[10px] font-medium block truncate", currentTab === "active" ? "text-white/80" : "text-slate-400")}>
-                      Currently assigned vehicles ready for loading
+                    <span className="block truncate">Stock In / Out Entry</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/stocker/stock") ? "text-white/80" : "text-slate-400")}>
+                      Record factory intake and manual adjustments
+                    </span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/stocker/products"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname.startsWith("/stocker/products")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <Layers className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">AAC Block Dimensions</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/stocker/products") ? "text-white/80" : "text-slate-400")}>
+                      Physical dimensions, cubic volume & density
+                    </span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/stocker/activity"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname.startsWith("/stocker/activity")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <Activity className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">Movement Log & Audit Trail</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/stocker/activity") ? "text-white/80" : "text-slate-400")}>
+                      Complete log of production intake and dispatches
                     </span>
                   </div>
                 </Link>
@@ -824,103 +822,7 @@ export function AppShell({
             </div>
           )}
 
-          {user.role === "STOCKER" && (
-            <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
-              <Link
-                href="/stocker/dashboard"
-                className={cn(
-                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname === "/stocker/dashboard"
-                    ? "text-[#13789B] font-black"
-                    : "text-slate-500 hover:text-navy"
-                )}
-              >
-                <LayoutDashboard
-                  className={cn(
-                    "h-5 w-5 transition-transform",
-                    pathname === "/stocker/dashboard" ? "text-[#13789B] scale-110" : "text-slate-400"
-                  )}
-                />
-                <span className="mt-0.5 truncate max-w-[62px]">Dashboard</span>
-              </Link>
 
-              <Link
-                href="/stocker/orders"
-                className={cn(
-                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname.startsWith("/stocker/orders")
-                    ? "text-[#13789B] font-black"
-                    : "text-slate-500 hover:text-navy"
-                )}
-              >
-                <ShoppingCart
-                  className={cn(
-                    "h-5 w-5 transition-transform",
-                    pathname.startsWith("/stocker/orders") ? "text-[#13789B] scale-110" : "text-slate-400"
-                  )}
-                />
-                <span className="mt-0.5 truncate max-w-[62px]">Orders</span>
-              </Link>
-
-              <Link
-                href="/stocker/stock"
-                className={cn(
-                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname.startsWith("/stocker/stock")
-                    ? "text-[#13789B] font-black"
-                    : "text-slate-500 hover:text-navy"
-                )}
-              >
-                <Boxes
-                  className={cn(
-                    "h-5 w-5 transition-transform",
-                    pathname.startsWith("/stocker/stock") ? "text-[#13789B] scale-110" : "text-slate-400"
-                  )}
-                />
-                <span className="mt-0.5 truncate max-w-[62px]">Stock</span>
-              </Link>
-
-              <Link
-                href="/stocker/products"
-                className={cn(
-                  "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname.startsWith("/stocker/products")
-                    ? "text-[#13789B] font-black"
-                    : "text-slate-500 hover:text-navy"
-                )}
-              >
-                <Layers
-                  className={cn(
-                    "h-5 w-5 transition-transform",
-                    pathname.startsWith("/stocker/products") ? "text-[#13789B] scale-110" : "text-slate-400"
-                  )}
-                />
-                <span className="mt-0.5 truncate max-w-[62px]">Sizes</span>
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => setMoreOpen((prev) => !prev)}
-                className={cn(
-                  "relative flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors cursor-pointer",
-                  moreOpen || pathname.startsWith("/stocker/activity")
-                    ? "text-[#13789B] font-black"
-                    : "text-slate-500 hover:text-navy"
-                )}
-              >
-                <MoreHorizontal
-                  className={cn(
-                    "h-5 w-5 transition-transform",
-                    moreOpen || pathname.startsWith("/stocker/activity") ? "text-[#13789B] scale-110" : "text-slate-400"
-                  )}
-                />
-                {pathname.startsWith("/stocker/activity") && (
-                  <span className="absolute top-1 right-3 h-2 w-2 rounded-full bg-[#13789B] ring-2 ring-white" />
-                )}
-                <span className="mt-0.5 truncate max-w-[62px]">More</span>
-              </button>
-            </div>
-          )}
 
           {user.role === "CUSTOMER" && (
             <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
@@ -1020,13 +922,13 @@ export function AppShell({
             </div>
           )}
 
-          {user.role === "STAFF" && (
+          {(user.role === "STAFF" || user.role === "STOCKER") && (
             <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
               <Link
                 href="/staff/dashboard"
                 className={cn(
                   "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname === "/staff/dashboard" && (!currentTab || currentTab === "active")
+                  pathname.startsWith("/staff")
                     ? "text-[#13789B] font-black"
                     : "text-slate-500 hover:text-navy"
                 )}
@@ -1034,72 +936,64 @@ export function AppShell({
                 <Truck
                   className={cn(
                     "h-5 w-5 transition-transform",
-                    pathname === "/staff/dashboard" && (!currentTab || currentTab === "active")
-                      ? "text-[#13789B] scale-110"
-                      : "text-slate-400"
+                    pathname.startsWith("/staff") ? "text-[#13789B] scale-110" : "text-slate-400"
                   )}
                 />
                 <span className="mt-0.5 truncate max-w-[62px]">Tasks</span>
               </Link>
 
               <Link
-                href="/staff/dashboard?tab=pending"
+                href="/stocker/orders"
                 className={cn(
                   "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname === "/staff/dashboard" && currentTab === "pending"
+                  pathname.startsWith("/stocker/orders")
                     ? "text-[#13789B] font-black"
                     : "text-slate-500 hover:text-navy"
                 )}
               >
-                <Clock
+                <ShoppingCart
                   className={cn(
                     "h-5 w-5 transition-transform",
-                    pathname === "/staff/dashboard" && currentTab === "pending"
-                      ? "text-[#13789B] scale-110"
-                      : "text-slate-400"
+                    pathname.startsWith("/stocker/orders") ? "text-[#13789B] scale-110" : "text-slate-400"
                   )}
                 />
-                <span className="mt-0.5 truncate max-w-[62px]">Pending</span>
+                <span className="mt-0.5 truncate max-w-[62px]">Orders</span>
               </Link>
 
               <Link
-                href="/staff/dashboard?tab=loading"
+                href="/stocker/stock"
                 className={cn(
                   "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname === "/staff/dashboard" && currentTab === "loading"
+                  pathname.startsWith("/stocker/stock")
                     ? "text-[#13789B] font-black"
                     : "text-slate-500 hover:text-navy"
                 )}
               >
-                <PlayCircle
+                <Boxes
                   className={cn(
                     "h-5 w-5 transition-transform",
-                    pathname === "/staff/dashboard" && currentTab === "loading"
-                      ? "text-[#13789B] scale-110"
-                      : "text-slate-400"
+                    pathname.startsWith("/stocker/stock") ? "text-[#13789B] scale-110" : "text-slate-400"
                   )}
                 />
-                <span className="mt-0.5 truncate max-w-[62px]">Loading</span>
+                <span className="mt-0.5 truncate max-w-[62px]">Stock</span>
               </Link>
 
               <Link
-                href="/staff/dashboard?tab=completed"
+                href="/stocker/products"
                 className={cn(
                   "flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors",
-                  pathname === "/staff/dashboard" && currentTab === "completed"
+                  pathname.startsWith("/stocker/products")
                     ? "text-[#13789B] font-black"
                     : "text-slate-500 hover:text-navy"
                 )}
               >
-                <CheckCircle2
+                <Layers
                   className={cn(
                     "h-5 w-5 transition-transform",
-                    pathname === "/staff/dashboard" && currentTab === "completed"
-                      ? "text-[#13789B] scale-110"
-                      : "text-slate-400"
+                    pathname.startsWith("/stocker/products") ? "text-[#13789B] scale-110" : "text-slate-400"
                   )}
                 />
-                <span className="mt-0.5 truncate max-w-[62px]">Done</span>
+                <span className="mt-0.5 truncate max-w-[62px]">Sizes</span>
               </Link>
 
               <button
@@ -1107,7 +1001,7 @@ export function AppShell({
                 onClick={() => setMoreOpen((prev) => !prev)}
                 className={cn(
                   "relative flex min-h-[46px] flex-col items-center justify-center rounded-xl py-1 text-[10px] font-medium transition-colors cursor-pointer",
-                  moreOpen || currentTab === "all"
+                  moreOpen || pathname.startsWith("/stocker/activity")
                     ? "text-[#13789B] font-black"
                     : "text-slate-500 hover:text-navy"
                 )}
@@ -1115,10 +1009,10 @@ export function AppShell({
                 <MoreHorizontal
                   className={cn(
                     "h-5 w-5 transition-transform",
-                    moreOpen || currentTab === "all" ? "text-[#13789B] scale-110" : "text-slate-400"
+                    moreOpen || pathname.startsWith("/stocker/activity") ? "text-[#13789B] scale-110" : "text-slate-400"
                   )}
                 />
-                {currentTab === "all" && (
+                {pathname.startsWith("/stocker/activity") && (
                   <span className="absolute top-1 right-3 h-2 w-2 rounded-full bg-[#13789B] ring-2 ring-white" />
                 )}
                 <span className="mt-0.5 truncate max-w-[62px]">More</span>

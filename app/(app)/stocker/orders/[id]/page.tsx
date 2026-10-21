@@ -19,7 +19,7 @@ export default async function StockerOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await getSession();
-  if (!session || !["STOCKER", "ADMIN"].includes(session.role)) redirect("/login");
+  if (!session || !["ADMIN", "STOCKER", "STAFF"].includes(session.role)) redirect("/login");
 
   const { id } = await params;
 

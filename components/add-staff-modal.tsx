@@ -95,10 +95,13 @@ export function AddStaffModal({ onClose }: { onClose: () => void }) {
 
           <div>
             <label className="label">Operational Role *</label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
-                { value: "STAFF", title: "Loading Staff", desc: "Yard Mobile Tasks" },
-                { value: "STOCKER", title: "Stocker", desc: "Stock In/Out & Catalog" },
+                {
+                  value: "STAFF",
+                  title: "Loading & Stock Staff",
+                  desc: "Loading, Yard Operations, Stock In/Out & Catalog Management",
+                },
                 { value: "ADMIN", title: "Super Admin", desc: "Full Factory ERP" },
               ].map((r) => (
                 <button

@@ -78,7 +78,7 @@ export function UsersManager({
   const [activeTab, setActiveTab] = useState<"STAFF" | "CUSTOMERS">("STAFF");
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [staffSearch, setStaffSearch] = useState("");
-  const [staffRoleFilter, setStaffRoleFilter] = useState<"ALL" | "STAFF" | "STOCKER" | "ADMIN">("ALL");
+  const [staffRoleFilter, setStaffRoleFilter] = useState<"ALL" | "STAFF" | "ADMIN">("ALL");
   const [staffStatusFilter, setStaffStatusFilter] = useState<"ALL" | "ACTIVE" | "DISABLED">("ALL");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerStatusFilter, setCustomerStatusFilter] = useState<"ALL" | "ACTIVE" | "DISABLED">("ALL");
@@ -142,7 +142,11 @@ export function UsersManager({
   const filteredStaff = useMemo(() => {
     return staffList.filter((u) => {
       const matchesRole =
-        staffRoleFilter === "ALL" ? true : u.role === staffRoleFilter;
+        staffRoleFilter === "ALL"
+          ? true
+          : staffRoleFilter === "STAFF"
+          ? u.role === "STAFF" || u.role === "STOCKER"
+          : u.role === "ADMIN";
       const matchesStatus =
         staffStatusFilter === "ALL"
           ? true
@@ -313,7 +317,7 @@ export function UsersManager({
                 Factory Personnel Directory
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Manage roles and credentials for Yard Loading Staff, Stock Managers, and Super Administrators.
+                Manage roles and credentials for Loading & Stock Staff and Super Administrators.
               </p>
             </div>
 
@@ -342,7 +346,7 @@ export function UsersManager({
             <div className="flex flex-wrap items-center gap-2">
               {/* Role Filter Pills */}
               <div className="flex flex-wrap items-center gap-1 rounded-2xl bg-slate-100 p-1 border border-slate-200 text-xs">
-                {(["ALL", "STAFF", "STOCKER", "ADMIN"] as const).map((r) => (
+                {(["ALL", "STAFF", "ADMIN"] as const).map((r) => (
                   <button
                     key={r}
                     type="button"
@@ -356,9 +360,7 @@ export function UsersManager({
                     {r === "ALL"
                       ? "All Roles"
                       : r === "STAFF"
-                      ? "Loading Staff"
-                      : r === "STOCKER"
-                      ? "Stocker"
+                      ? "Loading & Stock Staff"
                       : "Super Admin"}
                   </button>
                 ))}

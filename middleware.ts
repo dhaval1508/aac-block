@@ -8,7 +8,6 @@ function roleHome(role: string): string {
     case "ADMIN":
       return "/admin/dashboard";
     case "STOCKER":
-      return "/stocker/dashboard";
     case "STAFF":
       return "/staff/dashboard";
     case "CUSTOMER":
@@ -78,12 +77,12 @@ export async function middleware(request: NextRequest) {
       url.pathname = roleHome(userRole);
       return NextResponse.redirect(url);
     }
-    if (pathname.startsWith("/stocker") && !["ADMIN", "STOCKER"].includes(userRole)) {
+    if (pathname.startsWith("/stocker") && !["ADMIN", "STOCKER", "STAFF"].includes(userRole)) {
       const url = request.nextUrl.clone();
       url.pathname = roleHome(userRole);
       return NextResponse.redirect(url);
     }
-    if (pathname.startsWith("/staff") && !["ADMIN", "STAFF"].includes(userRole)) {
+    if (pathname.startsWith("/staff") && !["ADMIN", "STAFF", "STOCKER"].includes(userRole)) {
       const url = request.nextUrl.clone();
       url.pathname = roleHome(userRole);
       return NextResponse.redirect(url);

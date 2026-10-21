@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function StockerProductsPage() {
   const session = await getSession();
-  if (!session || !["ADMIN", "STOCKER"].includes(session.role)) redirect("/login");
+  if (!session || !["ADMIN", "STOCKER", "STAFF"].includes(session.role)) redirect("/login");
 
   const products = await getStockBySize();
 

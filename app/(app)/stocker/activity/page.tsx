@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function StockerActivityPage() {
   const session = await getSession();
-  if (!session || !["STOCKER", "ADMIN"].includes(session.role)) redirect("/login");
+  if (!session || !["ADMIN", "STOCKER", "STAFF"].includes(session.role)) redirect("/login");
 
   const [movements, events] = await Promise.all([
     prisma.stockMovement.findMany({

@@ -16,7 +16,7 @@ export default async function StockerOrdersPage({
   searchParams: Promise<{ q?: string; status?: string; preset?: string; from?: string; to?: string }>;
 }) {
   const session = await getSession();
-  if (!session || !["STOCKER", "ADMIN"].includes(session.role)) redirect("/login");
+  if (!session || !["ADMIN", "STOCKER", "STAFF"].includes(session.role)) redirect("/login");
 
   const { q = "", status, preset, from = "", to = "" } = await searchParams;
   const dateRange = resolveDateRange(preset, from, to);
