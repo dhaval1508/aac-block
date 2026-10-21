@@ -304,7 +304,7 @@ async function main() {
     if (pastOrder?.salesmanNameSnapshot !== salesman1.name) {
       throw new Error("Past order attribution snapshot was corrupted!");
     }
-    console.log(`🔒 Historical Attribution Preserved: Order ${order1.orderNo} retains original Salesman Snapshot "${pastOrder.salesmanNameSnapshot}"`);
+    console.log(`🔒 Historical Attribution Preserved: Order ${order1.orderNo} retains original Salesman Snapshot "${pastOrder?.salesmanNameSnapshot}"`);
 
     // ------------------------------------------------------------------------
     // SCENARIO F: REGRESSION CHECKS (All 9 AAC block sizes & CBM math)
