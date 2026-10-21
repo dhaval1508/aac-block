@@ -264,8 +264,9 @@ export default async function StaffDashboardPage({
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
           {products.map((p) => {
-            const blockQty = p.movements.reduce((sum, m) => sum + m.quantityDelta, 0);
-            const cbmQty = blockQty * Number(p.cbmPerBlock);
+            const blockQty = p.movements?.reduce((sum, m) => sum + (m.quantityDelta || 0), 0) ?? 0;
+            const cbmPerBlock = Number(p.cbmPerBlock) || 0.018;
+            const cbmQty = Number((blockQty * cbmPerBlock).toFixed(3));
             return (
               <div key={p.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5 space-y-1">
                 <span className="text-[10px] font-bold text-slate-500 uppercase block truncate">

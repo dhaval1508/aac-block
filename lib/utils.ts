@@ -128,8 +128,8 @@ export const PAYMENT_STATUS_CLASS: Record<PaymentStatus, string> = {
 
 export const ROLE_LABEL: Record<Role, string> = {
   ADMIN: "Super Admin",
-  STOCKER: "Stock & Order Manager",
-  STAFF: "Loading Staff",
+  STOCKER: "Loading & Stock Staff",
+  STAFF: "Loading & Stock Staff",
   CUSTOMER: "Customer",
 };
 
