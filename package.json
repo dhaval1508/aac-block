@@ -13,10 +13,10 @@
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "orders:backup": "tsx scripts/backup-orders.ts",
-    "orders:clean": "tsx scripts/clean-orders.ts"
+    "orders:clean": "tsx scripts/clean-orders.ts",
+    "profile:seed": "tsx scripts/seed-company-profile.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
