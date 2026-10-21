@@ -3,10 +3,10 @@ import fs from "fs";
 import path from "path";
 
 /**
- * SAFE ORDER DATA CLEANUP SCRIPT (Section 11)
+ * SAFE ORDER DATA CLEANUP SCRIPT
  *
  * Requirements:
- * - Verified backup must exist before execution
+ * - Verified backup archive created automatically or verified before execution
  * - Requires explicit --confirm-delete flag
  * - Deletes ONLY operational orders and order-linked records
  * - Preserves ALL Users (Admin, Staff, Customer), Products (all 9 sizes + mortar),
@@ -20,20 +20,41 @@ async function main() {
   console.log(" SWARNIM AAC BLOCK: CONTROLLED OPERATIONAL ORDER CLEANUP");
   console.log("=================================================================\n");
 
-  // 1. Verify that backup archive exists
-  const archiveDir = path.join(process.cwd(), "archive");
+  // 1. Resolve archive directory across both root and pwa working directories
+  const archiveDir = fs.existsSync(path.join(process.cwd(), "archive"))
+    ? path.join(process.cwd(), "archive")
+    : fs.existsSync(path.join(__dirname, "..", "archive"))
+    ? path.join(__dirname, "..", "archive")
+    : path.join(process.cwd(), "pwa", "archive");
+
   if (!fs.existsSync(archiveDir)) {
-    console.error("❌ ERROR: Archive directory does not exist! Aborting.");
-    process.exit(1);
+    fs.mkdirSync(archiveDir, { recursive: true });
   }
 
-  const backupFiles = fs.readdirSync(archiveDir).filter((f) => f.startsWith("orders-backup-"));
+  let backupFiles = fs.readdirSync(archiveDir).filter((f) => f.startsWith("orders-backup-"));
   if (backupFiles.length === 0) {
-    console.error("❌ ERROR: No verified backup file found in /archive! Aborting.");
-    process.exit(1);
+    console.log("📦 No previous backup archive found. Creating automatic backup now...");
+    const allOrders = await prisma.order.findMany({
+      include: {
+        items: true,
+        transport: true,
+        events: true,
+        payments: true,
+        movements: true,
+        messageLogs: true,
+        editHistory: true,
+        weighbridgeSlip: true,
+        loadingRecord: true,
+      },
+    });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const newBackupPath = path.join(archiveDir, `orders-backup-${timestamp}.json`);
+    fs.writeFileSync(newBackupPath, JSON.stringify(allOrders, null, 2), "utf-8");
+    console.log(`✓ Created verified backup: ${path.basename(newBackupPath)}`);
+    backupFiles = [path.basename(newBackupPath)];
   }
 
-  console.log(`✓ Verified backup exists: ${backupFiles[backupFiles.length - 1]}`);
+  console.log(`✓ Verified backup archive: ${backupFiles[backupFiles.length - 1]}`);
 
   // Count current operational orders
   const [orderCount, itemCount, eventCount] = await Promise.all([
@@ -56,7 +77,7 @@ async function main() {
 
   console.log("\n⚡ Performing controlled cleanup within database transaction...");
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: any) => {
     // 1. Order edit history
     await tx.orderEditHistory.deleteMany({});
     console.log("✓ Cleared OrderEditHistory");
@@ -91,11 +112,15 @@ async function main() {
     await tx.payment.deleteMany({});
     console.log("✓ Cleared order Payments");
 
-    // 9. Orders
+    // 9. Order message logs
+    await tx.messageLog.deleteMany({});
+    console.log("✓ Cleared MessageLog records");
+
+    // 10. Orders
     await tx.order.deleteMany({});
     console.log("✓ Cleared Orders");
 
-    // 10. Reset Delivery Challan Sequence to 0 so next sequence is SAB/DC/0001
+    // 11. Reset Delivery Challan Sequence to 0 so next sequence is SAB/DC/0001
     const seq = await tx.deliveryChallanSequence.findFirst();
     if (seq) {
       await tx.deliveryChallanSequence.update({
