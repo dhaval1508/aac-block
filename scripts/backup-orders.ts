@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import * as fs from "fs";
 import * as path from "path";
-
-const prisma = new PrismaClient();
 
 async function main() {
   console.log("🔍 Inspecting active database orders and related records...");
@@ -38,7 +36,12 @@ async function main() {
 
   console.log(`📦 Found ${orders.length} orders in active database.`);
 
-  const archiveDir = path.join(process.cwd(), "archive");
+  const archiveDir = fs.existsSync(path.join(process.cwd(), "archive"))
+    ? path.join(process.cwd(), "archive")
+    : fs.existsSync(path.join(__dirname, "..", "archive"))
+    ? path.join(__dirname, "..", "archive")
+    : path.join(process.cwd(), "pwa", "archive");
+
   if (!fs.existsSync(archiveDir)) {
     fs.mkdirSync(archiveDir, { recursive: true });
   }

@@ -31,9 +31,21 @@ async function main() {
     fs.mkdirSync(archiveDir, { recursive: true });
   }
 
+  // Count current operational orders
+  const [orderCount, itemCount, eventCount] = await Promise.all([
+    prisma.order.count(),
+    prisma.orderItem.count(),
+    prisma.orderEvent.count(),
+  ]);
+
+  console.log(`Current Database State:`);
+  console.log(`- Orders: ${orderCount}`);
+  console.log(`- Order Items: ${itemCount}`);
+  console.log(`- Order Events: ${eventCount}`);
+
   let backupFiles = fs.readdirSync(archiveDir).filter((f) => f.startsWith("orders-backup-"));
-  if (backupFiles.length === 0) {
-    console.log("📦 No previous backup archive found. Creating automatic backup now...");
+  if (backupFiles.length === 0 || isConfirmed) {
+    console.log("📦 Creating automatic verified backup archive...");
     const allOrders = await prisma.order.findMany({
       include: {
         items: true,
@@ -56,18 +68,6 @@ async function main() {
 
   console.log(`✓ Verified backup archive: ${backupFiles[backupFiles.length - 1]}`);
 
-  // Count current operational orders
-  const [orderCount, itemCount, eventCount] = await Promise.all([
-    prisma.order.count(),
-    prisma.orderItem.count(),
-    prisma.orderEvent.count(),
-  ]);
-
-  console.log(`Current Database State:`);
-  console.log(`- Orders: ${orderCount}`);
-  console.log(`- Order Items: ${itemCount}`);
-  console.log(`- Order Events: ${eventCount}`);
-
   if (!isConfirmed) {
     console.log("\n⚠️  SAFETY NOTICE: Execution halted because --confirm-delete was not passed.");
     console.log("To execute the authorized cleanup, run:");
@@ -77,63 +77,69 @@ async function main() {
 
   console.log("\n⚡ Performing controlled cleanup within database transaction...");
 
-  await prisma.$transaction(async (tx: any) => {
-    // 1. Order edit history
-    await tx.orderEditHistory.deleteMany({});
-    console.log("✓ Cleared OrderEditHistory");
+  await prisma.$transaction(
+    async (tx: any) => {
+      // 1. Order edit history
+      await tx.orderEditHistory.deleteMany({});
+      console.log("✓ Cleared OrderEditHistory");
 
-    // 2. Weighbridge slips
-    await tx.weighbridgeSlip.deleteMany({});
-    console.log("✓ Cleared WeighbridgeSlip records");
+      // 2. Weighbridge slips
+      await tx.weighbridgeSlip.deleteMany({});
+      console.log("✓ Cleared WeighbridgeSlip records");
 
-    // 3. Loading records
-    await tx.loadingRecord.deleteMany({});
-    console.log("✓ Cleared LoadingRecord records");
+      // 3. Loading records
+      await tx.loadingRecord.deleteMany({});
+      console.log("✓ Cleared LoadingRecord records");
 
-    // 4. Order events / audit log
-    await tx.orderEvent.deleteMany({});
-    console.log("✓ Cleared OrderEvent records");
+      // 4. Order events / audit log
+      await tx.orderEvent.deleteMany({});
+      console.log("✓ Cleared OrderEvent records");
 
-    // 5. Order items
-    await tx.orderItem.deleteMany({});
-    console.log("✓ Cleared OrderItem records");
+      // 5. Order items
+      await tx.orderItem.deleteMany({});
+      console.log("✓ Cleared OrderItem records");
 
-    // 6. Transport staging
-    await tx.transport.deleteMany({});
-    console.log("✓ Cleared Transport records");
+      // 6. Transport staging
+      await tx.transport.deleteMany({});
+      console.log("✓ Cleared Transport records");
 
-    // 7. Order-linked notifications
-    await tx.notification.deleteMany({
-      where: { orderId: { not: null } },
-    });
-    console.log("✓ Cleared order-linked Notifications");
-
-    // 8. Order payments
-    await tx.payment.deleteMany({});
-    console.log("✓ Cleared order Payments");
-
-    // 9. Order message logs
-    await tx.messageLog.deleteMany({});
-    console.log("✓ Cleared MessageLog records");
-
-    // 10. Orders
-    await tx.order.deleteMany({});
-    console.log("✓ Cleared Orders");
-
-    // 11. Reset Delivery Challan Sequence to 0 so next sequence is SAB/DC/0001
-    const seq = await tx.deliveryChallanSequence.findFirst();
-    if (seq) {
-      await tx.deliveryChallanSequence.update({
-        where: { id: seq.id },
-        data: { currentValue: 0 },
+      // 7. Order-linked notifications
+      await tx.notification.deleteMany({
+        where: { orderId: { not: null } },
       });
-    } else {
-      await tx.deliveryChallanSequence.create({
-        data: { currentValue: 0 },
-      });
+      console.log("✓ Cleared order-linked Notifications");
+
+      // 8. Order payments
+      await tx.payment.deleteMany({});
+      console.log("✓ Cleared order Payments");
+
+      // 9. Order message logs
+      await tx.messageLog.deleteMany({});
+      console.log("✓ Cleared MessageLog records");
+
+      // 10. Orders
+      await tx.order.deleteMany({});
+      console.log("✓ Cleared Orders");
+
+      // 11. Reset Delivery Challan Sequence to 0 so next sequence is SAB/DC/0001
+      const seq = await tx.deliveryChallanSequence.findFirst();
+      if (seq) {
+        await tx.deliveryChallanSequence.update({
+          where: { id: seq.id },
+          data: { currentValue: 0 },
+        });
+      } else {
+        await tx.deliveryChallanSequence.create({
+          data: { currentValue: 0 },
+        });
+      }
+      console.log("✓ Reset Delivery Challan sequence to 0 (First order will issue SAB/DC/0001)");
+    },
+    {
+      maxWait: 20000,
+      timeout: 60000,
     }
-    console.log("✓ Reset Delivery Challan sequence to 0 (First order will issue SAB/DC/0001)");
-  });
+  );
 
   console.log("\n✅ Operational order cleanup completed successfully!");
   console.log("All Admin, Staff, Customer accounts, Products, Stock, and Company Profile remain intact.");
