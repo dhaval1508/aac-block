@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Download, Share, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -158,7 +159,7 @@ export function InstallAppButton({
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 border border-slate-200 p-1.5 shadow-2xs">
-                  <img src="/logo.png" alt="Swarnim AAC Logo" className="h-full w-full object-contain" />
+                  <Image src="/logo.png" alt="Swarnim AAC Logo" width={44} height={44} className="h-full w-full object-contain" />
                 </div>
                 <div>
                   <p className="text-base font-black text-navy tracking-tight">Install Swarnim AAC Block</p>

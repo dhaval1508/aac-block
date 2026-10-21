@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -85,7 +85,7 @@ export function NotificationBell({ role }: { role: string }) {
   const prevCountRef = useRef(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications");
       if (!res.ok) return;
@@ -102,13 +102,13 @@ export function NotificationBell({ role }: { role: string }) {
     } catch {
       // Ignore background fetch errors
     }
-  };
+  }, [soundEnabled]);
 
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 12000);
     return () => clearInterval(interval);
-  }, [soundEnabled]);
+  }, [fetchNotifications]);
 
   // Check Web Push support and permission
   useEffect(() => {
