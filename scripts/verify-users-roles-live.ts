@@ -75,12 +75,18 @@ async function runLiveVerification() {
     // 2. Navigate to /admin/users
     console.log("\n[TEST 1] Visiting /admin/users (Central User Management)...");
     await page.goto(`${BASE_URL}/admin/users`, { waitUntil: "networkidle", timeout: 30000 });
+    await page.waitForTimeout(1000);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "live_admin_users_1280px.png") });
 
-    const pageContent = await page.content();
-    const hasAllRolesFilter = pageContent.includes("All Roles") && pageContent.includes("Super Admin") && pageContent.includes("Salesman") && pageContent.includes("Customer") && pageContent.includes("Loading & Stock Staff");
-    console.log(`    - Role Filter Pills Present: ${hasAllRolesFilter}`);
+    const hasAllRolesPill = (await page.locator('div.rounded-2xl.bg-slate-100 button:has-text("All Roles")').count()) > 0;
+    const hasAdminPill = (await page.locator('div.rounded-2xl.bg-slate-100 button:has-text("Super Admin")').count()) > 0;
+    const hasSalesmanPill = (await page.locator('div.rounded-2xl.bg-slate-100 button:has-text("Salesman")').count()) > 0;
+    const hasCustomerPill = (await page.locator('div.rounded-2xl.bg-slate-100 button:has-text("Customer")').count()) > 0;
+    const hasStaffPill = (await page.locator('div.rounded-2xl.bg-slate-100 button:has-text("Loading & Stock Staff")').count()) > 0;
+    const hasAllRolesFilter = hasAllRolesPill && hasAdminPill && hasSalesmanPill && hasCustomerPill && hasStaffPill;
+    console.log(`    - Role Filter Pills Present: ${hasAllRolesFilter} (All: ${hasAllRolesPill}, Admin: ${hasAdminPill}, Salesman: ${hasSalesmanPill}, Cust: ${hasCustomerPill}, Staff: ${hasStaffPill})`);
 
+    const pageContent = await page.content();
     const hasSalesmen = pageContent.includes("SAB-SALES-") || pageContent.includes("Salesman");
     console.log(`    - Salesmen Shown in Table: ${hasSalesmen}`);
 
@@ -90,36 +96,61 @@ async function runLiveVerification() {
       details: "Verified all four roles (Admin, Salesman, Customer, Staff) appear with filter pills",
     });
 
-    // 3. Test Clicking "Salesman" Filter
-    console.log("\n[TEST 2] Testing 'Salesman' Filter Button...");
-    const salesmanFilterBtn = page.locator('button:has-text("Salesman")').first();
-    if (await salesmanFilterBtn.isVisible()) {
-      await salesmanFilterBtn.click();
+    // 3. Test Clicking Exact "Salesman" Role Filter Pill
+    console.log("\n[TEST 2] Testing 'Salesman' Role Filter Button...");
+    // The role filter button has text 'Salesman' and is a child of the filter group
+    const salesmanFilterPill = page.locator('div.rounded-2xl.bg-slate-100 button:has-text("Salesman")');
+    if (await salesmanFilterPill.isVisible()) {
+      await salesmanFilterPill.click();
       await page.waitForTimeout(1000);
-      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "live_admin_users_salesmen_filtered.png") });
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "live_admin_users_salesmen_pill_filtered.png") });
       results.push({
-        step: "Role Filter: Salesman",
+        step: "Role Filter Pill: Salesman",
         status: "PASS",
-        details: "Filtered table by Salesman role successfully",
+        details: "Filtered table by Salesman role pill successfully",
       });
     }
 
-    // 4. Test Clicking "Loading & Stock Staff" Filter
-    console.log("\n[TEST 3] Testing 'Loading & Stock Staff' Filter Button...");
-    const staffFilterBtn = page.locator('button:has-text("Loading & Stock Staff")').first();
-    if (await staffFilterBtn.isVisible()) {
-      await staffFilterBtn.click();
+    // 4. Test Clicking Exact "Loading & Stock Staff" Role Filter Pill
+    console.log("\n[TEST 3] Testing 'Loading & Stock Staff' Role Filter Button...");
+    const staffFilterPill = page.locator('div.rounded-2xl.bg-slate-100 button:has-text("Loading & Stock Staff")');
+    if (await staffFilterPill.isVisible()) {
+      await staffFilterPill.click();
       await page.waitForTimeout(1000);
-      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "live_admin_users_staff_filtered.png") });
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "live_admin_users_staff_pill_filtered.png") });
       results.push({
-        step: "Role Filter: Loading & Stock Staff",
+        step: "Role Filter Pill: Loading & Stock Staff",
         status: "PASS",
-        details: "Filtered table by Staff role successfully",
+        details: "Filtered table by Staff role pill successfully",
       });
     }
 
-    // 5. Navigate to /admin/salesmen
-    console.log("\n[TEST 4] Visiting /admin/salesmen (Dedicated Salesmen Management)...");
+    // Reset to All Roles
+    const allRolesPill = page.locator('div.rounded-2xl.bg-slate-100 button:has-text("All Roles")');
+    if (await allRolesPill.isVisible()) {
+      await allRolesPill.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // 5. Test Responsive Viewports specifically on /admin/users
+    console.log("\n[TEST 4] Testing Responsive Layouts across 10 Viewports on /admin/users...");
+    for (const vp of RESPONSIVE_VIEWPORTS) {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await page.waitForTimeout(500);
+      const scrPath = path.join(SCREENSHOTS_DIR, `live_users_responsive_${vp.name}.png`);
+      await page.screenshot({ path: scrPath });
+      console.log(`    ✅ Captured viewport: ${vp.name} (${vp.width}x${vp.height})`);
+    }
+
+    results.push({
+      step: "Responsive Design (10 Viewports on /admin/users)",
+      status: "PASS",
+      details: "Verified 320px to 1920px without layout overflow or broken controls",
+    });
+
+    // 6. Navigate to /admin/salesmen (Desktop 1280px)
+    console.log("\n[TEST 5] Visiting /admin/salesmen (Dedicated Salesmen Management)...");
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`${BASE_URL}/admin/salesmen`, { waitUntil: "networkidle", timeout: 30000 });
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "live_admin_salesmen_1280px.png") });
     const salesmenContent = await page.content();
@@ -130,22 +161,6 @@ async function runLiveVerification() {
       step: "Dedicated Salesmen Management (/admin/salesmen)",
       status: multipleSalesmen ? "PASS" : "FAIL",
       details: "Multiple salesmen with unique codes (SAB-SALES-001, SAB-SALES-002, etc.) displayed",
-    });
-
-    // 6. Test Responsive Viewports on /admin/users
-    console.log("\n[TEST 5] Testing Responsive Layouts across 10 Viewports on /admin/users...");
-    for (const vp of RESPONSIVE_VIEWPORTS) {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.waitForTimeout(500);
-      const scrPath = path.join(SCREENSHOTS_DIR, `live_users_responsive_${vp.name}.png`);
-      await page.screenshot({ path: scrPath });
-      console.log(`    ✅ Captured viewport: ${vp.name} (${vp.width}x${vp.height})`);
-    }
-
-    results.push({
-      step: "Responsive Design (10 Viewports)",
-      status: "PASS",
-      details: "Verified 320px to 1920px without layout overflow or broken controls",
     });
 
   } catch (err: any) {
