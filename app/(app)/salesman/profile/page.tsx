@@ -147,6 +147,7 @@ export default async function SalesmanProfilePage({
         </div>
 
         <form action={changePasswordAction} className="space-y-4">
+          <input type="hidden" name="returnPath" value="/salesman/profile" />
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
               Current Password *

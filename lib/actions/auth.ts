@@ -267,8 +267,9 @@ export async function changePasswordAction(formData: FormData) {
   const session = await getSession();
   if (!session) redirect("/login");
 
+  const customReturnPath = String(formData.get("returnPath") ?? "").trim();
   const isSalesman = (session.role as string) === "SALESMAN" || session.role === Role.SALESMAN;
-  const returnPath = isSalesman ? "/salesman/profile" : "/customer/profile";
+  const returnPath = customReturnPath || (isSalesman ? "/salesman/profile" : "/customer/profile");
 
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const newPassword = String(formData.get("newPassword") ?? "");

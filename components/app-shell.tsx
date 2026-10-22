@@ -454,6 +454,89 @@ export function AppShell({
 
 
 
+            {user.role === "SALESMAN" && (
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+                  Sales Portal & Actions
+                </span>
+                <Link
+                  href="/salesman/customers/new"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname.startsWith("/salesman/customers/new")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <PlusCircle className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">Add New Customer</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/salesman/customers/new") ? "text-white/80" : "text-slate-400")}>
+                      Register builder or contractor with default site
+                    </span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/salesman/invitations"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname.startsWith("/salesman/invitations")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <Send className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">WhatsApp Customer Invitations</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/salesman/invitations") ? "text-white/80" : "text-slate-400")}>
+                      Send auto-linking registration invite links
+                    </span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/salesman/orders"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname.startsWith("/salesman/orders")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <ShoppingCart className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">Customer Orders & Tracking</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/salesman/orders") ? "text-white/80" : "text-slate-400")}>
+                      View placed orders, volumes & status
+                    </span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/salesman/profile"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname.startsWith("/salesman/profile")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <UserIcon className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">Salesman Profile & Password</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/salesman/profile") ? "text-white/80" : "text-slate-400")}>
+                      Credentials, stats, and security settings
+                    </span>
+                  </div>
+                </Link>
+              </div>
+            )}
+
             {user.role === "CUSTOMER" && (
               <div className="space-y-1.5 pt-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">

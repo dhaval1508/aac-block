@@ -44,6 +44,10 @@ export default async function CustomerOrderDetailPage({
     },
   });
 
+  if (session.role === "SALESMAN") {
+    redirect(`/salesman/orders/${id}`);
+  }
+
   if (!order || (session.role === "CUSTOMER" && order.customerId !== session.id)) {
     notFound();
   }

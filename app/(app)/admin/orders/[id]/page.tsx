@@ -118,7 +118,7 @@ export default async function AdminOrderDetailPage({
     expectedDelivery: order.transport?.expectedDelivery,
   };
 
-  const getWaLink = (type: any) =>
+  const getWaLink = (type: Parameters<typeof buildWhatsAppMessage>[0]) =>
     whatsappHref(
       order.customer.mobile,
       buildWhatsAppMessage(type, whatsappInfo, process.env.NEXT_PUBLIC_APP_URL || "")
@@ -135,7 +135,7 @@ export default async function AdminOrderDetailPage({
     { key: OrderStatus.DELIVERED, label: "Delivered" },
   ];
 
-  const stageOrder = [
+  const stageOrder: OrderStatus[] = [
     OrderStatus.PENDING,
     OrderStatus.CONFIRMED,
     OrderStatus.ASSIGNED,
@@ -145,7 +145,7 @@ export default async function AdminOrderDetailPage({
     OrderStatus.DELIVERED,
   ];
 
-  const currentStageIndex = stageOrder.indexOf(order.status as any);
+  const currentStageIndex = stageOrder.indexOf(order.status);
 
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 min-w-0 max-w-full">

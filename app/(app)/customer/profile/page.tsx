@@ -256,6 +256,7 @@ export default async function CustomerProfilePage({
         ) : null}
 
         <form action={changePasswordAction} className="space-y-4">
+          <input type="hidden" name="returnPath" value="/customer/profile" />
           <div>
             <label className="label">Current Password *</label>
             <input
