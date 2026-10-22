@@ -1,0 +1,7 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "html-css-class-completion.enableValidation": false,
+  "css.validate": false,
+  "typescript.preferences.includePackageJsonAutoImports": "auto"
+}
