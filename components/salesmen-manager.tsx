@@ -17,6 +17,8 @@ import {
   Archive,
   Power,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   createSalesmanAction,
@@ -53,6 +55,8 @@ export function SalesmenManager({
 }: SalesmenManagerProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "DEACTIVATED">("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSalesman, setEditingSalesman] = useState<SalesmanListItem | null>(null);
   const [archivingSalesman, setArchivingSalesman] = useState<SalesmanListItem | null>(null);
@@ -74,6 +78,9 @@ export function SalesmenManager({
 
     return matchesSearch && matchesStatus;
   });
+
+  const totalPages = Math.ceil(filteredSalesmen.length / pageSize) || 1;
+  const paginatedSalesmen = filteredSalesmen.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const totalOrders = salesmen.reduce((acc, s) => acc + s.totalOrdersCount, 0);
   const totalCbm = salesmen.reduce((acc, s) => acc + s.totalCbm, 0);
@@ -197,7 +204,7 @@ export function SalesmenManager({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredSalesmen.map((s) => (
+                {paginatedSalesmen.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors group">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
@@ -303,6 +310,36 @@ export function SalesmenManager({
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 bg-slate-50/50">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-navy hover:bg-slate-50 transition disabled:opacity-40 cursor-pointer"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span>Previous</span>
+            </button>
+
+            <div className="text-xs font-semibold text-slate-500">
+              Page <span className="font-bold text-navy">{currentPage}</span> of{" "}
+              <span className="font-bold text-navy">{totalPages}</span> ({filteredSalesmen.length} salesmen)
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-navy hover:bg-slate-50 transition disabled:opacity-40 cursor-pointer"
+            >
+              <span>Next</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
       </div>

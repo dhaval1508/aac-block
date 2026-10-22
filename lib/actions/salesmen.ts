@@ -10,6 +10,42 @@ import { getSession, createSession } from "@/lib/session";
 import { dispatchNotification } from "@/lib/push-dispatcher";
 
 // ============================================================================
+// COLLISION-PROOF SALESMAN CODE GENERATOR (SAB-SALES-001, SAB-SALES-002, ...)
+// ============================================================================
+export async function generateNextSalesmanCode(): Promise<string> {
+  const allUsersWithCode = await prisma.user.findMany({
+    where: {
+      salesmanCode: { not: null },
+    },
+    select: { salesmanCode: true },
+  });
+
+  let maxNum = 0;
+  for (const u of allUsersWithCode) {
+    if (u.salesmanCode) {
+      const match = u.salesmanCode.match(/SAB-SALES-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+  }
+
+  let nextCandidate = maxNum + 1;
+  let candidateCode = `SAB-SALES-${String(nextCandidate).padStart(3, "0")}`;
+
+  // Extra safety: loop until an unused code is verified
+  while (await prisma.user.findUnique({ where: { salesmanCode: candidateCode } })) {
+    nextCandidate++;
+    candidateCode = `SAB-SALES-${String(nextCandidate).padStart(3, "0")}`;
+  }
+
+  return candidateCode;
+}
+
+// ============================================================================
 // 1. SUPER ADMIN: CREATE SALESMAN
 // ============================================================================
 export async function createSalesmanAction(formData: FormData) {
@@ -45,29 +81,31 @@ export async function createSalesmanAction(formData: FormData) {
     redirect("/admin/salesmen?error=A%20user%20with%20this%20mobile%20or%20email%20already%20exists");
   }
 
-  // Auto-generate Salesman ID (SAB-SALES-001, SAB-SALES-002, ...)
-  const count = await prisma.user.count({
-    where: { role: Role.SALESMAN },
-  });
-  const salesmanCode = `SAB-SALES-${String(count + 1).padStart(3, "0")}`;
+  // Auto-generate Collision-Free Salesman ID (SAB-SALES-001, SAB-SALES-002, ...)
+  const salesmanCode = await generateNextSalesmanCode();
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const newSalesman = await prisma.user.create({
-    data: {
-      name,
-      mobile,
-      email,
-      role: Role.SALESMAN,
-      salesmanCode,
-      passwordHash,
-      active,
-      deliveryAddress: address,
-      billingAddress: address,
-      remarks,
-      companyName: "Swarnim AAC Block Pvt. Ltd.",
-    },
-  });
+  let newSalesman;
+  try {
+    newSalesman = await prisma.user.create({
+      data: {
+        name,
+        mobile,
+        email,
+        role: Role.SALESMAN,
+        salesmanCode,
+        passwordHash,
+        active,
+        deliveryAddress: address,
+        billingAddress: address,
+        remarks,
+        companyName: "Swarnim AAC Block Pvt. Ltd.",
+      },
+    });
+  } catch (err: any) {
+    redirect(`/admin/salesmen?error=${encodeURIComponent(err?.message || "Failed to create salesman account")}`);
+  }
 
   await dispatchNotification({
     role: "ADMIN",
@@ -77,6 +115,9 @@ export async function createSalesmanAction(formData: FormData) {
   });
 
   revalidatePath("/admin/salesmen");
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/orders");
   redirect(`/admin/salesmen?success=Salesman%20${encodeURIComponent(name)}%20created%20successfully`);
 }
 

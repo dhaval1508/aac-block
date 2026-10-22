@@ -13,6 +13,8 @@ import {
   Activity as ActivityIcon,
   ChevronRight,
   Calendar,
+  Users,
+  Shield,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -53,6 +55,7 @@ export default async function AdminDashboardPage({
     mortarStock,
     totalCustomers,
     totalStaff,
+    totalSalesmen,
     totalProducts,
     allOrdersCount,
     periodOrders,
@@ -68,8 +71,9 @@ export default async function AdminDashboardPage({
     getStockSummary(),
     getStockBySize(),
     getMortarStock(),
-    prisma.user.count({ where: { role: Role.CUSTOMER } }),
-    prisma.user.count({ where: { role: { in: [Role.STAFF, Role.STOCKER] } } }),
+    prisma.user.count({ where: { role: Role.CUSTOMER, deletedAt: null } }),
+    prisma.user.count({ where: { role: { in: [Role.STAFF, Role.STOCKER] }, deletedAt: null } }),
+    prisma.user.count({ where: { role: Role.SALESMAN, deletedAt: null } }),
     prisma.product.count(),
     prisma.order.count(),
     // Period Orders
@@ -179,6 +183,22 @@ export default async function AdminDashboardPage({
         {/* Global Date Filter & Quick Actions */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 min-w-0">
           <DateRangeFilter />
+
+          <Link
+            href="/admin/salesmen"
+            className="flex items-center gap-1.5 rounded-2xl border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-bold text-[#13789B] shadow-xs hover:bg-sky-100 transition-all shrink-0"
+          >
+            <Users className="h-3.5 w-3.5" />
+            <span>Salesmen ({totalSalesmen})</span>
+          </Link>
+
+          <Link
+            href="/admin/users"
+            className="flex items-center gap-1.5 rounded-2xl border border-purple-200 bg-purple-50 px-3.5 py-2 text-xs font-bold text-purple-700 shadow-xs hover:bg-purple-100 transition-all shrink-0"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            <span>Users & Roles</span>
+          </Link>
 
           <Link
             href="/admin/orders"

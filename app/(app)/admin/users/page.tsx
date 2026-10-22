@@ -2,27 +2,26 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { Role } from "@prisma/client";
-import { UsersManager, type InternalUser, type CustomerUser } from "@/components/users-manager";
+import { UsersManager, type ManagedUser, type CustomerInvitationItem } from "@/components/users-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; success?: string }>;
 }) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/login");
 
-  const { error } = await searchParams;
+  const { error, success } = await searchParams;
 
-  const [internalUsers, customers] = await Promise.all([
+  const [allUsers, pendingInvitations, salesmenList] = await Promise.all([
     prisma.user.findMany({
       where: {
-        role: { in: [Role.ADMIN, Role.STOCKER, Role.STAFF] },
         deletedAt: null,
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         name: true,
@@ -30,42 +29,57 @@ export default async function AdminUsersPage({
         email: true,
         role: true,
         active: true,
+        salesmanCode: true,
+        companyName: true,
+        gstin: true,
+        city: true,
+        state: true,
+        deliveryAddress: true,
+        remarks: true,
         createdAt: true,
+        salesmanId: true,
+        salesman: { select: { id: true, name: true, salesmanCode: true } },
+        _count: {
+          select: {
+            customerOrders: true,
+            salesmanOrders: true,
+            assignedCustomers: true,
+            assignedOrders: true,
+          },
+        },
+      },
+    }),
+    prisma.customerInvitation.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        salesman: { select: { id: true, name: true, salesmanCode: true } },
       },
     }),
     prisma.user.findMany({
-      where: {
-        role: Role.CUSTOMER,
-        deletedAt: null,
-      },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        companyName: true,
-        gstin: true,
-        mobile: true,
-        email: true,
-        city: true,
-        state: true,
-        active: true,
-        createdAt: true,
-        _count: { select: { customerOrders: true } },
-      },
+      where: { role: Role.SALESMAN, deletedAt: null },
+      select: { id: true, name: true, salesmanCode: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 min-w-0 max-w-full">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 min-w-0 max-w-full">
       {error ? (
-        <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700 font-medium">
+        <div className="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs sm:text-sm text-rose-700 font-medium">
           {decodeURIComponent(error)}
         </div>
       ) : null}
 
+      {success ? (
+        <div className="rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs sm:text-sm text-emerald-800 font-bold">
+          {decodeURIComponent(success)}
+        </div>
+      ) : null}
+
       <UsersManager
-        internalUsers={internalUsers as InternalUser[]}
-        customers={customers as CustomerUser[]}
+        users={allUsers as ManagedUser[]}
+        invitations={pendingInvitations as CustomerInvitationItem[]}
+        salesmen={salesmenList}
         currentUserId={session.id}
       />
     </div>
