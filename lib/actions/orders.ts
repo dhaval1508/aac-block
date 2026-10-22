@@ -1,6 +1,7 @@
 "use server";
 
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { OrderStatus, PaymentMode, PaymentStatus, StockType } from "@prisma/client";
@@ -69,20 +70,111 @@ export async function placeCustomerOrderAction(formData: FormData) {
   let targetSalesmanNameSnapshot: string | null = null;
 
   if (session.role === "SALESMAN") {
-    const rawCustomerId = String(formData.get("customerId") ?? "").trim();
-    if (!rawCustomerId) {
-      redirect("/salesman/orders?error=Please%20select%20an%20assigned%20customer");
+    const isNewCustomer = formData.get("isNewCustomer") === "true";
+    if (isNewCustomer) {
+      const newName = String(formData.get("newCustomerName") ?? "").trim();
+      const newMobile = String(formData.get("newCustomerMobile") ?? "").trim().replace(/\D/g, "");
+      const newEmail = String(formData.get("newCustomerEmail") ?? "").trim() || null;
+      const newCompany = String(formData.get("newCustomerCompanyName") ?? "").trim() || null;
+      const newAddress = String(formData.get("newCustomerAddress") ?? formData.get("deliveryAddress") ?? "").trim();
+      const newCity = String(formData.get("newCustomerCity") ?? formData.get("city") ?? "").trim() || "Ahmedabad";
+      const newState = String(formData.get("newCustomerState") ?? formData.get("state") ?? "").trim() || "Gujarat";
+      const newPincode = String(formData.get("newCustomerPincode") ?? formData.get("pincode") ?? "").trim() || null;
+
+      if (!newName || !newMobile || newMobile.length !== 10) {
+        redirect("/salesman/orders/new?error=Please%20enter%20valid%20customer%20name%20and%2010-digit%20mobile%20number");
+      }
+
+      // Check if user already exists
+      const existingCustomer = await prisma.user.findFirst({
+        where: { mobile: newMobile },
+      });
+
+      if (existingCustomer) {
+        if (existingCustomer.salesmanId === session.id) {
+          // Already belongs to this salesman - reuse customer
+          targetCustomerId = existingCustomer.id;
+        } else if (existingCustomer.salesmanId && existingCustomer.salesmanId !== session.id) {
+          // Belongs to another salesman! Block unauthorized reassignment
+          redirect(
+            "/salesman/orders/new?error=A%20customer%20with%20this%20mobile%20number%20already%20belongs%20to%20another%20Salesman.%20Only%20Super%20Admin%20can%20resolve%20customer%20ownership%20conflicts."
+          );
+        } else {
+          // Unassigned customer: assign to current salesman
+          await prisma.user.update({
+            where: { id: existingCustomer.id },
+            data: {
+              salesmanId: session.id,
+              assignedAt: new Date(),
+            },
+          });
+          await prisma.customerAssignmentHistory.create({
+            data: {
+              customerId: existingCustomer.id,
+              fromSalesmanId: existingCustomer.salesmanId || null,
+              toSalesmanId: session.id,
+              assignedById: session.id,
+              reason: `Assigned during order creation by Salesman ${session.name}`,
+            },
+          });
+          targetCustomerId = existingCustomer.id;
+        }
+      } else {
+        // Create new customer account
+        const tempPassword = crypto.randomBytes(12).toString("hex");
+        const passwordHash = await bcrypt.hash(tempPassword, 10);
+        const email = newEmail || `${newMobile}@swarnim.customer`;
+
+        const newCustomer = await prisma.user.create({
+          data: {
+            name: newName,
+            mobile: newMobile,
+            email,
+            passwordHash,
+            role: "CUSTOMER",
+            companyName: newCompany,
+            deliveryAddress: newAddress,
+            billingAddress: newAddress,
+            city: newCity,
+            state: newState,
+            pincode: newPincode,
+            salesmanId: session.id,
+            assignedAt: new Date(),
+            remarks: `Added by Salesman ${session.name} during order creation`,
+            active: true,
+          },
+        });
+
+        await prisma.customerAssignmentHistory.create({
+          data: {
+            customerId: newCustomer.id,
+            fromSalesmanId: null,
+            toSalesmanId: session.id,
+            assignedById: session.id,
+            reason: `Created and assigned during order creation by Salesman ${session.name}`,
+          },
+        });
+
+        targetCustomerId = newCustomer.id;
+      }
+      targetSalesmanId = session.id;
+      targetSalesmanNameSnapshot = session.name;
+    } else {
+      const rawCustomerId = String(formData.get("customerId") ?? "").trim();
+      if (!rawCustomerId) {
+        redirect("/salesman/orders/new?error=Please%20select%20an%20assigned%20customer");
+      }
+      const assignedCust = await prisma.user.findFirst({
+        where: { id: rawCustomerId, salesmanId: session.id },
+        select: { id: true, name: true, companyName: true },
+      });
+      if (!assignedCust) {
+        redirect("/salesman/orders/new?error=Customer%20is%20not%20assigned%20to%20you");
+      }
+      targetCustomerId = assignedCust.id;
+      targetSalesmanId = session.id;
+      targetSalesmanNameSnapshot = session.name;
     }
-    const assignedCust = await prisma.user.findFirst({
-      where: { id: rawCustomerId, salesmanId: session.id },
-      select: { id: true, name: true, companyName: true },
-    });
-    if (!assignedCust) {
-      redirect("/salesman/orders?error=Customer%20is%20not%20assigned%20to%20you");
-    }
-    targetCustomerId = assignedCust.id;
-    targetSalesmanId = session.id;
-    targetSalesmanNameSnapshot = session.name;
   } else if (session.role === "CUSTOMER") {
     targetCustomerId = session.id;
     const cust = await prisma.user.findUnique({
@@ -276,6 +368,9 @@ export async function placeCustomerOrderAction(formData: FormData) {
         customerId: targetCustomerId,
         salesmanId: targetSalesmanId,
         salesmanNameSnapshot: targetSalesmanNameSnapshot,
+        createdById: session.id,
+        createdByRole: session.role,
+        createdByNameSnapshot: session.name,
         googleMapsUrl,
         productId: primaryItem.productId,
         quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
@@ -328,10 +423,13 @@ export async function placeCustomerOrderAction(formData: FormData) {
         events: {
           create: {
             status: OrderStatus.PENDING,
-            title: "Order Placed",
-            note: `Order booked: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)${
-              targetSalesmanNameSnapshot ? ` • Assigned Salesman: ${targetSalesmanNameSnapshot}` : ""
-            }`,
+            title: session.role === "SALESMAN" ? "New Order Created by Salesman" : "Order Placed",
+            note:
+              session.role === "SALESMAN"
+                ? `Order created by Salesman ${session.name}: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Morter (40 KG)`
+                : `Order booked: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)${
+                    targetSalesmanNameSnapshot ? ` • Assigned Salesman: ${targetSalesmanNameSnapshot}` : ""
+                  }`,
             createdById: session.id,
           },
         },
@@ -341,45 +439,78 @@ export async function placeCustomerOrderAction(formData: FormData) {
     return ord;
   });
 
-  // Real-Time Notification to Admin (Strictly zero price)
+  // Real-Time Notifications
   const customer = await prisma.user.findUnique({
     where: { id: targetCustomerId },
     select: { name: true, companyName: true },
   });
   const customerName = customer?.companyName || customer?.name || "Customer";
 
-  await dispatchNotification({
-    role: "ADMIN",
-    title: "New AAC Block Order Received",
-    message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}${
-      targetSalesmanNameSnapshot ? `\nSalesman: ${targetSalesmanNameSnapshot}` : ""
-    }`,
-    link: `/admin/orders/${order.id}`,
-    orderId: order.id,
-    type: "NEW_ORDER",
-  });
-
-  // Notify the assigned Salesman if present
-  if (targetSalesmanId) {
+  if (session.role === "SALESMAN") {
+    // 1. Super Admin Notification
     await dispatchNotification({
-      userId: targetSalesmanId,
-      title: "New Order From Your Customer",
-      message: `Order ID: ${order.orderNo}\nCustomer: ${customerName}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nMorter: ${adhesiveBags} Bags`,
+      role: "ADMIN",
+      title: "New Order Created by Salesman",
+      message: `Salesman: ${session.name}\nCustomer: ${customerName}\nOrder ID: ${order.orderNo}\nTotal CBM: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)`,
+      link: `/admin/orders/${order.id}`,
+      orderId: order.id,
+      type: "NEW_ORDER",
+    });
+
+    // 2. Salesman Notification
+    await dispatchNotification({
+      userId: session.id,
+      title: "Customer Order Placed Successfully",
+      message: `Customer: ${customerName}\nOrder ID: ${order.orderNo}\nStatus: New Order\nTotal CBM: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)`,
       link: `/salesman/orders/${order.id}`,
       orderId: order.id,
       type: "NEW_ORDER",
     });
-  }
 
-  // Also notify the placing customer
-  await dispatchNotification({
-    userId: targetCustomerId,
-    title: "Order Placed Successfully",
-    message: `Your order ${order.orderNo} for ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
-    link: `/customer/orders/${order.id}`,
-    orderId: order.id,
-    type: "STATUS_CHANGE",
-  });
+    // 3. Customer Notification
+    await dispatchNotification({
+      userId: targetCustomerId,
+      title: "Order Placed by Your Assigned Salesman",
+      message: `Your assigned Salesman ${session.name} has placed an order (${order.orderNo}) on your behalf: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Morter.`,
+      link: `/customer/orders/${order.id}`,
+      orderId: order.id,
+      type: "NEW_ORDER",
+    });
+  } else {
+    // Customer-Placed Order Notifications
+    await dispatchNotification({
+      role: "ADMIN",
+      title: "New AAC Block Order Received",
+      message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}${
+        targetSalesmanNameSnapshot ? `\nSalesman: ${targetSalesmanNameSnapshot}` : ""
+      }`,
+      link: `/admin/orders/${order.id}`,
+      orderId: order.id,
+      type: "NEW_ORDER",
+    });
+
+    // Notify the assigned Salesman if present
+    if (targetSalesmanId) {
+      await dispatchNotification({
+        userId: targetSalesmanId,
+        title: "New Order From Your Customer",
+        message: `Order ID: ${order.orderNo}\nCustomer: ${customerName}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nMorter: ${adhesiveBags} Bags`,
+        link: `/salesman/orders/${order.id}`,
+        orderId: order.id,
+        type: "NEW_ORDER",
+      });
+    }
+
+    // Notify the placing customer
+    await dispatchNotification({
+      userId: targetCustomerId,
+      title: "Order Placed Successfully",
+      message: `Your order ${order.orderNo} for ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
+      link: `/customer/orders/${order.id}`,
+      orderId: order.id,
+      type: "STATUS_CHANGE",
+    });
+  }
 
   revalidatePath("/customer/dashboard");
   revalidatePath("/customer/orders");
@@ -1306,8 +1437,10 @@ export async function editCustomerOrderAction(formData: FormData) {
         events: {
           create: {
             status: existingOrder.status,
-            title: "Order Updated by Customer",
-            note: `Order v${newVersion} modified: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} blocks), ${adhesiveBags} bags mortar. Changes: ${
+            title: session.role === "SALESMAN" ? "Order Updated by Salesman" : "Order Updated by Customer",
+            note: `Order v${newVersion} modified by ${
+              session.role === "SALESMAN" ? `Salesman ${session.name}` : "Customer"
+            }: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} blocks), ${adhesiveBags} bags mortar. Changes: ${
               changedFields.join(", ") || "Specifications refreshed"
             }`,
             createdById: session.id,
@@ -1334,8 +1467,8 @@ export async function editCustomerOrderAction(formData: FormData) {
   // Notify Admin
   await dispatchNotification({
     role: "ADMIN",
-    title: `Order Updated by Customer: ${existingOrder.orderNo}`,
-    message: `Customer modified ${existingOrder.orderNo}. Volume: ${combinedCbm.toFixed(3)} CBM (Prev: ${prevCbm.toFixed(3)} CBM). Changed: ${
+    title: session.role === "SALESMAN" ? `Order Updated by Salesman: ${existingOrder.orderNo}` : `Order Updated by Customer: ${existingOrder.orderNo}`,
+    message: `${session.role === "SALESMAN" ? `Salesman ${session.name}` : "Customer"} modified ${existingOrder.orderNo}. Volume: ${combinedCbm.toFixed(3)} CBM (Prev: ${prevCbm.toFixed(3)} CBM). Changed: ${
       changedFields.join(", ") || "Details"
     }`,
     link: `/admin/orders/${orderId}`,
@@ -1348,20 +1481,32 @@ export async function editCustomerOrderAction(formData: FormData) {
     await dispatchNotification({
       userId: existingOrder.assignedStaffId,
       title: `ALERT: Assigned Order ${existingOrder.orderNo} Updated`,
-      message: `Customer updated Order ${existingOrder.orderNo} specifications. Please re-verify loading count! New CBM: ${combinedCbm.toFixed(3)} CBM`,
+      message: `${session.role === "SALESMAN" ? `Salesman ${session.name}` : "Customer"} updated Order ${existingOrder.orderNo} specifications. Please re-verify loading count! New CBM: ${combinedCbm.toFixed(3)} CBM`,
       link: `/staff/orders/${orderId}`,
       orderId,
       type: "ORDER_UPDATED",
     });
   }
 
-  // Notify assigned Salesman if present
-  if (existingOrder.salesmanId) {
+  // Notify assigned Salesman if customer edited
+  if (session.role !== "SALESMAN" && existingOrder.salesmanId) {
     await dispatchNotification({
       userId: existingOrder.salesmanId,
       title: `ALERT: Order ${existingOrder.orderNo} Updated`,
       message: `Customer updated Order ${existingOrder.orderNo} specifications. Volume: ${combinedCbm.toFixed(3)} CBM (Prev: ${prevCbm.toFixed(3)} CBM).`,
       link: `/salesman/orders/${orderId}`,
+      orderId,
+      type: "ORDER_UPDATED",
+    });
+  }
+
+  // Notify Customer if salesman edited
+  if (session.role === "SALESMAN" && existingOrder.customerId) {
+    await dispatchNotification({
+      userId: existingOrder.customerId,
+      title: "Order Updated by Your Assigned Salesman",
+      message: `Your assigned Salesman ${session.name} updated your Order ${existingOrder.orderNo}. New Volume: ${combinedCbm.toFixed(3)} CBM.`,
+      link: `/customer/orders/${orderId}`,
       orderId,
       type: "ORDER_UPDATED",
     });

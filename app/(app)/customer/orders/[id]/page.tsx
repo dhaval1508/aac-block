@@ -133,7 +133,9 @@ export default async function CustomerOrderDetailPage({
             <p className="text-xs text-slate-500">Ordered on {formatDateTime(order.createdAt)}</p>
             {(order.salesman?.name || order.salesmanNameSnapshot) && (
               <p className="text-xs text-purple-700 font-bold mt-0.5">
-                Assigned Salesman: {order.salesman?.name || order.salesmanNameSnapshot}
+                {order.createdByRole === "SALESMAN"
+                  ? `Placed on your behalf by Salesman: ${order.createdByNameSnapshot || order.salesman?.name || order.salesmanNameSnapshot}`
+                  : `Assigned Salesman: ${order.salesman?.name || order.salesmanNameSnapshot}`}
               </p>
             )}
           </div>

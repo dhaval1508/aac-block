@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, ArrowUpDown, RotateCcw, User } from "lucide-react";
+import { Search, ArrowUpDown, RotateCcw, User, UserCheck } from "lucide-react";
 
 interface StatusTab {
   key: string;
@@ -13,6 +13,7 @@ interface StatusTab {
 interface OrdersFilterToolbarProps {
   initialSearch: string;
   status: string;
+  creator?: string;
   payment?: string;
   sort: string;
   salesman?: string;
@@ -27,6 +28,7 @@ interface OrdersFilterToolbarProps {
 export function OrdersFilterToolbar({
   initialSearch,
   status,
+  creator,
   sort,
   salesman,
   salesmen,
@@ -80,6 +82,21 @@ export function OrdersFilterToolbar({
         </form>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Creator Filter Dropdown */}
+          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+            <UserCheck className="h-3.5 w-3.5 text-slate-400" />
+            <select
+              defaultValue={creator || "all"}
+              onChange={(e) => updateFilters({ creator: e.target.value })}
+              className="bg-transparent font-semibold text-navy outline-none cursor-pointer text-xs"
+              aria-label="Filter by Order Creator"
+            >
+              <option value="all">All Creators</option>
+              <option value="CUSTOMER">Customer-Created</option>
+              <option value="SALESMAN">Salesman-Created</option>
+            </select>
+          </div>
+
           {/* Salesman Filter Dropdown */}
           {salesmen && salesmen.length > 0 && (
             <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">

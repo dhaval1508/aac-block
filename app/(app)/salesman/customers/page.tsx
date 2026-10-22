@@ -4,7 +4,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { SalesmanCustomersTable, SalesmanCustomerItem } from "@/components/salesman-customers-table";
-import { UserPlus, Send } from "lucide-react";
+import { UserPlus, Send, PlusCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +63,14 @@ export default async function SalesmanCustomersPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/salesman/orders/new"
+            className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-600 px-4 py-2.5 text-xs font-black text-white shadow-md transition shadow-amber-500/20 active:scale-95"
+          >
+            <PlusCircle className="h-4 w-4" />
+            <span>+ Create New Order</span>
+          </Link>
+
           <Link
             href="/salesman/invitations"
             className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-md transition"

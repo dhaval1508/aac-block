@@ -179,6 +179,11 @@ model Order {
   salesman        User?           @relation("SalesmanOrders", fields: [salesmanId], references: [id], onDelete: SetNull)
   salesmanNameSnapshot String?
 
+  // Order creator attribution (Customer vs Salesman vs Admin)
+  createdById           String?
+  createdByRole         String?         @default("CUSTOMER") // "CUSTOMER" | "SALESMAN" | "ADMIN"
+  createdByNameSnapshot String?
+
   assignedStaffId String?
   assignedStaff   User?           @relation("StaffAssignedOrders", fields: [assignedStaffId], references: [id])
 
@@ -203,6 +208,8 @@ model Order {
   @@index([assignedStaffId])
   @@index([salesmanId])
   @@index([dcNumber])
+  @@index([createdByRole])
+  @@index([createdById])
 }
 
 model OrderItem {

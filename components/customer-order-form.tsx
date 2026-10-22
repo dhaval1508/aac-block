@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   MapPin,
   User,
+  UserPlus,
   Phone,
   Mail,
   FileText,
@@ -21,6 +22,9 @@ import {
   ArrowLeft,
   Boxes,
   ExternalLink,
+  Search,
+  Building2,
+  Check,
 } from "lucide-react";
 import {
   DeliveryLocationPicker,
@@ -51,6 +55,18 @@ export interface CustomerDefaults {
   pincode: string;
 }
 
+export interface AssignedCustomerOption {
+  id: string;
+  name: string;
+  companyName?: string | null;
+  mobile: string;
+  email?: string | null;
+  deliveryAddress?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+}
+
 export interface BlockOrderItem {
   id: string;
   productId: string;
@@ -72,6 +88,10 @@ export function CustomerOrderForm({
   initialDeliveryLocation,
   initialNotes = "",
   error,
+  isSalesmanMode = false,
+  assignedCustomers = [],
+  salesmanName,
+  selectedCustomerId,
 }: {
   aacProducts: ProductItem[];
   adhesiveProduct?: ProductItem | null;
@@ -86,6 +106,10 @@ export function CustomerOrderForm({
   initialDeliveryLocation?: DeliveryLocationData;
   initialNotes?: string;
   error?: string;
+  isSalesmanMode?: boolean;
+  assignedCustomers?: AssignedCustomerOption[];
+  salesmanName?: string;
+  selectedCustomerId?: string;
 }) {
   const initialAacId =
     defaultProductId && aacProducts.some((p) => p.id === defaultProductId)
@@ -95,6 +119,26 @@ export function CustomerOrderForm({
   const initialRate = initialProd ? Number(initialProd.cbmPerBlock) : 0.018;
   const initialQty = defaultQuantity || 1000;
   const initialCbm = Number((initialQty * initialRate).toFixed(3));
+
+  // Salesman Customer Selection State
+  const initialCustId =
+    selectedCustomerId ||
+    (assignedCustomers.length > 0 ? assignedCustomers[0].id : "");
+  const initialAssigned = assignedCustomers.find((c) => c.id === initialCustId);
+
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [activeCustomerId, setActiveCustomerId] = useState<string>(initialCustId);
+  const [customerSearch, setCustomerSearch] = useState("");
+
+  // Inline New Customer Form Fields
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerMobile, setNewCustomerMobile] = useState("");
+  const [newCustomerEmail, setNewCustomerEmail] = useState("");
+  const [newCustomerCompanyName, setNewCustomerCompanyName] = useState("");
+  const [newCustomerAddress, setNewCustomerAddress] = useState("");
+  const [newCustomerCity, setNewCustomerCity] = useState("Ahmedabad");
+  const [newCustomerState, setNewCustomerState] = useState("Gujarat");
+  const [newCustomerPincode, setNewCustomerPincode] = useState("");
 
   // Section A: Multiple AAC block sizes (CBM is primary)
   const [blockItems, setBlockItems] = useState<BlockOrderItem[]>(
@@ -114,29 +158,105 @@ export function CustomerOrderForm({
   const [adhesiveBags, setAdhesiveBags] = useState<number | "">(defaultAdhesiveBags);
 
   // Section C: Customer Details
-  const [customerName, setCustomerName] = useState(customerDefaults.name);
-  const [customerMobile, setCustomerMobile] = useState(customerDefaults.mobile);
-  const [customerEmail, setCustomerEmail] = useState(customerDefaults.email);
-  const [deliveryAddress, setDeliveryAddress] = useState(
-    initialDeliveryLocation?.address || customerDefaults.deliveryAddress
+  const [customerName, setCustomerName] = useState(
+    isSalesmanMode && initialAssigned
+      ? initialAssigned.companyName || initialAssigned.name
+      : customerDefaults.name
   );
-  const [city, setCity] = useState(initialDeliveryLocation?.city || customerDefaults.city || "Ahmedabad");
-  const [pincode, setPincode] = useState(initialDeliveryLocation?.pincode || customerDefaults.pincode || "");
+  const [customerMobile, setCustomerMobile] = useState(
+    isSalesmanMode && initialAssigned ? initialAssigned.mobile : customerDefaults.mobile
+  );
+  const [customerEmail, setCustomerEmail] = useState(
+    isSalesmanMode && initialAssigned ? initialAssigned.email || "" : customerDefaults.email
+  );
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    initialDeliveryLocation?.address ||
+      (isSalesmanMode && initialAssigned ? initialAssigned.deliveryAddress || "" : customerDefaults.deliveryAddress)
+  );
+  const [city, setCity] = useState(
+    initialDeliveryLocation?.city ||
+      (isSalesmanMode && initialAssigned ? initialAssigned.city || "Ahmedabad" : customerDefaults.city || "Ahmedabad")
+  );
+  const [pincode, setPincode] = useState(
+    initialDeliveryLocation?.pincode ||
+      (isSalesmanMode && initialAssigned ? initialAssigned.pincode || "" : customerDefaults.pincode || "")
+  );
   const [requestedDate, setRequestedDate] = useState("");
   const [notes, setNotes] = useState(initialNotes);
 
   const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocationData>(
     initialDeliveryLocation || {
-      address: customerDefaults.deliveryAddress || "",
+      address: isSalesmanMode && initialAssigned ? initialAssigned.deliveryAddress || "" : customerDefaults.deliveryAddress || "",
       locationSource: "MANUAL",
-      city: customerDefaults.city || "Ahmedabad",
-      pincode: customerDefaults.pincode || "",
-      state: "Gujarat",
+      city: isSalesmanMode && initialAssigned ? initialAssigned.city || "Ahmedabad" : customerDefaults.city || "Ahmedabad",
+      pincode: isSalesmanMode && initialAssigned ? initialAssigned.pincode || "" : customerDefaults.pincode || "",
+      state: isSalesmanMode && initialAssigned ? initialAssigned.state || "Gujarat" : "Gujarat",
     }
   );
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Handler for picking an assigned customer
+  const handleSelectAssignedCustomer = (cust: AssignedCustomerOption) => {
+    setActiveCustomerId(cust.id);
+    const chosenName = cust.companyName || cust.name;
+    setCustomerName(chosenName);
+    setCustomerMobile(cust.mobile);
+    setCustomerEmail(cust.email || "");
+    setDeliveryAddress(cust.deliveryAddress || "");
+    setCity(cust.city || "Ahmedabad");
+    setPincode(cust.pincode || "");
+    setDeliveryLocation((prev) => ({
+      ...prev,
+      address: cust.deliveryAddress || "",
+      city: cust.city || "Ahmedabad",
+      pincode: cust.pincode || "",
+      state: cust.state || "Gujarat",
+    }));
+  };
+
+  // Handler for switching customer mode
+  const handleToggleCustomerMode = (toNew: boolean) => {
+    setIsNewCustomer(toNew);
+    if (toNew) {
+      setCustomerName(newCustomerCompanyName || newCustomerName || "");
+      setCustomerMobile(newCustomerMobile || "");
+      setCustomerEmail(newCustomerEmail || "");
+      setDeliveryAddress(newCustomerAddress || "");
+      setCity(newCustomerCity || "Ahmedabad");
+      setPincode(newCustomerPincode || "");
+      setDeliveryLocation((prev) => ({
+        ...prev,
+        address: newCustomerAddress || "",
+        city: newCustomerCity || "Ahmedabad",
+        pincode: newCustomerPincode || "",
+        state: newCustomerState || "Gujarat",
+      }));
+    } else {
+      const existing = assignedCustomers.find((c) => c.id === activeCustomerId) || assignedCustomers[0];
+      if (existing) {
+        handleSelectAssignedCustomer(existing);
+      }
+    }
+  };
+
+  // Filtered assigned customers list
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch.trim()) return assignedCustomers;
+    const term = customerSearch.toLowerCase().trim();
+    return assignedCustomers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(term) ||
+        (c.companyName && c.companyName.toLowerCase().includes(term)) ||
+        c.mobile.includes(term)
+    );
+  }, [assignedCustomers, customerSearch]);
+
+  const activeCustomerObj = useMemo(
+    () => assignedCustomers.find((c) => c.id === activeCustomerId),
+    [assignedCustomers, activeCustomerId]
+  );
 
   // Add another block size row
   const addBlockSizeRow = () => {
@@ -243,12 +363,357 @@ export function CustomerOrderForm({
       <input type="hidden" name="city" value={city} />
       <input type="hidden" name="pincode" value={pincode} />
 
+      {/* Salesman Mode Hidden Fields */}
+      {isSalesmanMode && (
+        <>
+          <input type="hidden" name="isSalesmanMode" value="true" />
+          <input type="hidden" name="isNewCustomer" value={isNewCustomer ? "true" : "false"} />
+          <input type="hidden" name="customerId" value={activeCustomerId} />
+          {isNewCustomer && (
+            <>
+              <input type="hidden" name="newCustomerName" value={newCustomerName} />
+              <input type="hidden" name="newCustomerMobile" value={newCustomerMobile} />
+              <input type="hidden" name="newCustomerEmail" value={newCustomerEmail} />
+              <input type="hidden" name="newCustomerCompanyName" value={newCustomerCompanyName} />
+              <input type="hidden" name="newCustomerAddress" value={newCustomerAddress} />
+              <input type="hidden" name="newCustomerCity" value={newCustomerCity} />
+              <input type="hidden" name="newCustomerState" value={newCustomerState} />
+              <input type="hidden" name="newCustomerPincode" value={newCustomerPincode} />
+            </>
+          )}
+        </>
+      )}
+
       {error ? (
         <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700 flex items-center gap-2">
           <Info className="h-4 w-4 shrink-0 text-rose-500" />
           <span>{error}</span>
         </div>
       ) : null}
+
+      {/* =========================================================================
+          SECTION 0: SALESMAN CUSTOMER SELECTION (RENDERED IN SALESMAN MODE)
+      ========================================================================= */}
+      {isSalesmanMode && (
+        <div className="rounded-3xl border-2 border-[#13789B]/30 bg-white p-4 sm:p-7 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+                  👤
+                </span>
+                <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+                  Select Customer
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Place an order on behalf of your assigned Customer, or register a new Customer instantly.
+              </p>
+            </div>
+            {salesmanName && (
+              <span className="self-start sm:self-auto rounded-full bg-purple-50 border border-purple-200 px-3 py-1 text-[11px] font-bold text-purple-700">
+                Logged-in Salesman: {salesmanName}
+              </span>
+            )}
+          </div>
+
+          {/* Mode Tabs: Select Existing vs Add New */}
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-100 p-1.5 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => handleToggleCustomerMode(false)}
+              className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 transition-all cursor-pointer ${
+                !isNewCustomer
+                  ? "bg-white text-navy shadow-xs font-black"
+                  : "text-slate-600 hover:text-navy"
+              }`}
+            >
+              <User className="h-4 w-4 text-[#13789B]" />
+              <span>Select Assigned Customer ({assignedCustomers.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleCustomerMode(true)}
+              className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 transition-all cursor-pointer ${
+                isNewCustomer
+                  ? "bg-[#13789B] text-white shadow-xs font-black"
+                  : "text-slate-600 hover:text-navy"
+              }`}
+            >
+              <UserPlus className="h-4 w-4" />
+              <span>+ Add New Customer</span>
+            </button>
+          </div>
+
+          {/* Tab 1: Existing Assigned Customer */}
+          {!isNewCustomer ? (
+            <div className="space-y-4">
+              {/* Search Box */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="Search your assigned customers by name or 10-digit mobile..."
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-xs text-navy placeholder:text-slate-400 focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 outline-none"
+                />
+              </div>
+
+              {/* Customer Select Dropdown / Grid */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Choose Assigned Customer *
+                </label>
+                {filteredCustomers.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500">
+                    {assignedCustomers.length === 0
+                      ? "You currently have no customers assigned. Click '+ Add New Customer' to add one."
+                      : "No assigned customers match your search."}
+                  </div>
+                ) : (
+                  <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 divide-y divide-slate-100 bg-slate-50/50">
+                    {filteredCustomers.map((c) => {
+                      const isSelected = activeCustomerId === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleSelectAssignedCustomer(c)}
+                          className={`w-full text-left p-3 flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-teal-50/80 border-l-4 border-l-[#13789B]"
+                              : "hover:bg-white"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-navy truncate">
+                                {c.companyName || c.name}
+                              </span>
+                              {c.companyName && (
+                                <span className="text-[10px] text-slate-500 font-normal">
+                                  ({c.name})
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 mt-0.5 text-[11px] text-slate-500">
+                              <span className="font-mono font-medium">📱 {c.mobile}</span>
+                              {c.city && <span>📍 {c.city}</span>}
+                              {c.deliveryAddress && (
+                                <span className="truncate max-w-[220px]">
+                                  • {c.deliveryAddress}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#13789B] text-white shrink-0">
+                              <Check className="h-3 w-3" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Active Customer Information Card */}
+              {activeCustomerObj && (
+                <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-3.5 text-xs text-teal-950 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-[#13789B] uppercase tracking-wider text-[10px]">
+                      Selected Assigned Customer
+                    </span>
+                    <span className="text-[10px] font-bold bg-white border border-teal-300 text-teal-800 px-2 py-0.5 rounded-full">
+                      Assigned to You
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-medium">
+                    <div>
+                      <span className="text-slate-500 text-[10px] block">Customer Entity:</span>
+                      <strong className="text-navy">{activeCustomerObj.companyName || activeCustomerObj.name}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-[10px] block">Mobile:</span>
+                      <span className="font-mono text-navy font-bold">{activeCustomerObj.mobile}</span>
+                    </div>
+                    {activeCustomerObj.deliveryAddress && (
+                      <div className="sm:col-span-2">
+                        <span className="text-slate-500 text-[10px] block">Master Profile Delivery Address:</span>
+                        <span className="text-slate-700">{activeCustomerObj.deliveryAddress} ({activeCustomerObj.city || "Ahmedabad"})</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-teal-800/90 pt-1 italic border-t border-teal-200/60">
+                    ℹ️ You can adjust delivery site address or contact notes below for this specific order without modifying the Customer&apos;s master profile.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Tab 2: Add New Customer Form */
+            <div className="space-y-4 rounded-2xl border border-sky-200 bg-sky-50/40 p-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-navy">
+                <UserPlus className="h-4 w-4 text-[#13789B]" />
+                <span>Enter New Customer Details (Will be automatically assigned to you)</span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                {/* Full Name */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">
+                    Customer Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required={isNewCustomer}
+                    value={newCustomerName}
+                    onChange={(e) => {
+                      setNewCustomerName(e.target.value);
+                      if (!newCustomerCompanyName) setCustomerName(e.target.value);
+                    }}
+                    placeholder="e.g. Ramesh Patel"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                  />
+                </div>
+
+                {/* Mobile Number */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">
+                    Mobile Number (10 Digits) *
+                  </label>
+                  <input
+                    type="tel"
+                    required={isNewCustomer}
+                    maxLength={10}
+                    value={newCustomerMobile}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setNewCustomerMobile(val);
+                      setCustomerMobile(val);
+                    }}
+                    placeholder="9876543210"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                  />
+                </div>
+
+                {/* Email Address */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">
+                    Email Address (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={newCustomerEmail}
+                    onChange={(e) => {
+                      setNewCustomerEmail(e.target.value);
+                      setCustomerEmail(e.target.value);
+                    }}
+                    placeholder="customer@example.com"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                  />
+                </div>
+
+                {/* Company / Site Name */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">
+                    Company / Site Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerCompanyName}
+                    onChange={(e) => {
+                      setNewCustomerCompanyName(e.target.value);
+                      setCustomerName(e.target.value || newCustomerName);
+                    }}
+                    placeholder="e.g. Patel Builders / Site #4"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                  />
+                </div>
+
+                {/* Delivery Site Address */}
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="block font-bold text-slate-700">
+                    Initial Delivery Site Address *
+                  </label>
+                  <input
+                    type="text"
+                    required={isNewCustomer}
+                    value={newCustomerAddress}
+                    onChange={(e) => {
+                      setNewCustomerAddress(e.target.value);
+                      setDeliveryAddress(e.target.value);
+                      setDeliveryLocation((prev) => ({ ...prev, address: e.target.value }));
+                    }}
+                    placeholder="Plot / Site / Survey No., Landmark, Area"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                  />
+                </div>
+
+                {/* City */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">City / District *</label>
+                  <input
+                    type="text"
+                    required={isNewCustomer}
+                    value={newCustomerCity}
+                    onChange={(e) => {
+                      setNewCustomerCity(e.target.value);
+                      setCity(e.target.value);
+                      setDeliveryLocation((prev) => ({ ...prev, city: e.target.value }));
+                    }}
+                    placeholder="Ahmedabad"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                  />
+                </div>
+
+                {/* State & Pincode */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">State *</label>
+                    <input
+                      type="text"
+                      required={isNewCustomer}
+                      value={newCustomerState}
+                      onChange={(e) => {
+                        setNewCustomerState(e.target.value);
+                        setDeliveryLocation((prev) => ({ ...prev, state: e.target.value }));
+                      }}
+                      placeholder="Gujarat"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Pincode</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={newCustomerPincode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                        setNewCustomerPincode(val);
+                        setPincode(val);
+                        setDeliveryLocation((prev) => ({ ...prev, pincode: val }));
+                      }}
+                      placeholder="380001"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white border border-slate-200 p-3 text-[11px] text-slate-600 flex items-start gap-2">
+                <ShieldCheck className="h-4 w-4 text-[#13789B] shrink-0 mt-0.5" />
+                <p>
+                  <strong>Customer Account Creation:</strong> A secure Customer account will be registered and permanently linked to you. If the mobile number already belongs to another Salesman, duplicate protection will prevent reassignment.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* =========================================================================
           SECTION A: AAC BLOCK DETAILS
@@ -882,12 +1347,30 @@ export function CustomerOrderForm({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
+                  {salesmanName && (
+                    <div className="col-span-2 pb-1.5 border-b border-slate-200/60 flex items-center justify-between">
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-bold">Logged-in Salesman</span>
+                        <strong className="text-purple-700 font-bold">{salesmanName}</strong>
+                      </div>
+                      {isNewCustomer ? (
+                        <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          New Customer Registration
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
+                          Assigned Customer
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Customer Name</span>
                     <strong className="text-navy">{customerName}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Mobile</span>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Customer Mobile</span>
                     <strong className="text-navy font-mono">{customerMobile}</strong>
                   </div>
                   {customerEmail && (

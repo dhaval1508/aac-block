@@ -44,6 +44,7 @@ export default async function AdminOrdersPage({
     status?: string;
     q?: string;
     salesman?: string;
+    creator?: string;
     preset?: string;
     from?: string;
     to?: string;
@@ -59,6 +60,7 @@ export default async function AdminOrdersPage({
     status = "all",
     q = "",
     salesman = "all",
+    creator = "all",
     preset,
     from,
     to,
@@ -74,6 +76,15 @@ export default async function AdminOrdersPage({
   const whereClause: any = {};
   if (currentTab.status) {
     whereClause.status = currentTab.status;
+  }
+
+  if (creator === "SALESMAN") {
+    whereClause.createdByRole = "SALESMAN";
+  } else if (creator === "CUSTOMER") {
+    whereClause.OR = [
+      { createdByRole: "CUSTOMER" },
+      { createdByRole: null },
+    ];
   }
 
   if (salesman === "unassigned") {
@@ -152,6 +163,8 @@ export default async function AdminOrdersPage({
   const totalPages = Math.ceil(filteredTotalCount / pageSize) || 1;
   const isFiltered =
     status !== "all" ||
+    creator !== "all" ||
+    salesman !== "all" ||
     q.trim() !== "" ||
     dateRange.preset !== "all_time" ||
     sort !== "newest";
@@ -161,6 +174,8 @@ export default async function AdminOrdersPage({
     const p = new URLSearchParams();
     if (q) p.set("q", q);
     if (status !== "all") p.set("status", status);
+    if (creator && creator !== "all") p.set("creator", creator);
+    if (salesman && salesman !== "all") p.set("salesman", salesman);
     if (preset && preset !== "all_time") p.set("preset", preset);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
@@ -285,6 +300,7 @@ export default async function AdminOrdersPage({
       <OrdersFilterToolbar
         initialSearch={q}
         status={status}
+        creator={creator}
         sort={sort}
         salesman={salesman}
         salesmen={allSalesmen}
@@ -305,11 +321,12 @@ export default async function AdminOrdersPage({
       <div className="card rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden min-w-0">
         {/* Desktop Table View */}
         <div className="hidden lg:block overflow-x-auto min-w-0">
-          <table className="w-full text-left text-xs min-w-[850px]">
+          <table className="w-full text-left text-xs min-w-[920px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider">
                 <th className="py-3.5 px-4">Order ID & Date</th>
                 <th className="py-3.5 px-4">Customer Name & Site</th>
+                <th className="py-3.5 px-4">Created By</th>
                 <th className="py-3.5 px-4">Block Size</th>
                 <th className="py-3.5 px-4 text-right">Order Volume</th>
                 <th className="py-3.5 px-4 text-center">Block Jointing Morter (40 KG Bags)</th>
@@ -345,6 +362,28 @@ export default async function AdminOrdersPage({
                     <p className="text-[11px] text-slate-500 truncate max-w-[180px] mt-0.5">
                       📍 {o.deliveryAddress}
                     </p>
+                  </td>
+
+                  <td className="py-3.5 px-4">
+                    {o.createdByRole === "SALESMAN" ? (
+                      <div>
+                        <span className="inline-flex items-center rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                          Salesman
+                        </span>
+                        <span className="block text-[11px] text-slate-700 font-semibold mt-0.5 truncate max-w-[130px]">
+                          {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="inline-flex items-center rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
+                          Customer
+                        </span>
+                        <span className="block text-[11px] text-slate-500 mt-0.5 truncate max-w-[130px]">
+                          Direct Order
+                        </span>
+                      </div>
+                    )}
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -426,6 +465,15 @@ export default async function AdminOrdersPage({
                     >
                       {ORDER_STATUS_LABEL[o.status]}
                     </span>
+                    {o.createdByRole === "SALESMAN" ? (
+                      <span className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                        Salesman: {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
+                        Customer Order
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 font-bold text-xs text-navy truncate">
                     {o.customer.companyName || o.customer.name}

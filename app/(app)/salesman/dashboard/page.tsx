@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   Layers,
   ArrowRight,
+  PlusCircle,
 } from "lucide-react";
 import {
   formatDate,
@@ -101,17 +102,24 @@ export default async function SalesmanDashboardPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              href="/salesman/orders/new"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white hover:bg-slate-100 px-4 py-2.5 text-xs font-black text-navy shadow-md transition cursor-pointer"
+            >
+              <PlusCircle className="h-4 w-4 text-[#13789B]" />
+              <span>+ Create New Order</span>
+            </Link>
+            <Link
               href="/salesman/invitations"
-              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-md transition"
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-md transition cursor-pointer"
             >
               <Send className="h-4 w-4" />
               <span>Invite via WhatsApp</span>
             </Link>
             <Link
               href="/salesman/customers/new"
-              className="inline-flex items-center gap-2 rounded-2xl bg-white hover:bg-slate-100 px-4 py-2.5 text-xs font-bold text-navy shadow-md transition"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-xs px-4 py-2.5 text-xs font-bold text-white transition cursor-pointer"
             >
-              <UserPlus className="h-4 w-4 text-[#13789B]" />
+              <UserPlus className="h-4 w-4" />
               <span>Add Customer</span>
             </Link>
           </div>

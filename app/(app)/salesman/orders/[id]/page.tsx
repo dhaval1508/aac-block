@@ -12,6 +12,7 @@ import {
   Layers,
   Truck,
   ExternalLink,
+  Edit,
 } from "lucide-react";
 import {
   formatDate,
@@ -63,8 +64,14 @@ export default async function SalesmanOrderDetailPage({
     redirect("/salesman/orders?error=Unauthorized%20access%20to%20order");
   }
 
-  const canEdit =
-    order.status === OrderStatus.PENDING || order.status === OrderStatus.CONFIRMED;
+  // Pre-dispatch orders can be edited by the assigned salesman
+  const nonEditableStatuses: OrderStatus[] = [
+    OrderStatus.DISPATCHED,
+    OrderStatus.DELIVERED,
+    OrderStatus.CANCELLED,
+    OrderStatus.REJECTED,
+  ];
+  const canEdit = !nonEditableStatuses.includes(order.status);
 
   const totalCbm = order.totalCbm ? Number(order.totalCbm) : 0;
   const aacItems = order.items.filter((it) => it.productType === "AAC_BLOCK");
@@ -91,6 +98,15 @@ export default async function SalesmanOrderDetailPage({
         </Link>
 
         <div className="flex items-center gap-2">
+          {canEdit && (
+            <Link
+              href={`/salesman/orders/${order.id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 px-3.5 transition shadow-xs cursor-pointer"
+            >
+              <Edit className="h-3.5 w-3.5" />
+              <span>Edit Order</span>
+            </Link>
+          )}
           <DownloadOrderSummaryButton orderId={order.id} orderNo={order.orderNo} />
         </div>
       </div>
@@ -110,9 +126,13 @@ export default async function SalesmanOrderDetailPage({
               >
                 {ORDER_STATUS_LABEL[order.status] || order.status}
               </span>
-              {order.salesmanNameSnapshot && (
+              {order.createdByRole === "SALESMAN" ? (
                 <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-[11px] font-bold text-purple-700 border border-purple-200">
-                  Assigned Salesman: {order.salesmanNameSnapshot}
+                  Created by Salesman: {order.createdByNameSnapshot || order.salesmanNameSnapshot || "Salesman"}
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-md bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-[#13789B] border border-teal-200">
+                  Created by Customer
                 </span>
               )}
             </div>

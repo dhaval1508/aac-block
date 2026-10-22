@@ -186,7 +186,16 @@ export default async function AdminOrderDetailPage({
               Client: <strong className="font-semibold text-navy">{order.customer.companyName || order.customer.name}</strong>
               {(order.salesman?.name || order.salesmanNameSnapshot) && (
                 <span className="inline-block ml-2 rounded-md bg-purple-50 px-2 py-0.5 text-xs font-bold text-purple-700 border border-purple-200">
-                  Sales: {order.salesman?.name || order.salesmanNameSnapshot}
+                  Salesman: {order.salesman?.name || order.salesmanNameSnapshot}
+                </span>
+              )}
+              {order.createdByRole === "SALESMAN" ? (
+                <span className="inline-block ml-2 rounded-md bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-800 border border-purple-300">
+                  Created by Salesman: {order.createdByNameSnapshot || order.salesman?.name || "Salesman"}
+                </span>
+              ) : (
+                <span className="inline-block ml-2 rounded-md bg-teal-50 px-2 py-0.5 text-xs font-bold text-[#13789B] border border-teal-200">
+                  Created by Customer
                 </span>
               )}{" "}
               · Booked on {formatDateTime(order.createdAt)}

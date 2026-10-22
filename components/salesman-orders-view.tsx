@@ -32,6 +32,8 @@ export interface SalesmanOrderItem {
   googleMapsUrl: string | null;
   status: string;
   createdAt: Date | string;
+  createdByRole?: string | null;
+  createdByNameSnapshot?: string | null;
 }
 
 interface SalesmanOrdersViewProps {
@@ -183,10 +185,21 @@ export function SalesmanOrdersView({
 
                     <td className="py-3.5 px-4">
                       <span className="font-bold text-navy block">{o.customerName}</span>
-                      <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
-                        <Phone className="h-3 w-3 text-slate-400" />
-                        {o.customerMobile}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                          <Phone className="h-3 w-3 text-slate-400" />
+                          {o.customerMobile}
+                        </span>
+                        {o.createdByRole === "SALESMAN" ? (
+                          <span className="rounded bg-purple-50 border border-purple-200 px-1.5 py-0.2 text-[9px] font-bold text-purple-700">
+                            Created by You
+                          </span>
+                        ) : (
+                          <span className="rounded bg-teal-50 border border-teal-200 px-1.5 py-0.2 text-[9px] font-bold text-[#13789B]">
+                            Customer Order
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-3.5 px-4">

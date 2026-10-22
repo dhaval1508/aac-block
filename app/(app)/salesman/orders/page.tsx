@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { PlusCircle } from "lucide-react";
 import { SalesmanOrdersView, SalesmanOrderItem } from "@/components/salesman-orders-view";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +58,8 @@ export default async function SalesmanOrdersPage({
     googleMapsUrl: o.googleMapsUrl ?? null,
     status: o.status,
     createdAt: o.createdAt,
+    createdByRole: o.createdByRole ?? null,
+    createdByNameSnapshot: o.createdByNameSnapshot ?? null,
   }));
 
   return (
@@ -67,6 +71,14 @@ export default async function SalesmanOrdersPage({
             Real-time fulfillment tracking for all orders placed by your assigned customers.
           </p>
         </div>
+
+        <Link
+          href="/salesman/orders/new"
+          className="inline-flex items-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0f607d] px-4 py-2.5 text-xs font-black text-white shadow-md transition self-start sm:self-auto cursor-pointer"
+        >
+          <PlusCircle className="h-4 w-4" />
+          <span>+ Create New Order</span>
+        </Link>
       </div>
 
       <SalesmanOrdersView

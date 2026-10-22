@@ -9,6 +9,7 @@ import {
   Eye,
   CheckCircle2,
   XCircle,
+  PlusCircle,
 } from "lucide-react";
 
 export interface SalesmanCustomerItem {
@@ -152,13 +153,23 @@ export function SalesmanCustomersTable({
                     </td>
 
                     <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/salesman/orders?customer=${c.id}`}
-                        className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-3 py-1.5 font-bold text-xs text-slate-700 transition"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>View Orders</span>
-                      </Link>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                          href={`/salesman/orders/new?customer=${c.id}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-[#13789B]/10 hover:bg-[#13789B] hover:text-white px-2.5 py-1.5 font-bold text-xs text-[#13789B] transition"
+                          title="Create New Order for this Customer"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5" />
+                          <span>Order</span>
+                        </Link>
+                        <Link
+                          href={`/salesman/orders?customer=${c.id}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 font-bold text-xs text-slate-700 transition"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Orders</span>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

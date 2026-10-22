@@ -80,6 +80,7 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
         {
           title: "CUSTOMER ORDERS",
           items: [
+            { href: "/salesman/orders/new", label: "+ Create New Order", icon: PlusCircle },
             { href: "/salesman/orders", label: "Customer Orders", icon: ShoppingCart },
             { href: "/salesman/profile", label: "My Profile", icon: UserIcon },
           ],
@@ -140,6 +141,8 @@ function getPageTitle(pathname: string): { title: string; category: string } {
   if (pathname.includes("/salesman/customers/new")) return { title: "Add Customer", category: "Sales Portal" };
   if (pathname.includes("/salesman/customers")) return { title: "My Assigned Customers", category: "Sales Portal" };
   if (pathname.includes("/salesman/invitations")) return { title: "WhatsApp Invitations", category: "Sales Portal" };
+  if (pathname.includes("/salesman/orders/new")) return { title: "Create Customer Order", category: "Sales Portal" };
+  if (pathname.includes("/salesman/orders/") && pathname.includes("/edit")) return { title: "Edit Customer Order", category: "Sales Portal" };
   if (pathname.includes("/salesman/orders")) return { title: "Customer Order Tracking", category: "Sales Portal" };
   if (pathname.includes("/salesman/profile")) return { title: "Salesman Profile", category: "Account" };
 
