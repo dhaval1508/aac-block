@@ -10,10 +10,7 @@ import {
   XCircle,
   Phone,
   User,
-  ExternalLink,
   AlertCircle,
-  Share2,
-  RefreshCw,
 } from "lucide-react";
 import {
   createCustomerInvitationAction,

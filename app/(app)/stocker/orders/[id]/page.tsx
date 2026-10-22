@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Phone, Truck, Package, Clock, MapPin, UserCheck, Layers } from "lucide-react";
+import {
+  ArrowLeft,
+  Phone,
+  Truck,
+  Package,
+  Clock,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import {

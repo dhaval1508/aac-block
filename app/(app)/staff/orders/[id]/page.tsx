@@ -5,13 +5,11 @@ import {
   CheckCircle2,
   Phone,
   Truck,
-  Calendar,
   MapPin,
   Clock,
   FileText,
   AlertCircle,
   Package,
-  Layers,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -25,7 +23,6 @@ import {
 } from "@/lib/utils";
 import { StaffLoadingForm } from "@/components/staff-loading-form";
 import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
-import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 

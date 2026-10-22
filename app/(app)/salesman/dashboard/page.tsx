@@ -8,17 +8,15 @@ import {
   UserPlus,
   Send,
   ShoppingBag,
-  Clock,
-  CheckCircle2,
-  Truck,
   Layers,
   ArrowRight,
-  Phone,
-  FileText,
-  AlertCircle,
-  TrendingUp,
 } from "lucide-react";
-import { formatDate, formatNumber, formatBlockSizeName, ORDER_STATUS_CLASS, ORDER_STATUS_LABEL } from "@/lib/utils";
+import {
+  formatDate,
+  formatNumber,
+  ORDER_STATUS_CLASS,
+  ORDER_STATUS_LABEL,
+} from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 

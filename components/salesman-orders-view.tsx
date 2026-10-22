@@ -5,13 +5,9 @@ import Link from "next/link";
 import {
   ShoppingBag,
   Search,
-  Calendar,
-  Layers,
-  MapPin,
   ExternalLink,
   Phone,
   Eye,
-  Filter,
 } from "lucide-react";
 import {
   formatDate,

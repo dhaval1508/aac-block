@@ -6,17 +6,10 @@ import {
   Users,
   Search,
   Phone,
-  Mail,
-  UserPlus,
-  Send,
   Eye,
   CheckCircle2,
   XCircle,
-  Building,
-  Layers,
-  ShoppingBag,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
 
 export interface SalesmanCustomerItem {
   id: string;

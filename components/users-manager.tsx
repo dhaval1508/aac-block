@@ -3,7 +3,6 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Users,
   UserPlus,
   Search,
   UserCheck,
@@ -11,14 +10,8 @@ import {
   CheckCircle2,
   XCircle,
   Building2,
-  Phone,
-  Mail,
-  MapPin,
-  AlertTriangle,
-  Layers,
   ShoppingBag,
   UserX,
-  Calendar,
   Trash2,
   AlertCircle,
 } from "lucide-react";

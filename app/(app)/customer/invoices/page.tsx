@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, Printer, Truck, CheckCircle2, Package, Layers } from "lucide-react";
+import { FileText, Printer, CheckCircle2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { formatDate, formatNumber } from "@/lib/utils";

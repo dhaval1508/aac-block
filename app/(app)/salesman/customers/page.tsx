@@ -4,7 +4,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { SalesmanCustomersTable, SalesmanCustomerItem } from "@/components/salesman-customers-table";
-import { UserPlus, Send, Users } from "lucide-react";
+import { UserPlus, Send } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

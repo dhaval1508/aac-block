@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   UserPlus,
   AlertCircle,
-  FileText,
   ShieldCheck,
 } from "lucide-react";
 

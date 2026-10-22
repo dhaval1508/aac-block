@@ -8,13 +8,8 @@ import {
   ExternalLink,
   MessageSquare,
   CheckCircle2,
-  FileText,
-  AlertCircle,
   Loader2,
   MapPin,
-  Clock,
-  User,
-  Phone,
 } from "lucide-react";
 import { saveWeighbridgeSlipAction, saveLoadingAndVehicleAction } from "@/lib/actions/orders";
 import { mapsHref, normalizeWhatsAppPhone } from "@/lib/utils";

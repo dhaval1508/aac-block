@@ -4,10 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { changePasswordAction } from "@/lib/actions/auth";
 import {
-  User,
   Phone,
   Mail,
-  Shield,
   Key,
   Users,
   ShoppingBag,

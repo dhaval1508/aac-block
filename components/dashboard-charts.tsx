@@ -1,20 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import {
-  TrendingUp,
-  PieChart as PieChartIcon,
-  BarChart3,
-  Layers,
-  ArrowUpRight,
-  ArrowDownRight,
-  CheckCircle2,
-  Clock,
-  Truck,
-  PackageCheck,
-  Boxes,
-} from "lucide-react";
+import { BarChart3, ArrowUpRight } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 
 export interface DashboardChartsProps {

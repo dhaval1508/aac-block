@@ -10,19 +10,13 @@ import {
   XCircle,
   Phone,
   Mail,
-  MapPin,
-  Calendar,
   ShoppingBag,
   Layers,
   ArrowRight,
-  Shield,
   Edit2,
   Archive,
   Power,
   X,
-  Loader2,
-  AlertCircle,
-  FileText,
 } from "lucide-react";
 import {
   createSalesmanAction,
@@ -30,7 +24,6 @@ import {
   toggleSalesmanActiveAction,
   archiveSalesmanSafelyAction,
 } from "@/lib/actions/salesmen";
-import { formatDate } from "@/lib/utils";
 
 export interface SalesmanListItem {
   id: string;

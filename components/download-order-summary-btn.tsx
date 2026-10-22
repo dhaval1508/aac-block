@@ -1,6 +1,6 @@
 "use client";
 
-import { FileDown, Printer } from "lucide-react";
+import { FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function DownloadOrderSummaryButton({

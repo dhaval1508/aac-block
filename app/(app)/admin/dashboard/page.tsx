@@ -3,8 +3,6 @@ import { redirect } from "next/navigation";
 import {
   Boxes,
   ShoppingCart,
-  Receipt,
-  Users,
   AlertTriangle,
   ArrowRight,
   TrendingUp,

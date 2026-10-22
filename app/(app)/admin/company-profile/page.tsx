@@ -1,15 +1,11 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import {
   Building2,
-  FileCheck2,
   Save,
   CheckCircle2,
   ShieldCheck,
   MapPin,
   Phone,
-  Mail,
-  Globe,
   Award,
 } from "lucide-react";
 import { getSession } from "@/lib/session";

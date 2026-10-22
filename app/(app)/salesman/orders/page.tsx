@@ -3,8 +3,6 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { SalesmanOrdersView, SalesmanOrderItem } from "@/components/salesman-orders-view";
-import Link from "next/link";
-import { PlusCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

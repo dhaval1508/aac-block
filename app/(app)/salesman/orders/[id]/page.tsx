@@ -7,17 +7,11 @@ import {
   ArrowLeft,
   Calendar,
   Phone,
-  Mail,
   MapPin,
   Clock,
   Layers,
-  ShoppingBag,
   Truck,
-  CheckCircle2,
-  AlertCircle,
   ExternalLink,
-  Edit2,
-  FileText,
 } from "lucide-react";
 import {
   formatDate,

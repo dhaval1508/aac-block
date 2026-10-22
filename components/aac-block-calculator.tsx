@@ -12,9 +12,6 @@ import {
   Layers,
   ArrowRight,
   Sparkles,
-  ShieldAlert,
-  Info,
-  Check,
   Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";

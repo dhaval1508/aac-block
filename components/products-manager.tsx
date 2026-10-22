@@ -10,8 +10,6 @@ import {
   Search,
   LayoutGrid,
   List,
-  Filter,
-  Boxes,
   Trash2,
   AlertCircle,
 } from "lucide-react";

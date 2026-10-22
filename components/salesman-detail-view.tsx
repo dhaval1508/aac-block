@@ -15,8 +15,6 @@ import {
   ArrowLeft,
   ArrowRightLeft,
   Clock,
-  FileText,
-  AlertCircle,
   X,
   ExternalLink,
 } from "lucide-react";

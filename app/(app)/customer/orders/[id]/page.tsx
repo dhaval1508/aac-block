@@ -1,6 +1,19 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Phone, FileText, ArrowLeft, CheckCircle2, Layers, Package, Truck, Boxes, Edit3, ExternalLink, Scale, History, MapPin } from "lucide-react";
+import {
+  Phone,
+  FileText,
+  ArrowLeft,
+  CheckCircle2,
+  Layers,
+  Truck,
+  Boxes,
+  Edit3,
+  ExternalLink,
+  Scale,
+  History,
+  MapPin,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import {

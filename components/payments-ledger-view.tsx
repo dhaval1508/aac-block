@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Download,
-  Search,
-  ExternalLink,
-  ChevronRight,
-  CreditCard,
-  Building2,
-  DollarSign,
-  ArrowRight,
-  RotateCcw,
-} from "lucide-react";
+import { Download, CreditCard, ArrowRight } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export interface PaymentRecord {

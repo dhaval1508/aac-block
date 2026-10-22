@@ -5,26 +5,19 @@ import Link from "next/link";
 import {
   Activity,
   Search,
-  Filter,
-  Calendar,
   User,
-  ArrowUpRight,
-  ArrowDownRight,
   CreditCard,
   Package,
   Layers,
   Clock,
   ExternalLink,
-  ChevronRight,
-  CheckCircle2,
   List,
-  SlidersHorizontal,
   RotateCcw,
   UserPlus,
   Eye,
   X,
 } from "lucide-react";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import { DateRangeFilter } from "@/components/date-range-filter";
 
 export type UnifiedActivity = {

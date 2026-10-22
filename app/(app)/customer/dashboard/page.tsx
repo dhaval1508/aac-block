@@ -11,10 +11,7 @@ import {
   PackageCheck,
   Layers,
   ArrowRight,
-  Receipt,
   Boxes,
-  Calculator,
-  Package,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";

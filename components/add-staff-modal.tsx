@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, X, Shield, Lock, Mail, Phone, User as UserIcon } from "lucide-react";
+import {
+  UserPlus,
+  X,
+  Lock,
+  Mail,
+  Phone,
+  User as UserIcon,
+} from "lucide-react";
 import { createUserAction } from "@/lib/actions/users";
 
 export function AddStaffModal({ onClose }: { onClose: () => void }) {

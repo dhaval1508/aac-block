@@ -1,6 +1,11 @@
 "use client";
 
-import { Printer, MessageCircle, FileText, CheckCircle2, Truck, Building2 } from "lucide-react";
+import {
+  Printer,
+  MessageCircle,
+  CheckCircle2,
+  Truck,
+} from "lucide-react";
 import { formatDate, formatNumber, whatsappHref } from "@/lib/utils";
 import { buildWhatsAppMessage, APP_NAME } from "@/lib/whatsapp";
 

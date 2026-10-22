@@ -1,18 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Bell,
   CheckCheck,
-  ExternalLink,
   PackageCheck,
   ShoppingCart,
   Truck,
   Volume2,
   VolumeX,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

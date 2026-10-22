@@ -1,22 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  ChevronRight,
-  Search,
-  Filter,
-  X,
   ShoppingCart,
   Clock,
   Truck,
   CheckCircle2,
-  AlertCircle,
-  FileText,
   ArrowRight,
   PlusCircle,
-  Calendar,
-  CreditCard,
-  ArrowUpDown,
-  RotateCcw,
   FileDown,
 } from "lucide-react";
 import { OrderStatus } from "@prisma/client";

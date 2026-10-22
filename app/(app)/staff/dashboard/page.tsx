@@ -7,15 +7,8 @@ import {
   ChevronRight,
   PlayCircle,
   AlertCircle,
-  Calendar,
-  Phone,
-  UserCheck,
   Activity as ActivityIcon,
   Boxes,
-  Layers,
-  Scale,
-  MapPin,
-  ExternalLink,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -26,7 +19,6 @@ import {
   formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
-  telHref,
   mapsHref,
 } from "@/lib/utils";
 import { OrderStatus } from "@prisma/client";

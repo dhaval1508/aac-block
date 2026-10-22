@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-  MapPin,
   Navigation,
   Link2,
   Building,

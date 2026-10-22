@@ -4,12 +4,10 @@ import { useMemo, useState } from "react";
 import { formatNumber, formatBlockSizeName } from "@/lib/utils";
 import { placeCustomerOrderAction, editCustomerOrderAction } from "@/lib/actions/orders";
 import {
-  Layers,
   Package,
   Plus,
   Trash2,
   CheckCircle2,
-  Truck,
   Loader2,
   Sparkles,
   Info,
@@ -24,7 +22,6 @@ import {
   Boxes,
   ExternalLink,
 } from "lucide-react";
-import { calculateBlockMetrics } from "@/lib/aac-calculator";
 import {
   DeliveryLocationPicker,
   DeliveryLocationData,

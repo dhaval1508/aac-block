@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, Search, Truck, ShoppingCart, Filter, RotateCcw } from "lucide-react";
+import {
+  ChevronRight,
+  Search,
+  ShoppingCart,
+  RotateCcw,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { formatDate, formatNumber, ORDER_STATUS_CLASS, ORDER_STATUS_LABEL } from "@/lib/utils";
