@@ -16,6 +16,7 @@ import {
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
 } from "@/lib/utils";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 export interface SalesmanOrderItem {
   id: string;
@@ -228,21 +229,15 @@ export function SalesmanOrdersView({
                       </span>
                     </td>
 
-                    <td className="py-3.5 px-4 max-w-[200px]">
-                      <p className="text-[11px] text-slate-600 truncate" title={o.deliveryAddress}>
+                    <td className="py-3.5 px-4 max-w-[220px]">
+                      <p className="text-[11px] text-slate-600 truncate mb-1" title={o.deliveryAddress}>
                         📍 {o.deliveryAddress}
                       </p>
-                      {o.googleMapsUrl && (
-                        <a
-                          href={o.googleMapsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-[#13789B] hover:underline"
-                        >
-                          <ExternalLink className="h-2.5 w-2.5" />
-                          <span>View on Maps</span>
-                        </a>
-                      )}
+                      <OpenLocationButton
+                        address={o.deliveryAddress}
+                        googleMapsUrl={o.googleMapsUrl}
+                        variant="badge"
+                      />
                     </td>
 
                     <td className="py-3.5 px-4 text-center">

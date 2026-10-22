@@ -14,6 +14,7 @@ import {
 import { saveWeighbridgeSlipAction, saveLoadingAndVehicleAction } from "@/lib/actions/orders";
 import { mapsHref, normalizeWhatsAppPhone } from "@/lib/utils";
 import { buildDriverDeliveryWhatsAppMessage } from "@/lib/whatsapp";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 interface Props {
   order: {
@@ -641,17 +642,11 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 )}
               </div>
             </div>
-            {mapsUrl && (
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-bold text-[#13789B] hover:underline shrink-0"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span>View on Google Maps</span>
-              </a>
-            )}
+            <OpenLocationButton
+              address={destinationAddress}
+              googleMapsUrl={mapsUrl}
+              variant="button"
+            />
           </div>
 
           {/* Prefilled Message Review Box */}

@@ -12,8 +12,9 @@ import {
   AlertCircle,
   Truck,
 } from "lucide-react";
-import { formatNumber, normalizeWhatsAppPhone } from "@/lib/utils";
+import { formatNumber, normalizeWhatsAppPhone, mapsHref } from "@/lib/utils";
 import { generateDeliveryChallanAction } from "@/lib/actions/orders";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 interface Props {
   order: {
@@ -79,6 +80,7 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
     const cleanPhone = normalizeWhatsAppPhone(mobile);
     if (!cleanPhone) return "";
 
+    const mapsLink = mapsHref(order.deliveryAddress);
     const lines = [
       `*SWARNIM AAC BLOCK - MATERIAL DELIVERY CHALLAN*`,
       `Delivery Challan: ${challanNo || "Pending Generation"}`,
@@ -90,6 +92,7 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
       order.transport?.driverName ? `Driver: ${order.transport.driverName} (${order.transport.driverMobile || ""})` : null,
       netWeight ? `Certified Net Weight: ${netWeight.toLocaleString()} KG` : null,
       `Delivery Site: ${order.deliveryAddress}`,
+      mapsLink ? `Google Maps: ${mapsLink}` : null,
       `HSN Classification: 6810 (AAC Blocks) · 38245090 (Jointing Morter)`,
       `Status: ${order.status}`,
     ].filter(Boolean);
@@ -192,6 +195,14 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
                 </strong>
               </div>
             )}
+
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 pt-1.5 border-t border-slate-200/60">
+              <span className="text-slate-500 font-semibold">Delivery Site & Map</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-navy font-semibold truncate max-w-xs">{order.deliveryAddress}</span>
+                <OpenLocationButton address={order.deliveryAddress} variant="badge" />
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}

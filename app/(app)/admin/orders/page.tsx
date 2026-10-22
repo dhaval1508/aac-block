@@ -22,6 +22,7 @@ import {
 import { resolveDateRange, buildPrismaDateFilter } from "@/lib/date-utils";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { OrdersFilterToolbar } from "@/components/orders-filter-toolbar";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 export const dynamic = "force-dynamic";
 
@@ -359,9 +360,12 @@ export default async function AdminOrdersPage({
                         Sales: {o.salesman?.name || o.salesmanNameSnapshot}
                       </span>
                     )}
-                    <p className="text-[11px] text-slate-500 truncate max-w-[180px] mt-0.5">
-                      📍 {o.deliveryAddress}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span className="text-[11px] text-slate-500 truncate max-w-[130px]" title={o.deliveryAddress}>
+                        📍 {o.deliveryAddress}
+                      </span>
+                      <OpenLocationButton address={o.deliveryAddress} variant="badge" />
+                    </div>
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -512,7 +516,10 @@ export default async function AdminOrdersPage({
               </div>
 
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 gap-2 min-w-0">
-                <span className="truncate flex-1">📍 {o.deliveryAddress}</span>
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <span className="truncate">📍 {o.deliveryAddress}</span>
+                  <OpenLocationButton address={o.deliveryAddress} variant="badge" />
+                </div>
                 <span className="font-bold text-[#13789B] flex items-center gap-0.5 shrink-0">
                   Manage →
                 </span>

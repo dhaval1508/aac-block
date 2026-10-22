@@ -24,6 +24,7 @@ import {
 import { StaffLoadingForm } from "@/components/staff-loading-form";
 import { TruckStagingForm } from "@/components/truck-staging-form";
 import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 export const dynamic = "force-dynamic";
 
@@ -206,15 +207,23 @@ if (!order) notFound();
 
       {/* Site Delivery Address & Instructions */}
       <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
-        <div className="flex items-start gap-2.5 text-xs text-slate-700">
-          <MapPin className="h-4 w-4 shrink-0 text-[#1E72A8] mt-0.5" />
-          <div className="min-w-0">
-            <span className="font-bold text-navy block sm:inline">Destination Delivery Address: </span>
-            <span className="text-slate-600">{order.deliveryAddress}</span>
-            {order.formattedAddress && order.formattedAddress !== order.deliveryAddress && (
-              <p className="text-[11px] text-slate-400 mt-0.5">{order.formattedAddress}</p>
-            )}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-700">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <MapPin className="h-4 w-4 shrink-0 text-[#1E72A8] mt-0.5" />
+            <div className="min-w-0">
+              <span className="font-bold text-navy block sm:inline">Destination Delivery Address: </span>
+              <span className="text-slate-600">{order.deliveryAddress}</span>
+              {order.formattedAddress && order.formattedAddress !== order.deliveryAddress && (
+                <p className="text-[11px] text-slate-400 mt-0.5">{order.formattedAddress}</p>
+              )}
+            </div>
           </div>
+          <OpenLocationButton
+            address={order.formattedAddress || order.deliveryAddress}
+            latitude={order.latitude ? Number(order.latitude) : null}
+            longitude={order.longitude ? Number(order.longitude) : null}
+            variant="button"
+          />
         </div>
 
         {order.notes ? (

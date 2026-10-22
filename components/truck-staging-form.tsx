@@ -13,7 +13,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { saveTruckAndLoadingStagingAction } from "@/lib/actions/orders";
-import { normalizeWhatsAppPhone, formatNumber } from "@/lib/utils";
+import { normalizeWhatsAppPhone, formatNumber, mapsHref } from "@/lib/utils";
 
 interface StaffOption {
   id: string;
@@ -122,6 +122,7 @@ export function TruckStagingForm({
     const cleanPhone = normalizeWhatsAppPhone(driverMobile);
     if (!cleanPhone) return "";
 
+    const mapsLink = mapsHref(order.deliveryAddress);
     const lines = [
       `*SWARNIM AAC BLOCK - VEHICLE STAGING DETAILS*`,
       `Order Ref: ${order.orderNo}`,
@@ -132,6 +133,7 @@ export function TruckStagingForm({
       order.adhesiveBags ? `Jointing Morter: ${order.adhesiveBags} Bags (40 KG)` : null,
       typeof netWeightKg === "number" && netWeightKg > 0 ? `Net Weight: ${netWeightKg.toLocaleString()} KG` : null,
       `Delivery Site: ${order.deliveryAddress}`,
+      mapsLink ? `Google Maps Location: ${mapsLink}` : null,
       `Please report to factory loading gate on arrival.`,
     ].filter(Boolean);
 

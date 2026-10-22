@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { formatDate, formatNumber, whatsappHref } from "@/lib/utils";
 import { buildWhatsAppMessage, APP_NAME } from "@/lib/whatsapp";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 type InvoiceOrder = {
   id: string;
@@ -176,6 +177,9 @@ export function TaxInvoiceView({
               <p className="font-medium text-slate-700 leading-relaxed break-words">
                 {order.deliveryAddress}
               </p>
+              <div className="pt-1 pb-1 print:hidden">
+                <OpenLocationButton address={order.deliveryAddress} variant="button" />
+              </div>
               {order.transport ? (
                 <div className="mt-2 rounded-xl bg-slate-50 border border-slate-100 p-2.5 text-slate-700 space-y-0.5">
                   <p className="font-bold text-navy flex items-center gap-1.5 break-words">

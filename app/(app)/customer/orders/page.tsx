@@ -14,6 +14,7 @@ import { formatDate, formatNumber, formatBlockSizeName, ORDER_STATUS_CLASS, ORDE
 import { OrderStatus, Prisma } from "@prisma/client";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { resolveDateRange } from "@/lib/date-utils";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 export const dynamic = "force-dynamic";
 
@@ -201,9 +202,10 @@ export default async function CustomerOrdersPage({
                 {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} blocks`} <span className="text-slate-400 italic">(≈ {formatNumber(o.quantity)} blocks)</span> {o.product ? `· ${formatBlockSizeName(o.product.sizeLabel)} (${o.product.dimensions})` : ""} · {o.adhesiveBags ?? 0} Bags Block Jointing Morter (40 KG)
               </p>
 
-              <p className="text-[11px] text-slate-400">
-                Booked: {formatDate(o.createdAt)} • Delivery Site: {o.deliveryAddress}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap text-[11px] text-slate-400">
+                <span>Booked: {formatDate(o.createdAt)} • Delivery Site: {o.deliveryAddress}</span>
+                <OpenLocationButton address={o.deliveryAddress} variant="badge" />
+              </div>
 
               {o.transport ? (
                 <div className="mt-1 flex items-center gap-2 text-xs text-indigo-700 font-semibold bg-indigo-50/60 rounded-lg px-2.5 py-1 inline-flex">

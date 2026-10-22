@@ -1,4 +1,4 @@
-import { formatNumber, normalizeWhatsAppPhone } from "@/lib/utils";
+import { formatNumber, normalizeWhatsAppPhone, mapsHref } from "@/lib/utils";
 
 export const APP_NAME = "Swarnim AAC Block Pvt. Ltd.";
 
@@ -141,7 +141,7 @@ export function buildDriverDeliveryWhatsAppMessage(params: {
 }): string {
   const cbmValue = params.loadedCbm ?? params.orderedCbm ?? params.totalMaterialCbm ?? params.totalCbm ?? "";
   const cbmLabel = params.loadedCbm ? "Loaded CBM" : "Ordered / Total CBM";
-  const mapsUrl = params.googleMapsLocation || params.googleMapsUrl;
+  const mapsUrl = params.googleMapsLocation || params.googleMapsUrl || mapsHref(params.deliveryAddress);
 
   const lines: string[] = [
     `Hello ${params.driverName || "Driver"},`,

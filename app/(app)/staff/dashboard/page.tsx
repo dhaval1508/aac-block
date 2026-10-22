@@ -26,6 +26,7 @@ import {
   mapsHref,
 } from "@/lib/utils";
 import { OrderStatus } from "@prisma/client";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 export const dynamic = "force-dynamic";
 
@@ -622,6 +623,12 @@ export default async function StaffDashboardPage({
                   <span className="text-slate-600 truncate max-w-md">
                     📍 <strong>Site:</strong> {o.deliveryAddress}
                   </span>
+                  <OpenLocationButton
+                    address={o.deliveryAddress}
+                    latitude={o.latitude ? Number(o.latitude) : null}
+                    longitude={o.longitude ? Number(o.longitude) : null}
+                    variant="badge"
+                  />
                   {o.dcNumber && (
                     <span className="rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-mono font-bold text-purple-800">
                       Challan: {o.dcNumber}
@@ -634,11 +641,6 @@ export default async function StaffDashboardPage({
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 text-[11px] text-slate-400">
-                  {mapsHref(o.deliveryAddress, o.latitude ? Number(o.latitude) : null, o.longitude ? Number(o.longitude) : null) && (
-                    <span className="text-blue-600 font-bold">
-                      Maps Available
-                    </span>
-                  )}
                   <span>Assigned: {formatDate(o.transport?.assignedAt || o.createdAt)}</span>
                 </div>
               </div>

@@ -43,6 +43,7 @@ import {
   deliverOrderAction,
 } from "@/lib/actions/orders";
 import { DownloadOrderSummaryBtn } from "@/components/download-order-summary-btn";
+import { OpenLocationButton } from "@/components/open-location-button";
 import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
 import { TruckStagingForm } from "@/components/truck-staging-form";
 import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
@@ -414,20 +415,14 @@ export default async function AdminOrderDetailPage({
                     <strong>Site Note:</strong> {order.notes}
                   </p>
                 )}
-                {mapsHref(order.deliveryAddress, order.latitude ? Number(order.latitude) : null, order.longitude ? Number(order.longitude) : null) && (
-                  <div className="pt-1">
-                    <a
-                      href={mapsHref(order.deliveryAddress, order.latitude ? Number(order.latitude) : null, order.longitude ? Number(order.longitude) : null)!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors"
-                    >
-                      <MapPin className="h-3.5 w-3.5 text-blue-600" />
-                      <span>View on Google Maps</span>
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
+                <div className="pt-1">
+                  <OpenLocationButton
+                    address={order.deliveryAddress}
+                    latitude={order.latitude ? Number(order.latitude) : null}
+                    longitude={order.longitude ? Number(order.longitude) : null}
+                    variant="button"
+                  />
+                </div>
               </div>
             </div>
           </div>

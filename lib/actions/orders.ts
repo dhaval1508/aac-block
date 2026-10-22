@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getProductStock, getProductCbm } from "@/lib/actions/stock";
 import { dispatchNotification } from "@/lib/push-dispatcher";
-import { formatNumber, formatBlockSizeName } from "@/lib/utils";
+import { formatNumber, formatBlockSizeName, isGoogleMapsUrl } from "@/lib/utils";
 import { getNextDeliveryChallanNumber } from "@/lib/delivery-challan";
 
 async function nextOrderNo() {
@@ -51,7 +51,10 @@ export async function placeCustomerOrderAction(formData: FormData) {
   const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
 
   // Google Maps & Custom Location Details
-  const googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
+  let googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
+  if (!googleMapsUrl && isGoogleMapsUrl(deliveryAddress)) {
+    googleMapsUrl = deliveryAddress;
+  }
   const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
   const latitudeRaw = formData.get("latitude");
   const longitudeRaw = formData.get("longitude");
@@ -200,12 +203,14 @@ export async function placeCustomerOrderAction(formData: FormData) {
     }
   }
 
-  // Append city and pincode to address if not already present
-  if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
-    deliveryAddress = `${deliveryAddress}, ${city}`;
-  }
-  if (pincode && !deliveryAddress.includes(pincode)) {
-    deliveryAddress = `${deliveryAddress} - ${pincode}`;
+  // Append city and pincode to address if not already present and not a raw URL
+  if (!isGoogleMapsUrl(deliveryAddress)) {
+    if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
+      deliveryAddress = `${deliveryAddress}, ${city}`;
+    }
+    if (pincode && !deliveryAddress.includes(pincode)) {
+      deliveryAddress = `${deliveryAddress} - ${pincode}`;
+    }
   }
 
   if (!deliveryAddress) {
@@ -1243,7 +1248,10 @@ export async function editCustomerOrderAction(formData: FormData) {
   const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
 
   // Google Maps & Custom Location Details
-  const googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
+  let googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
+  if (!googleMapsUrl && isGoogleMapsUrl(deliveryAddress)) {
+    googleMapsUrl = deliveryAddress;
+  }
   const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
   const latitudeRaw = formData.get("latitude");
   const longitudeRaw = formData.get("longitude");
@@ -1256,11 +1264,13 @@ export async function editCustomerOrderAction(formData: FormData) {
   const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
   const locationSource = String(formData.get("locationSource") ?? (googleMapsUrl ? "GOOGLE_MAPS_LINK" : googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
 
-  if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
-    deliveryAddress = `${deliveryAddress}, ${city}`;
-  }
-  if (pincode && !deliveryAddress.includes(pincode)) {
-    deliveryAddress = `${deliveryAddress} - ${pincode}`;
+  if (!isGoogleMapsUrl(deliveryAddress)) {
+    if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
+      deliveryAddress = `${deliveryAddress}, ${city}`;
+    }
+    if (pincode && !deliveryAddress.includes(pincode)) {
+      deliveryAddress = `${deliveryAddress} - ${pincode}`;
+    }
   }
 
   if (!deliveryAddress) {

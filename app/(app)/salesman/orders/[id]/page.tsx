@@ -22,6 +22,7 @@ import {
   ORDER_STATUS_LABEL,
 } from "@/lib/utils";
 import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 export const dynamic = "force-dynamic";
 
@@ -239,19 +240,15 @@ export default async function SalesmanOrderDetailPage({
               </div>
             )}
 
-            {mapsUrl && (
-              <div className="pt-2">
-                <a
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#13789B]/10 hover:bg-[#13789B]/20 text-[#13789B] border border-[#13789B]/30 py-2.5 px-4 font-bold transition shadow-xs"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span>Open Delivery Location in Google Maps</span>
-                </a>
-              </div>
-            )}
+            <div className="pt-2">
+              <OpenLocationButton
+                address={order.deliveryAddress}
+                latitude={order.latitude ? Number(order.latitude) : null}
+                longitude={order.longitude ? Number(order.longitude) : null}
+                variant="button"
+                className="w-full justify-center"
+              />
+            </div>
           </div>
         </div>
       </div>

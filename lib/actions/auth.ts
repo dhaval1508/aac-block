@@ -55,49 +55,7 @@ export async function loginAction(formData: FormData) {
     redirect("/login?error=Invalid%20email%20or%20password");
   }
 
-  let ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) {
-    const cleanPass = password.trim().toLowerCase();
-    const commonPasswords = [
-      "password@123",
-      "password123",
-      "admin@123",
-      "admin123",
-      "loader@123",
-      "loader123",
-      "stocker@123",
-      "stocker123",
-      "customer@123",
-      "customer123",
-      "swarnim@123",
-      "swarnim123",
-    ];
-    if (commonPasswords.includes(cleanPass)) {
-      ok = true;
-    } else {
-      const fallbacks = [
-        "Admin@123",
-        "admin123",
-        "Loader@123",
-        "loader123",
-        "Stocker@123",
-        "stocker123",
-        "Customer@123",
-        "customer123",
-      ];
-      for (const fb of fallbacks) {
-        if (
-          (password.toLowerCase() === fb.toLowerCase().replace(/[@]/g, "") ||
-            password.toLowerCase() === fb.toLowerCase()) &&
-          (await bcrypt.compare(fb, user.passwordHash))
-        ) {
-          ok = true;
-          break;
-        }
-      }
-    }
-  }
-
+  const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
     redirect("/login?error=Invalid%20email%20or%20password");
   }

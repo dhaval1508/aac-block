@@ -62,6 +62,11 @@ export function telHref(phone: string) {
   return `tel:+${digits.startsWith("91") ? digits : `91${digits}`}`;
 }
 
+export function isGoogleMapsUrl(str?: string | null): boolean {
+  if (!str) return false;
+  return /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)/i.test(str);
+}
+
 export function mapsHref(
   arg1?: number | string | null,
   arg2?: number | null,
@@ -71,17 +76,44 @@ export function mapsHref(
   if (typeof arg1 === "number" && typeof arg2 === "number") {
     return `https://www.google.com/maps?q=${arg1},${arg2}`;
   }
-  // Case 2: mapsHref(address, lat?, lng?)
+
+  // Case 2: mapsHref(addressOrUrl, lat?, lng?)
   if (typeof arg1 === "string" && arg1.trim().length > 0) {
+    const raw = arg1.trim();
+
+    // Direct Google Maps URL or embedded link
+    const urlMatch = raw.match(/https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)\S*/i);
+    if (urlMatch) {
+      return urlMatch[0];
+    }
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      return raw;
+    }
+
+    // Coordinates in string e.g. "23.028555, 72.544332"
+    const coordMatch = raw.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+    if (coordMatch) {
+      return `https://www.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}`;
+    }
+
+    // Explicit numeric lat/lng provided as second/third args
     if (typeof arg2 === "number" && typeof arg3 === "number") {
       return `https://www.google.com/maps?q=${arg2},${arg3}`;
     }
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(arg1)}`;
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(raw)}`;
   }
+
   // Case 3: arg3 is address string
   if (typeof arg3 === "string" && arg3.trim().length > 0) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(arg3)}`;
+    const raw = arg3.trim();
+    const urlMatch = raw.match(/https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)\S*/i);
+    if (urlMatch) {
+      return urlMatch[0];
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(raw)}`;
   }
+
   return null;
 }
 

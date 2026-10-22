@@ -27,6 +27,7 @@ import {
   mapsHref,
 } from "@/lib/utils";
 import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
+import { OpenLocationButton } from "@/components/open-location-button";
 
 export const dynamic = "force-dynamic";
 
@@ -313,29 +314,13 @@ export default async function CustomerOrderDetailPage({
                 <p className="mt-0.5 font-semibold text-navy">{formatDate(order.requestedDate)}</p>
               </div>
             )}
-            {(order.googleMapsUrl ||
-              mapsHref(
-                order.latitude ? Number(order.latitude) : null,
-                order.longitude ? Number(order.longitude) : null,
-                order.formattedAddress || order.deliveryAddress
-              )) && (
-              <a
-                href={
-                  order.googleMapsUrl ||
-                  mapsHref(
-                    order.latitude ? Number(order.latitude) : null,
-                    order.longitude ? Number(order.longitude) : null,
-                    order.formattedAddress || order.deliveryAddress
-                  )!
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-teal-50 border border-teal-200 text-[#13789B] hover:bg-teal-100 px-3.5 py-2 text-xs font-bold transition-colors shadow-2xs"
-              >
-                <MapPin className="h-3.5 w-3.5 text-[#13789B]" />
-                <span>View on Google Maps</span>
-              </a>
-            )}
+            <OpenLocationButton
+              address={order.formattedAddress || order.deliveryAddress}
+              latitude={order.latitude ? Number(order.latitude) : null}
+              longitude={order.longitude ? Number(order.longitude) : null}
+              googleMapsUrl={order.googleMapsUrl}
+              variant="button"
+            />
           </div>
         </div>
       </div>
