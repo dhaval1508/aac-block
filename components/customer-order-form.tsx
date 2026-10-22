@@ -25,6 +25,9 @@ import {
   Search,
   Building2,
   Check,
+  Receipt,
+  FileSpreadsheet,
+  AlertCircle,
 } from "lucide-react";
 import {
   DeliveryLocationPicker,
@@ -53,6 +56,8 @@ export interface CustomerDefaults {
   deliveryAddress: string;
   city: string;
   pincode: string;
+  gstin?: string;
+  companyName?: string;
 }
 
 export interface AssignedCustomerOption {
@@ -65,6 +70,7 @@ export interface AssignedCustomerOption {
   city?: string | null;
   state?: string | null;
   pincode?: string | null;
+  gstin?: string | null;
 }
 
 export interface BlockOrderItem {
@@ -92,6 +98,10 @@ export function CustomerOrderForm({
   assignedCustomers = [],
   salesmanName,
   selectedCustomerId,
+  initialGstBillingSelected,
+  initialGstNumber,
+  initialGstRegisteredName,
+  initialGstStatus,
 }: {
   aacProducts: ProductItem[];
   adhesiveProduct?: ProductItem | null;
@@ -110,6 +120,10 @@ export function CustomerOrderForm({
   assignedCustomers?: AssignedCustomerOption[];
   salesmanName?: string;
   selectedCustomerId?: string;
+  initialGstBillingSelected?: boolean;
+  initialGstNumber?: string;
+  initialGstRegisteredName?: string;
+  initialGstStatus?: string;
 }) {
   const initialAacId =
     defaultProductId && aacProducts.some((p) => p.id === defaultProductId)
@@ -194,6 +208,73 @@ export function CustomerOrderForm({
     }
   );
 
+  // Section: GST Billing Option State
+  const [gstBillingSelected, setGstBillingSelected] = useState<boolean>(
+    initialGstBillingSelected ?? Boolean(initialAssigned?.gstin || customerDefaults.gstin)
+  );
+  const [gstNumber, setGstNumber] = useState<string>(
+    initialGstNumber || initialAssigned?.gstin || customerDefaults.gstin || ""
+  );
+  const [gstRegisteredName, setGstRegisteredName] = useState<string>(
+    initialGstRegisteredName ||
+      (initialAssigned?.gstin
+        ? initialAssigned.companyName || initialAssigned.name
+        : customerDefaults.gstin
+        ? customerDefaults.companyName || customerDefaults.name
+        : "")
+  );
+  const [gstTradeName, setGstTradeName] = useState<string>("");
+  const [gstStatus, setGstStatus] = useState<string>(initialGstStatus || "Active");
+  const [gstState, setGstState] = useState<string>("");
+  const [isVerifyingGst, setIsVerifyingGst] = useState<boolean>(false);
+  const [gstError, setGstError] = useState<string>("");
+  const [gstVerified, setGstVerified] = useState<boolean>(
+    Boolean(initialGstRegisteredName || initialAssigned?.gstin || customerDefaults.gstin)
+  );
+
+  const handleVerifyGst = async (overrideNumber?: string): Promise<boolean> => {
+    const raw = (overrideNumber !== undefined ? overrideNumber : gstNumber).trim().toUpperCase();
+    if (!raw) {
+      setGstError("GST Number is required when GST Billing is selected.");
+      setGstVerified(false);
+      setGstRegisteredName("");
+      return false;
+    }
+
+    setIsVerifyingGst(true);
+    setGstError("");
+
+    try {
+      const res = await fetch("/api/gst/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gstin: raw }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setGstNumber(data.gstin);
+        setGstRegisteredName(data.registeredName || data.legalName || "GST Registered Entity");
+        setGstTradeName(data.tradeName || "");
+        setGstStatus(data.gstStatus || "Active");
+        setGstState(data.state || "");
+        setGstVerified(true);
+        setGstError("");
+        return true;
+      } else {
+        setGstVerified(false);
+        setGstRegisteredName("");
+        setGstError(data.error || "Invalid GST Number format. Please enter a valid 15-character GSTIN.");
+        return false;
+      }
+    } catch {
+      setGstError("Unable to verify GST number right now. Please check network connection.");
+      setGstVerified(false);
+      return false;
+    } finally {
+      setIsVerifyingGst(false);
+    }
+  };
+
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -207,6 +288,13 @@ export function CustomerOrderForm({
     setDeliveryAddress(cust.deliveryAddress || "");
     setCity(cust.city || "Ahmedabad");
     setPincode(cust.pincode || "");
+    if (cust.gstin) {
+      setGstNumber(cust.gstin);
+      setGstRegisteredName(cust.companyName || cust.name);
+      setGstVerified(true);
+      setGstBillingSelected(true);
+      setGstError("");
+    }
     setDeliveryLocation((prev) => ({
       ...prev,
       address: cust.deliveryAddress || "",
@@ -362,6 +450,15 @@ export function CustomerOrderForm({
       <input type="hidden" name="customerEmail" value={customerEmail} />
       <input type="hidden" name="city" value={city} />
       <input type="hidden" name="pincode" value={pincode} />
+
+      {/* GST Billing Option Hidden Fields */}
+      <input type="hidden" name="gstBillingSelected" value={gstBillingSelected ? "true" : "false"} />
+      <input type="hidden" name="gstBilling" value={gstBillingSelected ? "yes" : "no"} />
+      <input type="hidden" name="gstNumber" value={gstBillingSelected ? gstNumber : ""} />
+      <input type="hidden" name="gstRegisteredName" value={gstBillingSelected ? gstRegisteredName : ""} />
+      <input type="hidden" name="gstTradeName" value={gstBillingSelected ? gstTradeName : ""} />
+      <input type="hidden" name="gstStatus" value={gstBillingSelected ? gstStatus : ""} />
+      <input type="hidden" name="gstState" value={gstBillingSelected ? gstState : ""} />
 
       {/* Salesman Mode Hidden Fields */}
       {isSalesmanMode && (
@@ -1126,12 +1223,206 @@ export function CustomerOrderForm({
       </div>
 
       {/* =========================================================================
-          SECTION D: ORDER SUMMARY & SUBMISSION
+          SECTION D: GST BILLING OPTION
+      ========================================================================= */}
+      <div id="gst-billing-section" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4 scroll-mt-24">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+                D
+              </span>
+              <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+                GST Billing Option
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Specify whether your enterprise requires a GST tax invoice or a commercial without-GST bill.
+            </p>
+          </div>
+          <span className={`self-start sm:self-auto rounded-full px-3 py-1 text-[11px] font-bold border ${
+            gstBillingSelected
+              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+              : "bg-slate-100 text-slate-600 border-slate-200"
+          }`}>
+            {gstBillingSelected ? "GST Invoice Selected" : "Without-GST Commercial Bill"}
+          </span>
+        </div>
+
+        {/* Question: Do you want GST Billing? */}
+        <div className="space-y-3">
+          <label className="block text-xs font-black text-navy">
+            Do you want GST Billing? *
+          </label>
+
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            {/* NO Option */}
+            <button
+              type="button"
+              onClick={() => {
+                setGstBillingSelected(false);
+                setGstError("");
+              }}
+              className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-4 text-xs font-bold transition-all border cursor-pointer ${
+                !gstBillingSelected
+                  ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              <div className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                !gstBillingSelected ? "border-white bg-white text-slate-900" : "border-slate-400"
+              }`}>
+                {!gstBillingSelected && <Check className="h-3 w-3" />}
+              </div>
+              <span>No</span>
+            </button>
+
+            {/* YES Option */}
+            <button
+              type="button"
+              onClick={() => {
+                setGstBillingSelected(true);
+                if (gstNumber.length === 15 && !gstVerified) {
+                  handleVerifyGst(gstNumber);
+                }
+              }}
+              className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-4 text-xs font-bold transition-all border cursor-pointer ${
+                gstBillingSelected
+                  ? "bg-[#13789B] text-white border-[#13789B] shadow-sm"
+                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              <div className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                gstBillingSelected ? "border-white bg-white text-[#13789B]" : "border-slate-400"
+              }`}>
+                {gstBillingSelected && <Check className="h-3 w-3" />}
+              </div>
+              <span>Yes</span>
+            </button>
+          </div>
+
+          {/* Conditional Message when NO is selected */}
+          {!gstBillingSelected && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-xs space-y-1 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2 font-bold text-slate-800">
+                <Info className="h-4 w-4 text-[#13789B]" />
+                <span className="text-sm font-black text-navy">You will receive a without-GST bill.</span>
+              </div>
+              <p className="text-[11px] text-slate-500 pl-6 leading-relaxed">
+                Your order consignment will be confirmed and dispatched with standard commercial delivery documentation without GST tax credit breakdown.
+              </p>
+            </div>
+          )}
+
+          {/* Conditional Input & Verification when YES is selected */}
+          {gstBillingSelected && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4 sm:p-5 space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <FileSpreadsheet className="h-5 w-5 text-emerald-700 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-emerald-950">
+                    You will receive a GST bill. Please enter a valid GST number.
+                  </h3>
+                  <p className="text-[11px] text-emerald-800 mt-0.5">
+                    Official 15-character GSTIN format: 2 state digits + 10-character PAN + entity code + &apos;Z&apos; + checksum.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-emerald-200/60">
+                <label className="block text-xs font-black text-navy">
+                  GST Number *
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      maxLength={15}
+                      required={gstBillingSelected}
+                      value={gstNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase().replace(/[\s-]/g, "");
+                        setGstNumber(val);
+                        setGstVerified(false);
+                        setGstError("");
+                        if (val.length === 15) {
+                          handleVerifyGst(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (gstNumber.length > 0 && !gstVerified) {
+                          handleVerifyGst(gstNumber);
+                        }
+                      }}
+                      placeholder="e.g. 24ABNCS5280K1ZU"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono font-black text-navy uppercase shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 outline-none"
+                    />
+                    {gstVerified && (
+                      <CheckCircle2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyGst(gstNumber)}
+                    disabled={isVerifyingGst || !gstNumber.trim()}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#13789B] hover:bg-[#0f607d] disabled:bg-slate-300 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:cursor-not-allowed shrink-0"
+                  >
+                    {isVerifyingGst ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Verify GST</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Validation Error Display */}
+                {gstError && (
+                  <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 flex items-start gap-2 mt-2">
+                    <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span className="font-semibold">{gstError}</span>
+                  </div>
+                )}
+
+                {/* Display After Verification */}
+                {gstVerified && gstRegisteredName && (
+                  <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3.5 text-xs space-y-1.5 mt-2 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        <span>GST Registered Name: <strong className="font-black text-navy">{gstRegisteredName}</strong></span>
+                      </div>
+                      <span className="inline-flex items-center rounded-full bg-emerald-200/80 px-2.5 py-0.5 text-[10px] font-black text-emerald-900">
+                        GST Status: {gstStatus || "Active"}
+                      </span>
+                    </div>
+                    {gstState && (
+                      <p className="text-[11px] text-emerald-800 pl-5">
+                        Registered State: <strong>{gstState}</strong>
+                        {gstTradeName && gstTradeName !== gstRegisteredName ? ` • Trade Name: ${gstTradeName}` : ""}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* =========================================================================
+          SECTION E: ORDER SUMMARY & SUBMISSION
       ========================================================================= */}
       <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7 shadow-xs space-y-5">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
-            D
+            E
           </span>
           <div>
             <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
@@ -1218,10 +1509,26 @@ export function CustomerOrderForm({
         {/* Step 4: PREVIEW ORDER BUTTON */}
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             if (totalBlocks <= 0 || !deliveryAddress.trim() || !customerName.trim() || !customerMobile.trim()) {
               alert("Please ensure AAC block quantity, customer contact, and delivery address are entered.");
               return;
+            }
+            if (gstBillingSelected) {
+              if (!gstNumber.trim()) {
+                setGstError("GST Number is required when GST Billing is selected.");
+                const el = document.getElementById("gst-billing-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+                return;
+              }
+              if (!gstVerified) {
+                const ok = await handleVerifyGst(gstNumber);
+                if (!ok) {
+                  const el = document.getElementById("gst-billing-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                  return;
+                }
+              }
             }
             setIsPreviewOpen(true);
           }}
@@ -1323,6 +1630,50 @@ export function CustomerOrderForm({
                   <span className="text-[11px] text-slate-500 font-medium">
                     {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG` : "0 Bags"}
                   </span>
+                </div>
+              </div>
+
+              {/* GST Billing Option in Order Preview */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                  <span className="font-black text-navy uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Receipt className="h-4 w-4 text-[#13789B]" />
+                    <span>GST Billing Selection</span>
+                  </span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                    gstBillingSelected ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-slate-200 text-slate-700"
+                  }`}>
+                    {gstBillingSelected ? "✓ GST Bill Requested" : "Without-GST Bill"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-bold">Do you want GST Billing?</span>
+                    <strong className="text-navy">{gstBillingSelected ? "Yes" : "No"}</strong>
+                  </div>
+
+                  {gstBillingSelected ? (
+                    <>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-bold">GST Number</span>
+                        <strong className="text-[#13789B] font-mono">{gstNumber}</strong>
+                      </div>
+                      <div className="col-span-2 pt-1 border-t border-slate-200/60">
+                        <span className="text-slate-500 block text-[10px] uppercase font-bold">GST Registered Name</span>
+                        <strong className="text-navy">{gstRegisteredName || "Verified Entity"}</strong>
+                        {gstStatus && (
+                          <span className="ml-2 inline-block rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 text-[10px] font-bold text-emerald-700">
+                            Status: {gstStatus}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="col-span-2 text-slate-600 italic text-[11px]">
+                      You will receive a without-GST bill. Standard commercial delivery challan will accompany this consignment.
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -53,6 +53,7 @@ export default async function SalesmanNewOrderPage({
       city: true,
       state: true,
       pincode: true,
+      gstin: true,
     },
     orderBy: { name: "asc" },
   });
@@ -67,6 +68,7 @@ export default async function SalesmanNewOrderPage({
     city: c.city,
     state: c.state,
     pincode: c.pincode,
+    gstin: c.gstin,
   }));
 
   const allProducts: ProductItem[] = rawProducts.map((p) => ({

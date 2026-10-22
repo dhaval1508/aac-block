@@ -11,6 +11,7 @@ import { getProductStock, getProductCbm } from "@/lib/actions/stock";
 import { dispatchNotification } from "@/lib/push-dispatcher";
 import { formatNumber, formatBlockSizeName, isGoogleMapsUrl } from "@/lib/utils";
 import { getNextDeliveryChallanNumber } from "@/lib/delivery-challan";
+import { verifyGstNumber } from "@/lib/gst";
 
 async function nextOrderNo() {
   const year = new Date().getFullYear();
@@ -66,6 +67,31 @@ export async function placeCustomerOrderAction(formData: FormData) {
   const state = String(formData.get("state") ?? "").trim() || "Gujarat";
   const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
   const locationSource = String(formData.get("locationSource") ?? (googleMapsUrl ? "GOOGLE_MAPS_LINK" : googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
+
+  // GST Billing Option Fields
+  const gstBillingRaw = String(formData.get("gstBilling") ?? formData.get("gstBillingSelected") ?? "no").toLowerCase();
+  const gstBillingSelected = gstBillingRaw === "yes" || gstBillingRaw === "true";
+  let gstNumber: string | null = null;
+  let gstRegisteredName: string | null = null;
+  let gstTradeName: string | null = null;
+  let gstStatus: string | null = null;
+  let gstState: string | null = null;
+
+  if (gstBillingSelected) {
+    const rawGst = String(formData.get("gstNumber") ?? "").trim();
+    if (!rawGst) {
+      redirect("/customer/new-order?error=GST%20Number%20is%20required%20when%20GST%20Billing%20is%20selected");
+    }
+    const gstResult = await verifyGstNumber(rawGst);
+    if (!gstResult.valid) {
+      redirect(`/customer/new-order?error=${encodeURIComponent(gstResult.error || "Invalid GST Number format")}`);
+    }
+    gstNumber = gstResult.gstin;
+    gstRegisteredName = gstResult.registeredName || gstResult.legalName || null;
+    gstTradeName = gstResult.tradeName || null;
+    gstStatus = gstResult.gstStatus || "Active";
+    gstState = gstResult.state || null;
+  }
 
   // Determine Customer and Salesman attribution
   let targetCustomerId = session.id;
@@ -394,6 +420,13 @@ export async function placeCustomerOrderAction(formData: FormData) {
         notes,
         status: OrderStatus.PENDING,
         version: 1,
+        // GST Billing Details
+        gstBillingSelected,
+        gstNumber,
+        gstRegisteredName,
+        gstTradeName,
+        gstStatus,
+        gstState,
         googlePlaceId,
         latitude,
         longitude,
@@ -1258,6 +1291,31 @@ export async function editCustomerOrderAction(formData: FormData) {
   const latitude = latitudeRaw && !isNaN(Number(latitudeRaw)) ? Number(latitudeRaw) : null;
   const longitude = longitudeRaw && !isNaN(Number(longitudeRaw)) ? Number(longitudeRaw) : null;
   const customSiteName = String(formData.get("customSiteName") ?? "").trim() || null;
+
+  // GST Billing Option Fields
+  const gstBillingRaw = String(formData.get("gstBilling") ?? formData.get("gstBillingSelected") ?? (existingOrder.gstBillingSelected ? "yes" : "no")).toLowerCase();
+  const gstBillingSelected = gstBillingRaw === "yes" || gstBillingRaw === "true";
+  let gstNumber: string | null = null;
+  let gstRegisteredName: string | null = null;
+  let gstTradeName: string | null = null;
+  let gstStatus: string | null = null;
+  let gstState: string | null = null;
+
+  if (gstBillingSelected) {
+    const rawGst = String(formData.get("gstNumber") ?? existingOrder.gstNumber ?? "").trim();
+    if (rawGst) {
+      const gstResult = await verifyGstNumber(rawGst);
+      if (gstResult.valid) {
+        gstNumber = gstResult.gstin;
+        gstRegisteredName = gstResult.registeredName || gstResult.legalName || null;
+        gstTradeName = gstResult.tradeName || null;
+        gstStatus = gstResult.gstStatus || "Active";
+        gstState = gstResult.state || null;
+      } else {
+        gstNumber = rawGst.toUpperCase();
+      }
+    }
+  }
   const villageArea = String(formData.get("villageArea") ?? "").trim() || null;
   const district = String(formData.get("district") ?? "").trim() || null;
   const state = String(formData.get("state") ?? "").trim() || "Gujarat";
@@ -1459,6 +1517,12 @@ export async function editCustomerOrderAction(formData: FormData) {
         nearbyLandmark,
         locationSource,
         version: newVersion,
+        gstBillingSelected,
+        gstNumber,
+        gstRegisteredName,
+        gstTradeName,
+        gstStatus,
+        gstState,
         events: {
           create: {
             status: existingOrder.status,

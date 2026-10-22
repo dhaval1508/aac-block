@@ -8,6 +8,23 @@ import {
   ArrowRight,
   PlusCircle,
   FileDown,
+  Hash,
+  Calendar,
+  Building2,
+  User,
+  UserCheck,
+  Boxes,
+  Layers,
+  Package,
+  Activity,
+  SlidersHorizontal,
+  ShieldCheck,
+  FileText,
+  Loader2,
+  PackageCheck,
+  XCircle,
+  AlertCircle,
+  MapPin,
 } from "lucide-react";
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -25,6 +42,31 @@ import { OrdersFilterToolbar } from "@/components/orders-filter-toolbar";
 import { OpenLocationButton } from "@/components/open-location-button";
 
 export const dynamic = "force-dynamic";
+
+function getStatusIcon(status: OrderStatus) {
+  switch (status) {
+    case OrderStatus.PENDING:
+      return <Clock className="h-3 w-3 shrink-0 text-amber-500" />;
+    case OrderStatus.CONFIRMED:
+      return <CheckCircle2 className="h-3 w-3 shrink-0 text-blue-500" />;
+    case OrderStatus.ASSIGNED:
+      return <UserCheck className="h-3 w-3 shrink-0 text-indigo-500" />;
+    case OrderStatus.LOADING:
+      return <Loader2 className="h-3 w-3 shrink-0 text-purple-500 animate-spin" />;
+    case OrderStatus.LOADED:
+      return <PackageCheck className="h-3 w-3 shrink-0 text-teal-500" />;
+    case OrderStatus.DISPATCHED:
+      return <Truck className="h-3 w-3 shrink-0 text-sky-500" />;
+    case OrderStatus.DELIVERED:
+      return <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-500" />;
+    case OrderStatus.REJECTED:
+      return <XCircle className="h-3 w-3 shrink-0 text-rose-500" />;
+    case OrderStatus.CANCELLED:
+      return <AlertCircle className="h-3 w-3 shrink-0 text-slate-500" />;
+    default:
+      return null;
+  }
+}
 
 const STATUS_TABS: Array<{ key: string; label: string; status?: OrderStatus }> = [
   { key: "all", label: "All Orders" },
@@ -237,61 +279,69 @@ export default async function AdminOrdersPage({
       {/* =========================================================================
           TOP METRIC KPI CARDS (Real period-filtered aggregates)
       ========================================================================= */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4 min-w-0">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3.5 sm:grid-cols-4 min-w-0">
         <Link
           href={makeFilterUrl({ status: "pending", page: undefined })}
-          className={`card p-3 sm:p-4 border-l-4 border-l-amber-500 hover:border-slate-300 transition-all min-w-0 ${
-            status === "pending" ? "ring-2 ring-amber-400 bg-amber-50/20" : ""
+          className={`card rounded-3xl bg-white p-3.5 sm:p-4.5 border border-slate-200 border-l-4 border-l-amber-500 hover:shadow-md hover:border-amber-300 transition-all min-w-0 ${
+            status === "pending" ? "ring-2 ring-amber-400 bg-amber-50/30" : ""
           }`}
         >
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 truncate block">Pending Review</span>
-            <Clock className="h-4 w-4 text-amber-500 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate block">Pending Review</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <Clock className="h-4 w-4" />
+            </div>
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-navy truncate">{pendingCount}</p>
-          <span className="text-[10px] sm:text-[11px] text-slate-400 truncate block">Awaiting admin review</span>
+          <p className="mt-2 text-2xl sm:text-3xl font-black text-navy truncate tracking-tight">{pendingCount}</p>
+          <span className="text-[11px] text-amber-700 font-semibold truncate block mt-0.5">Awaiting admin review</span>
         </Link>
 
         <Link
           href={makeFilterUrl({ status: "assigned", page: undefined })}
-          className={`card p-3 sm:p-4 border-l-4 border-l-[#13789B] hover:border-slate-300 transition-all min-w-0 ${
+          className={`card rounded-3xl bg-white p-3.5 sm:p-4.5 border border-slate-200 border-l-4 border-l-[#13789B] hover:shadow-md hover:border-[#13789B]/50 transition-all min-w-0 ${
             status === "assigned" || status === "loading" || status === "loaded" ? "ring-2 ring-[#13789B] bg-[#13789B]/5" : ""
           }`}
         >
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 truncate block">In Staging / Loading</span>
-            <Truck className="h-4 w-4 text-[#13789B] shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate block">In Staging / Loading</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#13789B]/10 text-[#13789B]">
+              <Truck className="h-4 w-4" />
+            </div>
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-navy truncate">{inProgressCount}</p>
-          <span className="text-[10px] sm:text-[11px] text-slate-400 truncate block">Active yard tasks</span>
+          <p className="mt-2 text-2xl sm:text-3xl font-black text-navy truncate tracking-tight">{inProgressCount}</p>
+          <span className="text-[11px] text-[#13789B] font-semibold truncate block mt-0.5">Active yard tasks</span>
         </Link>
 
         <Link
           href={makeFilterUrl({ status: "dispatched", page: undefined })}
-          className={`card p-3 sm:p-4 border-l-4 border-l-sky-500 hover:border-slate-300 transition-all min-w-0 ${
-            status === "dispatched" ? "ring-2 ring-sky-400 bg-sky-50/20" : ""
+          className={`card rounded-3xl bg-white p-3.5 sm:p-4.5 border border-slate-200 border-l-4 border-l-sky-500 hover:shadow-md hover:border-sky-300 transition-all min-w-0 ${
+            status === "dispatched" ? "ring-2 ring-sky-400 bg-sky-50/30" : ""
           }`}
         >
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 truncate block">Dispatched / Transit</span>
-            <Truck className="h-4 w-4 text-sky-500 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate block">Dispatched / Transit</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+              <Truck className="h-4 w-4" />
+            </div>
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-navy truncate">{dispatchedCount}</p>
-          <span className="text-[10px] sm:text-[11px] text-slate-400 truncate block">On road to site</span>
+          <p className="mt-2 text-2xl sm:text-3xl font-black text-navy truncate tracking-tight">{dispatchedCount}</p>
+          <span className="text-[11px] text-sky-700 font-semibold truncate block mt-0.5">On road to site</span>
         </Link>
 
         <Link
           href={makeFilterUrl({ status: "delivered", page: undefined })}
-          className={`card p-3 sm:p-4 border-l-4 border-l-emerald-500 hover:border-slate-300 transition-all min-w-0 ${
-            status === "delivered" ? "ring-2 ring-emerald-400 bg-emerald-50/20" : ""
+          className={`card rounded-3xl bg-white p-3.5 sm:p-4.5 border border-slate-200 border-l-4 border-l-emerald-500 hover:shadow-md hover:border-emerald-300 transition-all min-w-0 ${
+            status === "delivered" ? "ring-2 ring-emerald-400 bg-emerald-50/30" : ""
           }`}
         >
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 truncate block">Delivered Completed</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate block">Delivered Completed</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-700 truncate">{deliveredCount}</p>
-          <span className="text-[10px] sm:text-[11px] text-slate-400 truncate block">Acknowledged by client</span>
+          <p className="mt-2 text-2xl sm:text-3xl font-black text-emerald-700 truncate tracking-tight">{deliveredCount}</p>
+          <span className="text-[11px] text-emerald-700 font-semibold truncate block mt-0.5">Acknowledged by client</span>
         </Link>
       </div>
 
@@ -322,126 +372,203 @@ export default async function AdminOrdersPage({
       <div className="card rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden min-w-0">
         {/* Desktop Table View */}
         <div className="hidden lg:block overflow-x-auto min-w-0">
-          <table className="w-full text-left text-xs min-w-[920px]">
+          <table className="w-full text-left text-xs min-w-[980px]">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider">
-                <th className="py-3.5 px-4">Order ID & Date</th>
-                <th className="py-3.5 px-4">Customer Name & Site</th>
-                <th className="py-3.5 px-4">Created By</th>
-                <th className="py-3.5 px-4">Block Size</th>
-                <th className="py-3.5 px-4 text-right">Order Volume</th>
-                <th className="py-3.5 px-4 text-center">Block Jointing Morter (40 KG Bags)</th>
-                <th className="py-3.5 px-4">Transport</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
+                <th className="py-4 px-4 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <Hash className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Order ID & Date</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Customer Name & Site</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Created By</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <Boxes className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Block Size</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 text-right whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Order Volume</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 text-center whitespace-nowrap">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Package className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Block Jointing Morter (40 KG Bags)</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Transport</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 text-center whitespace-nowrap">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Status</span>
+                  </div>
+                </th>
+                <th className="py-4 px-4 text-right whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Actions</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {orders.map((o) => (
                 <tr key={o.id} className="hover:bg-slate-50/80 transition-colors group">
-                  <td className="py-3.5 px-4">
-                    <Link
-                      href={`/admin/orders/${o.id}`}
-                      className="font-black text-[#13789B] group-hover:underline block font-mono"
-                    >
-                      {o.orderNo}
-                    </Link>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
-                      {formatDate(o.createdAt)}
-                    </span>
+                  <td className="py-4 px-4 align-top">
+                    <div className="flex flex-col gap-1">
+                      <Link
+                        href={`/admin/orders/${o.id}`}
+                        className="font-black text-sm text-[#13789B] group-hover:underline block font-mono"
+                      >
+                        {o.orderNo}
+                      </Link>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <Calendar className="h-3 w-3 shrink-0 text-slate-400" />
+                        <span>{formatDate(o.createdAt)}</span>
+                      </div>
+                      {/* GST Billing Chip */}
+                      {o.gstBillingSelected === true ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700 w-fit mt-0.5"
+                          title={`GST Registered: ${o.gstRegisteredName || 'Verified'} | GSTIN: ${o.gstNumber || ''}`}
+                        >
+                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                          <span>GST Bill</span>
+                        </span>
+                      ) : o.gstBillingSelected === false ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600 w-fit mt-0.5"
+                        >
+                          <FileText className="h-3 w-3 text-slate-400" />
+                          <span>Without GST</span>
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
 
-                  <td className="py-3.5 px-4">
-                    <p className="font-bold text-navy truncate max-w-[180px]">
+                  <td className="py-4 px-4 align-top">
+                    <p className="font-bold text-navy truncate max-w-[190px]" title={o.customer.companyName || o.customer.name}>
                       {o.customer.companyName || o.customer.name}
                     </p>
                     {(o.salesman?.name || o.salesmanNameSnapshot) && (
-                      <span className="inline-block mt-0.5 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
-                        Sales: {o.salesman?.name || o.salesmanNameSnapshot}
+                      <span className="inline-flex items-center gap-1 mt-1 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
+                        <UserCheck className="h-2.5 w-2.5 text-purple-600" />
+                        <span>Sales: {o.salesman?.name || o.salesmanNameSnapshot}</span>
                       </span>
                     )}
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      <span className="text-[11px] text-slate-500 truncate max-w-[130px]" title={o.deliveryAddress}>
-                        📍 {o.deliveryAddress}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-slate-500 truncate max-w-[140px] inline-flex items-center gap-1" title={o.deliveryAddress}>
+                        <MapPin className="h-3 w-3 text-rose-500 shrink-0" />
+                        <span className="truncate">{o.deliveryAddress}</span>
                       </span>
                       <OpenLocationButton address={o.deliveryAddress} variant="badge" />
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4 align-top">
                     {o.createdByRole === "SALESMAN" ? (
                       <div>
-                        <span className="inline-flex items-center rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
-                          Salesman
+                        <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2.5 py-0.5 text-[10px] font-bold text-purple-700">
+                          <User className="h-3 w-3 text-purple-600" />
+                          <span>Salesman</span>
                         </span>
-                        <span className="block text-[11px] text-slate-700 font-semibold mt-0.5 truncate max-w-[130px]">
+                        <span className="block text-[11px] text-slate-700 font-semibold mt-1 truncate max-w-[130px]">
                           {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
                         </span>
                       </div>
                     ) : (
                       <div>
-                        <span className="inline-flex items-center rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
-                          Customer
+                        <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2.5 py-0.5 text-[10px] font-bold text-[#13789B]">
+                          <Building2 className="h-3 w-3 text-[#13789B]" />
+                          <span>Customer</span>
                         </span>
-                        <span className="block text-[11px] text-slate-500 mt-0.5 truncate max-w-[130px]">
+                        <span className="block text-[11px] text-slate-500 mt-1 truncate max-w-[130px]">
                           Direct Order
                         </span>
                       </div>
                     )}
                   </td>
 
-                  <td className="py-3.5 px-4">
-                    <span className="font-bold text-slate-800">{o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : (o.items && o.items.length > 0 ? `${o.items.length} sizes` : "Standard")}</span>
-                    <span className="text-[11px] text-slate-400 block font-mono">{o.product?.dimensions || "-"}</span>
+                  <td className="py-4 px-4 align-top">
+                    <span className="font-bold text-slate-800 block text-xs">
+                      {o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : (o.items && o.items.length > 0 ? `${o.items.length} sizes` : "Standard")}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block font-mono mt-0.5">{o.product?.dimensions || "-"}</span>
                   </td>
 
-                  <td className="py-3.5 px-4 text-right">
-                    <p className="font-black text-navy">
+                  <td className="py-4 px-4 text-right align-top">
+                    <p className="font-black text-sm text-navy">
                       {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
                     </p>
-                    <span className="text-[11px] text-slate-400 italic block">
+                    <span className="text-[11px] text-slate-400 italic block mt-0.5">
                       ≈ {formatNumber(o.quantity)} Blocks
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-4 text-center">
-                    <span className="inline-block rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1 text-xs font-mono font-bold text-navy">
-                      {o.adhesiveBags ?? 0} Bags
+                  <td className="py-4 px-4 text-center align-top">
+                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 border border-sky-200 px-3 py-1 text-xs font-mono font-bold text-navy shadow-2xs">
+                      <Package className="h-3.5 w-3.5 text-[#13789B]" />
+                      <span>{o.adhesiveBags ?? 0} Bags</span>
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4 align-top">
                     {o.transport ? (
                       <div>
-                        <span className="font-bold text-navy block font-mono">
+                        <span className="font-bold text-navy block font-mono text-xs flex items-center gap-1">
+                          <Truck className="h-3 w-3 text-slate-400" />
                           {o.transport.truckNumber}
                         </span>
-                        <span className="text-[11px] text-slate-500 block truncate max-w-[120px]">
+                        <span className="text-[11px] text-slate-500 block truncate max-w-[130px] mt-0.5">
                           {o.transport.driverName}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-slate-400 italic text-[11px]">Unassigned</span>
+                      <span className="inline-flex items-center gap-1 text-slate-400 italic text-[11px]">
+                        <Clock className="h-3 w-3 text-slate-300" />
+                        <span>Unassigned</span>
+                      </span>
                     )}
                   </td>
 
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4 text-center align-top">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border shadow-2xs ${
                         ORDER_STATUS_CLASS[o.status]
                       }`}
                     >
-                      {ORDER_STATUS_LABEL[o.status]}
+                      {getStatusIcon(o.status)}
+                      <span>{ORDER_STATUS_LABEL[o.status]}</span>
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-4 text-right">
+                  <td className="py-4 px-4 text-right align-top">
                     <Link
                       href={`/admin/orders/${o.id}`}
-                      className="inline-flex items-center gap-1 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-[#13789B] hover:bg-[#13789B] hover:text-white transition-all shadow-2xs"
+                      className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] text-[#13789B] hover:text-white px-3 py-1.5 text-xs font-bold transition-all shadow-2xs group/btn cursor-pointer"
                     >
                       <span>Manage</span>
-                      <ArrowRight className="h-3 w-3" />
+                      <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
                     </Link>
                   </td>
                 </tr>
@@ -463,12 +590,24 @@ export default async function AdminOrdersPage({
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <span className="font-black text-sm text-[#13789B] font-mono">{o.orderNo}</span>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
                         ORDER_STATUS_CLASS[o.status]
                       }`}
                     >
-                      {ORDER_STATUS_LABEL[o.status]}
+                      {getStatusIcon(o.status)}
+                      <span>{ORDER_STATUS_LABEL[o.status]}</span>
                     </span>
+                    {o.gstBillingSelected === true ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        <ShieldCheck className="h-3 w-3" />
+                        <span>GST Bill</span>
+                      </span>
+                    ) : o.gstBillingSelected === false ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                        <FileText className="h-3 w-3" />
+                        <span>No GST</span>
+                      </span>
+                    ) : null}
                     {o.createdByRole === "SALESMAN" ? (
                       <span className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
                         Salesman: {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}

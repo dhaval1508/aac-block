@@ -203,6 +203,10 @@ export default async function CustomerEditOrderPage({
         initialBlockItems={blockOrderItems}
         initialDeliveryLocation={initialDeliveryLocation}
         initialNotes={order.notes || ""}
+        initialGstBillingSelected={order.gstBillingSelected ?? undefined}
+        initialGstNumber={order.gstNumber ?? undefined}
+        initialGstRegisteredName={order.gstRegisteredName ?? undefined}
+        initialGstStatus={order.gstStatus ?? undefined}
         error={error}
       />
     </div>

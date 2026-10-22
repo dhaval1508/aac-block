@@ -2,7 +2,20 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, ArrowUpDown, RotateCcw, User, UserCheck } from "lucide-react";
+import {
+  Search,
+  ArrowUpDown,
+  RotateCcw,
+  User,
+  UserCheck,
+  Clock,
+  CheckCircle2,
+  Loader2,
+  Truck,
+  ShieldCheck,
+  XCircle,
+  Layers,
+} from "lucide-react";
 
 interface StatusTab {
   key: string;
@@ -162,6 +175,25 @@ export function OrdersFilterToolbar({
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
               }`}
             >
+              {tab.key === "pending" ? (
+                <Clock className={`h-3 w-3 ${active ? "text-white" : "text-amber-500"}`} />
+              ) : tab.key === "confirmed" ? (
+                <CheckCircle2 className={`h-3 w-3 ${active ? "text-white" : "text-emerald-500"}`} />
+              ) : tab.key === "assigned" ? (
+                <UserCheck className={`h-3 w-3 ${active ? "text-white" : "text-purple-500"}`} />
+              ) : tab.key === "loading" ? (
+                <Loader2 className={`h-3 w-3 ${active ? "text-white" : "text-sky-500"}`} />
+              ) : tab.key === "loaded" ? (
+                <CheckCircle2 className={`h-3 w-3 ${active ? "text-white" : "text-teal-500"}`} />
+              ) : tab.key === "dispatched" ? (
+                <Truck className={`h-3 w-3 ${active ? "text-white" : "text-indigo-500"}`} />
+              ) : tab.key === "delivered" ? (
+                <ShieldCheck className={`h-3 w-3 ${active ? "text-white" : "text-emerald-600"}`} />
+              ) : tab.key === "rejected" ? (
+                <XCircle className={`h-3 w-3 ${active ? "text-white" : "text-rose-500"}`} />
+              ) : (
+                <Layers className={`h-3 w-3 ${active ? "text-white" : "text-slate-400"}`} />
+              )}
               <span>{tab.label}</span>
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${

@@ -184,6 +184,14 @@ model Order {
   createdByRole         String?         @default("CUSTOMER") // "CUSTOMER" | "SALESMAN" | "ADMIN"
   createdByNameSnapshot String?
 
+  // GST Billing Option
+  gstBillingSelected    Boolean?        @default(false)
+  gstNumber             String?
+  gstRegisteredName     String?
+  gstTradeName          String?
+  gstStatus             String?         // "Active" | etc.
+  gstState              String?
+
   assignedStaffId String?
   assignedStaff   User?           @relation("StaffAssignedOrders", fields: [assignedStaffId], references: [id])
 

@@ -210,6 +210,10 @@ export default async function SalesmanEditOrderPage({
         initialBlockItems={blockOrderItems}
         initialDeliveryLocation={initialDeliveryLocation}
         initialNotes={order.notes || ""}
+        initialGstBillingSelected={order.gstBillingSelected ?? undefined}
+        initialGstNumber={order.gstNumber ?? undefined}
+        initialGstRegisteredName={order.gstRegisteredName ?? undefined}
+        initialGstStatus={order.gstStatus ?? undefined}
         defaultAdhesiveBags={order.adhesiveBags ?? 0}
         error={error}
       />

@@ -13,6 +13,8 @@ import {
   Truck,
   ExternalLink,
   Edit,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 import {
   formatDate,
@@ -154,6 +156,50 @@ export default async function SalesmanOrderDetailPage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* GST Billing Details Card */}
+      <div className="card rounded-3xl bg-white border border-slate-200 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-2xl ${
+              order.gstBillingSelected ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+            }`}>
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-navy">GST Billing Option</h3>
+              <p className="text-xs text-slate-400">Order tax invoice and input credit status</p>
+            </div>
+          </div>
+          <div>
+            {order.gstBillingSelected ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-800">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                <span>GST Billing (Yes)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
+                <FileText className="h-3.5 w-3.5 text-slate-400" />
+                <span>Without-GST Bill (No)</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {order.gstBillingSelected && (
+          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="bg-emerald-50/50 rounded-2xl p-3 border border-emerald-100">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block">GST Registered Business Name</span>
+              <p className="font-extrabold text-navy text-sm mt-0.5">{order.gstRegisteredName || order.customer.companyName || order.customer.name}</p>
+            </div>
+            <div className="bg-emerald-50/50 rounded-2xl p-3 border border-emerald-100">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block">GST Number (GSTIN)</span>
+              <p className="font-black font-mono text-emerald-800 text-sm mt-0.5 tracking-wider">{order.gstNumber || order.customer.gstin || "—"}</p>
+              <span className="text-[10px] text-emerald-700 font-bold mt-1 inline-block">✓ Status: {order.gstStatus || "Active"}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grid: Order Specifications & Delivery Location */}

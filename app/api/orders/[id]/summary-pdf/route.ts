@@ -384,6 +384,22 @@ export async function GET(
         <div class="info-text" style="color:#6b21a8; font-weight:700; margin-top:3px;">
           Assigned Salesman: ${order.salesman?.name || order.salesmanNameSnapshot || "Factory Direct (Unassigned)"}
         </div>
+        ${order.gstBillingSelected ? `
+          <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
+            <div style="color:#047857; font-weight:800; font-size:11px;">✓ GST Billing Requested (Tax Invoice)</div>
+            <div style="font-weight:700; color:#0f172a; font-size:12px;">GSTIN: <span style="font-family:monospace;">${order.gstNumber || order.customer.gstin || "N/A"}</span></div>
+            ${order.gstRegisteredName ? `<div style="font-size:11px; color:#475569;">Reg Name: ${order.gstRegisteredName}</div>` : ""}
+            <div style="font-size:10px; color:#047857;">Status: ${order.gstStatus || "Active"}${order.gstState ? ` • State: ${order.gstState}` : ""}</div>
+          </div>
+        ` : order.gstBillingSelected === false ? `
+          <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; color:#64748b; font-size:11px;">
+            <strong>Billing Mode:</strong> Direct Without-GST Supply (Non-GST Bill)
+          </div>
+        ` : order.customer.gstin ? `
+          <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:11px; color:#475569;">
+            <strong>Customer GSTIN:</strong> <span style="font-family:monospace;">${order.customer.gstin}</span>
+          </div>
+        ` : ""}
       </div>
       <div>
         <div class="info-title">Delivery & Unloading Site</div>

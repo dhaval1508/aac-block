@@ -15,6 +15,16 @@ import {
   Calendar,
   Users,
   Shield,
+  Package,
+  PackageCheck,
+  Loader2,
+  FileCheck,
+  Receipt,
+  UserCheck,
+  XCircle,
+  Bell,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
@@ -83,6 +93,7 @@ export default async function AdminDashboardPage({
         id: true,
         status: true,
         createdAt: true,
+        gstBillingSelected: true,
       },
     }),
     // Period Stock In
@@ -152,7 +163,11 @@ export default async function AdminDashboardPage({
     loaded: periodOrders.filter((o) => o.status === OrderStatus.LOADED).length,
     dispatched: periodOrders.filter((o) => o.status === OrderStatus.DISPATCHED).length,
     delivered: periodOrders.filter((o) => o.status === OrderStatus.DELIVERED).length,
+    rejected: periodOrders.filter((o) => o.status === OrderStatus.REJECTED).length,
   };
+
+  const gstOrdersCount = periodOrders.filter((o) => o.gstBillingSelected === true).length;
+  const nonGstOrdersCount = periodOrders.filter((o) => o.gstBillingSelected === false).length;
 
   const isFiltered = dateRange.preset !== "all_time";
   const inboundTotal = Number(periodStockIn._sum.quantityDelta ?? 0);
@@ -358,67 +373,111 @@ export default async function AdminDashboardPage({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
+        <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5 min-w-0">
           {/* 1. Total Orders */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-[#13789B]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate block">Total Orders</span>
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-[#13789B]">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate block">Total Orders</span>
+              <ShoppingCart className="h-4 w-4 text-[#13789B] shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{isFiltered ? periodOrders.length : allOrdersCount}</div>
             <span className="text-[10px] text-slate-400 truncate block">{isFiltered ? "Filtered bookings" : "All-time bookings"}</span>
           </div>
 
           {/* 2. New / Pending Orders */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-amber-500">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 truncate block">New / Pending Orders</span>
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-amber-500">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 truncate block">Pending Review</span>
+              <Clock className="h-4 w-4 text-amber-500 shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-amber-600 truncate">{statusCounts.pending}</div>
             <span className="text-[10px] text-slate-400 truncate block">Awaiting admin review</span>
           </div>
 
           {/* 3. Orders Being Loaded */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-purple-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 truncate block">Orders Being Loaded</span>
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-purple-600">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 truncate block">Being Loaded</span>
+              <Loader2 className="h-4 w-4 text-purple-600 shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-purple-600 truncate">{statusCounts.loading}</div>
             <span className="text-[10px] text-slate-400 truncate block">Active yard loading</span>
           </div>
 
           {/* 4. Dispatched Orders */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-indigo-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 truncate block">Dispatched Orders</span>
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-indigo-600">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 truncate block">Dispatched Orders</span>
+              <Truck className="h-4 w-4 text-indigo-600 shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-indigo-600 truncate">{statusCounts.dispatched}</div>
             <span className="text-[10px] text-slate-400 truncate block">Trucks in transit</span>
           </div>
 
-          {/* 5. Total AAC Block Volume */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-emerald-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 truncate block">Total Ordered Volume</span>
+          {/* 5. GST / Billing Orders */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-emerald-600">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 truncate block">GST Billing</span>
+              <Receipt className="h-4 w-4 text-emerald-600 shrink-0" />
+            </div>
+            <div className="mt-1 text-lg sm:text-xl font-black text-emerald-700 truncate">{gstOrdersCount} <span className="text-xs font-semibold text-slate-400">GST</span></div>
+            <span className="text-[10px] text-slate-400 truncate block">{nonGstOrdersCount} without-GST bookings</span>
+          </div>
+
+          {/* 6. Total AAC Block Volume */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-emerald-600">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 truncate block">Ordered Volume</span>
+              <Layers className="h-4 w-4 text-emerald-600 shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-emerald-700 truncate">{totalOrderedCbm.toFixed(3)} CBM</div>
             <span className="text-[11px] text-slate-500 italic truncate block">≈ {formatNumber(totalOrderedBlocks)} Blocks</span>
           </div>
 
-          {/* 6. Available Factory Stock */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-teal-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 truncate block">Available Yard Stock</span>
+          {/* 7. Available Factory Stock */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-teal-600">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 truncate block">Available Yard Stock</span>
+              <Boxes className="h-4 w-4 text-teal-600 shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{stockSummary.currentCbm.toFixed(3)} CBM</div>
             <span className="text-[11px] text-teal-700 italic font-medium truncate block">≈ {formatNumber(stockSummary.current)} Blocks</span>
           </div>
 
-          {/* 7. Total Block Jointing Morter Bags */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-orange-500">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 truncate block">Block Jointing Morter</span>
+          {/* 8. Total Block Jointing Morter Bags */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-orange-500">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 truncate block">Jointing Morter</span>
+              <Package className="h-4 w-4 text-orange-600 shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(totalMortarBags)} Bags</div>
             <span className="text-[10px] text-slate-400 truncate block">40 KG bags ordered</span>
           </div>
 
-          {/* 8. Available Mortar Stock */}
-          <div className="card rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 shadow-xs min-w-0 border-t-4 border-t-sky-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 truncate block">Mortar Yard Stack</span>
+          {/* 9. Available Mortar Stock */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-sky-600">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 truncate block">Mortar Yard Stack</span>
+              <PackageCheck className="h-4 w-4 text-sky-600 shrink-0" />
+            </div>
             <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{formatNumber(mortarStock.stock)} Bags</div>
             <span className="text-[10px] text-sky-600 font-bold truncate block">40 KG bags ready</span>
+          </div>
+
+          {/* 10. Official Delivery Challans */}
+          <div className="card rounded-2xl bg-white border border-slate-200 p-3.5 shadow-xs min-w-0 border-t-4 border-t-blue-600">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 truncate block">Delivery Challans</span>
+              <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+            </div>
+            <div className="mt-1 text-lg sm:text-xl font-black text-blue-800 truncate">{statusCounts.dispatched + statusCounts.delivered} <span className="text-xs font-semibold text-slate-400">DCs</span></div>
+            <span className="text-[10px] text-slate-400 truncate block">Official dispatches</span>
           </div>
         </div>
       </div>
 
       {/* =========================================================================
-          SECTION 4: 7-STAGE ORDER EXECUTION PIPELINE STEPPER
+          SECTION 4: 8-STAGE ORDER EXECUTION PIPELINE STEPPER
       ========================================================================= */}
       <div className="card rounded-3xl bg-white border border-slate-200 p-4 sm:p-6 shadow-xs min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 min-w-0">
@@ -439,29 +498,34 @@ export default async function AdminDashboardPage({
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-2.5 min-w-0">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-2.5 min-w-0">
           {[
-            { label: "Pending", count: statusCounts.pending, color: "border-amber-300 bg-amber-50/50 text-amber-700", status: "PENDING" },
-            { label: "Confirmed", count: statusCounts.confirmed, color: "border-blue-300 bg-blue-50/50 text-blue-700", status: "CONFIRMED" },
-            { label: "Assigned", count: statusCounts.assigned, color: "border-indigo-300 bg-indigo-50/50 text-indigo-700", status: "ASSIGNED" },
-            { label: "Loading", count: statusCounts.loading, color: "border-purple-300 bg-purple-50/50 text-purple-700", status: "LOADING" },
-            { label: "Loaded", count: statusCounts.loaded, color: "border-teal-300 bg-teal-50/50 text-teal-700", status: "LOADED" },
-            { label: "Dispatched", count: statusCounts.dispatched, color: "border-slate-300 bg-slate-50 text-slate-700", status: "DISPATCHED" },
-            { label: "Delivered", count: statusCounts.delivered, color: "border-emerald-300 bg-emerald-50/50 text-emerald-700", status: "DELIVERED" },
-          ].map((stage, idx) => (
-            <Link
-              key={idx}
-              href={`/admin/orders?status=${stage.status}`}
-              className={`flex flex-col items-center justify-center rounded-2xl border p-2.5 sm:p-3.5 text-center transition-all hover:scale-[1.02] shadow-2xs min-w-0 ${stage.color}`}
-            >
-              <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 truncate block w-full">
-                {stage.label}
-              </span>
-              <span className="mt-1 text-xl sm:text-2xl font-black tracking-tight truncate">
-                {stage.count}
-              </span>
-            </Link>
-          ))}
+            { label: "Pending", count: statusCounts.pending, color: "border-amber-300 bg-amber-50/50 text-amber-700", status: "PENDING", icon: Clock },
+            { label: "Confirmed", count: statusCounts.confirmed, color: "border-blue-300 bg-blue-50/50 text-blue-700", status: "CONFIRMED", icon: CheckCircle2 },
+            { label: "Assigned", count: statusCounts.assigned, color: "border-indigo-300 bg-indigo-50/50 text-indigo-700", status: "ASSIGNED", icon: UserCheck },
+            { label: "Loading", count: statusCounts.loading, color: "border-purple-300 bg-purple-50/50 text-purple-700", status: "LOADING", icon: Loader2 },
+            { label: "Loaded", count: statusCounts.loaded, color: "border-teal-300 bg-teal-50/50 text-teal-700", status: "LOADED", icon: PackageCheck },
+            { label: "Dispatched", count: statusCounts.dispatched, color: "border-sky-300 bg-sky-50 text-sky-800", status: "DISPATCHED", icon: Truck },
+            { label: "Delivered", count: statusCounts.delivered, color: "border-emerald-300 bg-emerald-50/50 text-emerald-700", status: "DELIVERED", icon: ShieldCheck },
+            { label: "Rejected", count: statusCounts.rejected, color: "border-rose-300 bg-rose-50/50 text-rose-700", status: "REJECTED", icon: XCircle },
+          ].map((stage, idx) => {
+            const IconComp = stage.icon;
+            return (
+              <Link
+                key={idx}
+                href={`/admin/orders?status=${stage.status}`}
+                className={`flex flex-col items-center justify-center rounded-2xl border p-2.5 sm:p-3 text-center transition-all hover:scale-[1.02] shadow-2xs min-w-0 ${stage.color}`}
+              >
+                <IconComp className="h-3.5 w-3.5 mb-1 opacity-80" />
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-90 truncate block w-full">
+                  {stage.label}
+                </span>
+                <span className="mt-0.5 text-lg sm:text-xl font-black tracking-tight truncate">
+                  {stage.count}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -633,12 +697,30 @@ export default async function AdminDashboardPage({
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <span className="font-bold text-navy text-xs font-mono">{o.orderNo}</span>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
                         ORDER_STATUS_CLASS[o.status]
                       }`}
                     >
-                      {ORDER_STATUS_LABEL[o.status]}
+                      {o.status === "PENDING" && <Clock className="h-3 w-3 text-amber-500" />}
+                      {o.status === "CONFIRMED" && <CheckCircle2 className="h-3 w-3 text-blue-500" />}
+                      {o.status === "ASSIGNED" && <UserCheck className="h-3 w-3 text-indigo-500" />}
+                      {o.status === "LOADING" && <Loader2 className="h-3 w-3 text-purple-500 animate-spin" />}
+                      {o.status === "LOADED" && <PackageCheck className="h-3 w-3 text-teal-500" />}
+                      {o.status === "DISPATCHED" && <Truck className="h-3 w-3 text-sky-500" />}
+                      {o.status === "DELIVERED" && <ShieldCheck className="h-3 w-3 text-emerald-500" />}
+                      {o.status === "REJECTED" && <XCircle className="h-3 w-3 text-rose-500" />}
+                      <span>{ORDER_STATUS_LABEL[o.status]}</span>
                     </span>
+                    {o.gstBillingSelected === true ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                        <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
+                        <span>GST</span>
+                      </span>
+                    ) : o.gstBillingSelected === false ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                        <span>No GST</span>
+                      </span>
+                    ) : null}
                     {o.invoiceNo && (
                       <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600">
                         {o.invoiceNo}

@@ -39,6 +39,7 @@ export default async function CustomerNewOrderPage({
         billingAddress: true,
         city: true,
         pincode: true,
+        gstin: true,
       },
     }),
   ]);
@@ -108,6 +109,8 @@ export default async function CustomerNewOrderPage({
           deliveryAddress: user?.deliveryAddress || "",
           city: user?.city || "",
           pincode: user?.pincode || "",
+          gstin: user?.gstin || "",
+          companyName: user?.companyName || user?.name || "",
         }}
         defaultProductId={productId}
         defaultQuantity={defaultQty}

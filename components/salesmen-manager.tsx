@@ -19,7 +19,11 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  Pencil,
+  MessageCircle,
 } from "lucide-react";
+import { phoneDigits } from "@/lib/utils";
 import {
   createSalesmanAction,
   updateSalesmanAction,
@@ -267,19 +271,33 @@ export function SalesmenManager({
                       <div className="flex items-center justify-end gap-1.5">
                         <Link
                           href={`/admin/salesmen/${s.id}`}
-                          className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-2.5 py-1.5 font-bold text-[11px] text-slate-700 transition"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-2.5 py-1.5 font-bold text-[11px] text-slate-700 transition"
                           title="View assigned customers and order history"
                         >
-                          <span>Manage</span>
-                          <ArrowRight className="h-3 w-3" />
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>View</span>
                         </Link>
+
+                        {s.mobile && (
+                          <a
+                            href={`https://wa.me/91${phoneDigits(s.mobile)}?text=${encodeURIComponent(
+                              `Hello ${s.name}, from Swarnim AAC Block Administration.`
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl border border-emerald-200 p-1.5 text-emerald-600 hover:bg-emerald-50 transition"
+                            title="Chat with Salesman on WhatsApp"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </a>
+                        )}
 
                         <button
                           onClick={() => setEditingSalesman(s)}
                           className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
                           title="Edit Salesman"
                         >
-                          <Edit2 className="h-3.5 w-3.5" />
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
 
                         <form action={toggleSalesmanActiveAction}>
