@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { clearSession, createSession, getSession } from "@/lib/session";
 import { roleHome } from "@/lib/utils";
@@ -266,7 +267,8 @@ export async function changePasswordAction(formData: FormData) {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const returnPath = session.role === "SALESMAN" ? "/salesman/profile" : "/customer/profile";
+  const isSalesman = (session.role as string) === "SALESMAN" || session.role === Role.SALESMAN;
+  const returnPath = isSalesman ? "/salesman/profile" : "/customer/profile";
 
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const newPassword = String(formData.get("newPassword") ?? "");
