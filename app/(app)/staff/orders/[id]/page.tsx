@@ -22,7 +22,8 @@ import {
   telHref,
 } from "@/lib/utils";
 import { StaffLoadingForm } from "@/components/staff-loading-form";
-import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
+import { TruckStagingForm } from "@/components/truck-staging-form";
+import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -40,21 +41,31 @@ export default async function StaffOrderDetailPage({
   const { error } = await searchParams;
 
   // Strict projection: NO financial fields (no rate, price, gstAmount, subtotal, totalAmount, paidAmount, paymentStatus)
-  const order = await prisma.order.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      orderNo: true,
-      quantity: true,
-      loadedQuantity: true,
-      status: true,
-      deliveryAddress: true,
-      requestedDate: true,
-      notes: true,
-      assignedStaffId: true,
-      totalCbm: true,
-      adhesiveBags: true,
-      dcNumber: true,
+  const [order, staffList] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        orderNo: true,
+        quantity: true,
+        loadedQuantity: true,
+        loadedCbm: true,
+        status: true,
+        deliveryAddress: true,
+        requestedDate: true,
+        notes: true,
+        assignedStaffId: true,
+        assignedStaff: {
+          select: {
+            id: true,
+            name: true,
+            mobile: true,
+          },
+        },
+        totalCbm: true,
+        adhesiveBags: true,
+        dcNumber: true,
+        invoiceNo: true,
       googlePlaceId: true,
       latitude: true,
       longitude: true,
@@ -128,9 +139,22 @@ export default async function StaffOrderDetailPage({
         },
       },
     },
-  });
+  }),
+  prisma.user.findMany({
+    where: {
+      role: { in: ["STAFF", "STOCKER"] },
+      active: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      mobile: true,
+    },
+    orderBy: { name: "asc" },
+  }),
+]);
 
-  if (!order) notFound();
+if (!order) notFound();
 
   // Strict Role Guard: Staff can only access their assigned order
   if (["STAFF", "STOCKER"].includes(session.role) && order.assignedStaffId && order.assignedStaffId !== session.id) {
@@ -180,78 +204,21 @@ export default async function StaffOrderDetailPage({
         </div>
       ) : null}
 
-      {/* Vehicle & Logistics Details */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex items-center gap-2 text-navy font-bold text-sm border-b border-slate-100 pb-3">
-          <Truck className="h-4 w-4 text-[#1E72A8]" />
-          Assigned Transport & Dispatch Details
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase">
-              Truck Registration
-            </span>
-            <p className="mt-1 text-lg font-black text-navy">
-              {order.transport?.truckNumber || "Pending"}
-            </p>
-            {order.transport?.transporterName ? (
-              <span className="text-xs text-slate-500 block truncate">
-                {order.transport.transporterName}
-              </span>
-            ) : null}
-          </div>
-
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase">
-              Driver Name
-            </span>
-            <p className="mt-1 font-bold text-navy">
-              {order.transport?.driverName || "Not assigned"}
-            </p>
-            {order.transport?.driverMobile ? (
-              <a
-                href={telHref(order.transport.driverMobile)}
-                className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#1E72A8] hover:underline"
-              >
-                <Phone className="h-3 w-3" /> {order.transport.driverMobile}
-              </a>
-            ) : null}
-          </div>
-
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase">
-              Assignment Time
-            </span>
-            <p className="mt-1 text-xs font-medium text-slate-700">
-              {formatDate(order.transport?.assignedAt || order.createdAt)}
-            </p>
-          </div>
-
-          <div>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase">
-              Required Delivery Date
-            </span>
-            <p className="mt-1 text-xs font-bold text-slate-800">
-              {order.requestedDate
-                ? formatDate(order.requestedDate)
-                : order.transport?.expectedDelivery
-                ? formatDate(order.transport.expectedDelivery)
-                : "Immediate"}
-            </p>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-100 pt-3 flex items-start gap-2 text-xs text-slate-600">
-          <MapPin className="h-4 w-4 shrink-0 text-slate-400 mt-0.5" />
-          <div>
-            <span className="font-semibold text-slate-700">Site Delivery Address: </span>
-            {order.deliveryAddress}
+      {/* Site Delivery Address & Instructions */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
+        <div className="flex items-start gap-2.5 text-xs text-slate-700">
+          <MapPin className="h-4 w-4 shrink-0 text-[#1E72A8] mt-0.5" />
+          <div className="min-w-0">
+            <span className="font-bold text-navy block sm:inline">Destination Delivery Address: </span>
+            <span className="text-slate-600">{order.deliveryAddress}</span>
+            {order.formattedAddress && order.formattedAddress !== order.deliveryAddress && (
+              <p className="text-[11px] text-slate-400 mt-0.5">{order.formattedAddress}</p>
+            )}
           </div>
         </div>
 
         {order.notes ? (
-          <div className="rounded-2xl bg-amber-50/70 border border-amber-200/60 p-3 text-xs text-amber-900 flex items-start gap-2">
+          <div className="rounded-2xl bg-amber-50/80 border border-amber-200/80 p-3 text-xs text-amber-950 flex items-start gap-2">
             <FileText className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
             <div>
               <span className="font-bold">Site Instructions: </span>
@@ -341,8 +308,20 @@ export default async function StaffOrderDetailPage({
         </div>
       </div>
 
-      {/* Weighbridge Slip, Vehicle Details & Driver WhatsApp Panel */}
-      <StaffWeighbridgeVehiclePanel order={order} />
+      {/* Shared Loading Staff & Truck Staging Form */}
+      <TruckStagingForm
+        order={order as any}
+        staffList={staffList}
+        userRole={session.role as any}
+        currentUserId={session.id}
+        currentUserName={session.name}
+      />
+
+      {/* Shared Delivery Challan Documentation */}
+      <DeliveryChallanPanel
+        order={order as any}
+        userRole={session.role as any}
+      />
 
       {/* Loading Action Area */}
       <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">

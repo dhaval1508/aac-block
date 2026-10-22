@@ -9,10 +9,14 @@ import {
   AlertCircle,
   Activity as ActivityIcon,
   Boxes,
+  Inbox,
+  UserCheck,
+  Sparkles,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { getMortarStock } from "@/lib/data";
+import { claimOrderAction } from "@/lib/actions/orders";
 import {
   formatDate,
   formatNumber,
@@ -43,8 +47,17 @@ export default async function StaffDashboardPage({
     assignedStaffId: session.id,
   };
 
+  // Shared Yard Queue: Confirmed orders waiting for staging/loading (or unassigned ASSIGNED)
+  const queueWhere = {
+    OR: [
+      { status: OrderStatus.CONFIRMED },
+      { status: OrderStatus.ASSIGNED, assignedStaffId: null },
+    ],
+  };
+
   // Metrics and yard inventory calculation
   const [
+    confirmedQueueCount,
     totalAssigned,
     pendingLoading,
     currentlyLoading,
@@ -53,6 +66,7 @@ export default async function StaffDashboardPage({
     products,
     mortarStock,
   ] = await Promise.all([
+    prisma.order.count({ where: queueWhere }),
     prisma.order.count({ where: baseWhere }),
     prisma.order.count({
       where: { ...baseWhere, status: OrderStatus.ASSIGNED },
@@ -88,47 +102,72 @@ export default async function StaffDashboardPage({
     getMortarStock(),
   ]);
 
-  // Tab filtering
-  let statusFilter: OrderStatus[] = [OrderStatus.ASSIGNED, OrderStatus.LOADING];
-  if (tab === "all") {
-    statusFilter = [
-      OrderStatus.ASSIGNED,
-      OrderStatus.LOADING,
-      OrderStatus.LOADED,
-      OrderStatus.DISPATCHED,
-      OrderStatus.DELIVERED,
-    ];
+  // Tab filtering & query construction
+  let queryWhere: any;
+  if (tab === "queue") {
+    queryWhere = queueWhere;
+  } else if (tab === "all") {
+    queryWhere = {
+      ...baseWhere,
+      status: {
+        in: [
+          OrderStatus.ASSIGNED,
+          OrderStatus.LOADING,
+          OrderStatus.LOADED,
+          OrderStatus.DISPATCHED,
+          OrderStatus.DELIVERED,
+        ],
+      },
+    };
   } else if (tab === "pending") {
-    statusFilter = [OrderStatus.ASSIGNED];
+    queryWhere = { ...baseWhere, status: OrderStatus.ASSIGNED };
   } else if (tab === "loading") {
-    statusFilter = [OrderStatus.LOADING];
+    queryWhere = { ...baseWhere, status: OrderStatus.LOADING };
   } else if (tab === "completed") {
-    statusFilter = [
-      OrderStatus.LOADED,
-      OrderStatus.DISPATCHED,
-      OrderStatus.DELIVERED,
-    ];
+    queryWhere = {
+      ...baseWhere,
+      status: {
+        in: [
+          OrderStatus.LOADED,
+          OrderStatus.DISPATCHED,
+          OrderStatus.DELIVERED,
+        ],
+      },
+    };
+  } else {
+    // default: "active" tasks
+    queryWhere = {
+      ...baseWhere,
+      status: { in: [OrderStatus.ASSIGNED, OrderStatus.LOADING] },
+    };
   }
 
   // Fetch orders with STRICT ZERO-FINANCIAL projection
   const orders = await prisma.order.findMany({
-    where: {
-      ...baseWhere,
-      status: { in: statusFilter },
-    },
-    orderBy: { createdAt: "desc" },
+    where: queryWhere,
+    orderBy: tab === "queue" ? { confirmedAt: "asc" } : { createdAt: "desc" },
     select: {
       id: true,
       orderNo: true,
       dcNumber: true,
+      invoiceNo: true,
       quantity: true,
       loadedQuantity: true,
+      loadedCbm: true,
       status: true,
       deliveryAddress: true,
       requestedDate: true,
       notes: true,
       totalCbm: true,
       adhesiveBags: true,
+      assignedStaffId: true,
+      assignedStaff: {
+        select: {
+          id: true,
+          name: true,
+          mobile: true,
+        },
+      },
       googlePlaceId: true,
       latitude: true,
       longitude: true,
@@ -139,6 +178,7 @@ export default async function StaffDashboardPage({
       nearbyLandmark: true,
       locationSource: true,
       createdAt: true,
+      confirmedAt: true,
       customer: {
         select: {
           name: true,
@@ -288,7 +328,25 @@ export default async function StaffDashboardPage({
       </div>
 
       {/* Operational Metrics Cards */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4 min-w-0">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-5 min-w-0">
+        <Link
+          href="/staff/dashboard?tab=queue"
+          className={`rounded-2xl border p-3 sm:p-4 transition-all min-w-0 flex flex-col justify-between ${
+            tab === "queue"
+              ? "border-amber-500 bg-amber-50 shadow-sm"
+              : confirmedQueueCount > 0
+              ? "border-amber-300 bg-amber-50/50 hover:border-amber-400"
+              : "border-slate-200 bg-white hover:border-slate-300"
+          }`}
+        >
+          <div className="flex items-center justify-between text-amber-700">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Confirmed Queue</span>
+            <Inbox className="h-4 w-4 shrink-0 ml-1" />
+          </div>
+          <p className="mt-1.5 text-xl sm:text-2xl font-black text-navy truncate">{confirmedQueueCount}</p>
+          <span className="text-[10px] sm:text-[11px] text-amber-800 font-semibold truncate">Ready for loading</span>
+        </Link>
+
         <Link
           href="/staff/dashboard?tab=pending"
           className={`rounded-2xl border p-3 sm:p-4 transition-all min-w-0 flex flex-col justify-between ${
@@ -354,21 +412,52 @@ export default async function StaffDashboardPage({
         </Link>
       </div>
 
+      {/* Confirmed Orders Alert Banner if not on queue tab */}
+      {confirmedQueueCount > 0 && tab !== "queue" && (
+        <div className="rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white font-black text-base shadow-sm">
+              {confirmedQueueCount}
+            </span>
+            <div>
+              <p className="text-sm font-black text-amber-950">
+                {confirmedQueueCount} Confirmed {confirmedQueueCount === 1 ? "Order is" : "Orders are"} Ready for Staging & Loading
+              </p>
+              <p className="text-xs text-amber-800">
+                Super Admin has confirmed orders waiting in the factory yard queue.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/staff/dashboard?tab=queue"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 px-4 py-2 text-xs font-black text-white shadow-xs transition-colors self-start sm:self-auto shrink-0"
+          >
+            <span>Open Confirmed Queue</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
         {[
-          { key: "active", label: `Active Tasks (${pendingLoading + currentlyLoading})` },
-          { key: "pending", label: `Pending (${pendingLoading})` },
+          { key: "queue", label: `⚡ Confirmed Orders / Ready for Loading (${confirmedQueueCount})`, isQueue: true },
+          { key: "active", label: `My Active Tasks (${pendingLoading + currentlyLoading})` },
+          { key: "pending", label: `Pending Loading (${pendingLoading})` },
           { key: "loading", label: `In Progress (${currentlyLoading})` },
           { key: "completed", label: `Completed (${completedLoading})` },
-          { key: "all", label: `All Orders (${totalAssigned})` },
+          { key: "all", label: `All My Tasks (${totalAssigned})` },
         ].map((t) => (
           <Link
             key={t.key}
             href={`/staff/dashboard?tab=${t.key}`}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
               tab === t.key
-                ? "bg-navy text-white shadow-xs"
+                ? t.isQueue
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "bg-navy text-white shadow-xs"
+                : t.isQueue && confirmedQueueCount > 0
+                ? "bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 font-black"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -377,19 +466,47 @@ export default async function StaffDashboardPage({
         ))}
       </div>
 
-      {/* Assigned Orders List */}
+      {/* Section Header */}
+      {tab === "queue" ? (
+        <div className="rounded-2xl bg-amber-50/80 border border-amber-200/80 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm sm:text-base font-black text-navy flex items-center gap-2">
+              <Inbox className="h-4 w-4 text-amber-600" />
+              Confirmed Orders / Ready for Loading Assignment
+            </h2>
+            <p className="text-xs text-slate-600">
+              Orders confirmed by Super Admin. Open any order to stage vehicle details, assign staff, and start loading.
+            </p>
+          </div>
+          <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full self-start sm:self-auto shrink-0">
+            {confirmedQueueCount} Waiting in Yard
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm sm:text-base font-black text-navy">
+            {tab === "active" ? "My Assigned Orders" : "Order Tasks"}
+          </h2>
+          <span className="text-xs text-slate-400">{orders.length} orders shown</span>
+        </div>
+      )}
+
+      {/* Orders List */}
       <div className="space-y-4">
         {orders.map((o) => {
           const isShortage = o.loadedQuantity > 0 && o.loadedQuantity < o.quantity;
+          const isQueueItem = tab === "queue" || o.status === OrderStatus.CONFIRMED;
           return (
             <Link
               key={o.id}
               href={`/staff/orders/${o.id}`}
-              className="group block rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-[#1E72A8] hover:shadow-md"
+              className={`group block rounded-3xl border bg-white p-5 shadow-sm transition-all hover:shadow-md ${
+                isQueueItem ? "border-amber-200 hover:border-amber-400" : "border-slate-200 hover:border-[#1E72A8]"
+              }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-lg font-black text-navy group-hover:text-[#1E72A8] transition-colors">
                       {o.orderNo}
                     </span>
@@ -400,6 +517,16 @@ export default async function StaffDashboardPage({
                     >
                       {ORDER_STATUS_LABEL[o.status]}
                     </span>
+                    {o.assignedStaff ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                        <UserCheck className="h-3 w-3" />
+                        <span>{o.assignedStaff.id === session.id ? "Assigned to You" : o.assignedStaff.name}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                        ⚡ Unassigned Yard Queue
+                      </span>
+                    )}
                     {isShortage ? (
                       <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-800">
                         Partial Shortage
@@ -412,10 +539,12 @@ export default async function StaffDashboardPage({
                 </div>
 
                 <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <span className="text-xs font-bold text-[#1E72A8] group-hover:underline">
-                    View & Action Task →
+                  <span className={`text-xs font-black ${isQueueItem ? "text-amber-700" : "text-[#1E72A8]"} group-hover:underline`}>
+                    {isQueueItem ? "Stage Truck / Start Loading →" : "View & Action Task →"}
                   </span>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-navy group-hover:bg-[#1E72A8] group-hover:text-white transition-colors">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-2xl text-white transition-colors ${
+                    isQueueItem ? "bg-amber-600 group-hover:bg-amber-700" : "bg-slate-100 text-navy group-hover:bg-[#1E72A8] group-hover:text-white"
+                  }`}>
                     <ChevronRight className="h-4 w-4" />
                   </div>
                 </div>
@@ -520,9 +649,13 @@ export default async function StaffDashboardPage({
         {orders.length === 0 ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-slate-400">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500 mb-3" />
-            <p className="text-base font-bold text-navy">No loading tasks in this view</p>
+            <p className="text-base font-bold text-navy">
+              {tab === "queue" ? "Yard Queue is Clear" : "No loading tasks in this view"}
+            </p>
             <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-              {tab === "active"
+              {tab === "queue"
+                ? "No unassigned confirmed orders waiting in the factory yard queue. New confirmed orders will appear here automatically."
+                : tab === "active"
                 ? "All assigned loading tasks are up to date. New assigned trucks will appear here instantly."
                 : "No orders match the selected filter."}
             </p>

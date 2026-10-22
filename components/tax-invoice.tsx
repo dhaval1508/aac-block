@@ -28,6 +28,7 @@ type InvoiceOrder = {
   paidAmount: number | { toString(): string };
   deliveryAddress: string;
   dcNumber?: string | null;
+  adhesiveBags?: number | null;
   weighbridgeSlip?: {
     rstNumber: string;
     netWeightKg: number | { toString(): string };
@@ -226,6 +227,25 @@ export function TaxInvoiceView({
                     </p>
                   </td>
                 </tr>
+                {order.adhesiveBags && order.adhesiveBags > 0 ? (
+                  <tr>
+                    <td className="py-3 px-3">
+                      <p className="font-bold text-navy text-sm">Block Jointing Morter</p>
+                      <p className="text-[11px] text-slate-400">Factory Spec: 40 KG Thin-Bed Adhesive</p>
+                    </td>
+                    <td className="py-3 px-3 font-mono text-slate-700 font-semibold">40 KG Bag</td>
+                    <td className="py-3 px-3 text-right font-mono text-slate-700 font-semibold">—</td>
+                    <td className="py-3 px-3 text-right text-slate-600 font-mono">38245090</td>
+                    <td className="py-3 px-3 text-right">
+                      <p className="font-black text-navy text-sm font-mono">
+                        {order.adhesiveBags} Bags
+                      </p>
+                      <p className="text-[11px] text-slate-400 italic">
+                        {order.adhesiveBags * 40} KG
+                      </p>
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -252,6 +272,12 @@ export function TaxInvoiceView({
                 <span>Block Specification</span>
                 <strong className="text-[#13789B] font-mono text-sm">{order.product?.sizeLabel || "Standard"}</strong>
               </div>
+              {order.adhesiveBags && order.adhesiveBags > 0 ? (
+                <div className="flex justify-between text-slate-600">
+                  <span>Jointing Morter (40 KG)</span>
+                  <strong className="text-sky-800 font-mono text-sm">{order.adhesiveBags} Bags</strong>
+                </div>
+              ) : null}
               {order.loadedQuantity && order.loadedQuantity > 0 ? (
                 <div className="flex justify-between items-start text-emerald-700 border-t border-slate-200 pt-1">
                   <span>Verified Yard Loaded</span>
@@ -268,9 +294,16 @@ export function TaxInvoiceView({
               {order.weighbridgeSlip?.netWeightKg ? (
                 <div className="flex justify-between items-center text-teal-800 border-t border-slate-200 pt-1.5 font-semibold">
                   <span>Certified Net Weight</span>
-                  <strong className="font-mono text-sm text-emerald-700">
-                    {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG
-                  </strong>
+                  <div className="text-right">
+                    <strong className="font-mono text-sm text-emerald-700 block">
+                      {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG
+                    </strong>
+                    {order.weighbridgeSlip.rstNumber ? (
+                      <span className="text-[10px] text-slate-400 font-mono block">
+                        RST #{order.weighbridgeSlip.rstNumber}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
             </div>

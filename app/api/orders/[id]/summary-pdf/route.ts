@@ -41,7 +41,7 @@ export async function GET(
   }
 
   // Security Guard: Salesman can only view their assigned customers' orders
-  if (session.role === "SALESMAN" && order.salesmanId !== session.id) {
+  if (session.role === "SALESMAN" && order.salesmanId !== session.id && order.customer?.salesmanId !== session.id) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 

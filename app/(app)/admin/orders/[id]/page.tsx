@@ -44,6 +44,8 @@ import {
 } from "@/lib/actions/orders";
 import { DownloadOrderSummaryBtn } from "@/components/download-order-summary-btn";
 import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
+import { TruckStagingForm } from "@/components/truck-staging-form";
+import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
 import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -695,100 +697,15 @@ export default async function AdminOrderDetailPage({
             </div>
           )}
 
-          {/* 2. TRUCK / DRIVER / STAFF ASSIGNMENT (If Confirmed or Assigned) */}
-          {(order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.ASSIGNED) && (
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 border-l-4 border-l-[#13789B] min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#13789B]">
-                  <Truck className="h-4 w-4" />
-                </span>
-                <h3 className="text-sm sm:text-base font-black text-navy truncate">Loading Staff & Truck Staging</h3>
-              </div>
-
-              <form action={assignTransportAction} className="space-y-3">
-                <input type="hidden" name="orderId" value={order.id} />
-                <div>
-                  <label className="label">Assign Loading Staff *</label>
-                  <select
-                    name="staffId"
-                    required
-                    defaultValue={order.assignedStaffId ?? ""}
-                    className="field text-xs font-bold"
-                  >
-                    <option value="">Select staff member</option>
-                    {staffList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.mobile})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="label">Truck Registration Number *</label>
-                  <input
-                    name="truckNumber"
-                    required
-                    defaultValue={order.transport?.truckNumber ?? ""}
-                    placeholder="e.g. GJ-01-AX-9942"
-                    className="field text-xs font-mono font-bold uppercase"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label className="label">Driver Name *</label>
-                    <input
-                      name="driverName"
-                      required
-                      defaultValue={order.transport?.driverName ?? ""}
-                      placeholder="e.g. Sanjay Parmar"
-                      className="field text-xs font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Driver Mobile *</label>
-                    <input
-                      name="driverMobile"
-                      required
-                      defaultValue={order.transport?.driverMobile ?? ""}
-                      placeholder="10-digit mobile"
-                      className="field text-xs font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="label">Transporter / Logistics Agency</label>
-                  <input
-                    name="transporterName"
-                    defaultValue={order.transport?.transporterName ?? ""}
-                    placeholder="e.g. Gujarat Express Freight"
-                    className="field text-xs"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] py-3 text-xs font-bold text-white shadow-xs hover:bg-[#0F627F] transition-all cursor-pointer"
-                >
-                  <UserCheck className="h-4 w-4" />
-                  <span>Stage Vehicle & Assign Staff</span>
-                </button>
-              </form>
-
-              {order.status === OrderStatus.ASSIGNED && (
-                <a
-                  href={getWaLink("assigned")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-all w-full"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Send Truck & Driver Info on WhatsApp</span>
-                </a>
-              )}
-            </div>
+          {/* 2. SHARED TRUCK STAGING & LOADING DETAILS */}
+          {order.status !== OrderStatus.PENDING && (
+            <TruckStagingForm
+              order={order as any}
+              staffList={staffList}
+              userRole="ADMIN"
+              currentUserId={session.id}
+              currentUserName={session.name}
+            />
           )}
 
           {/* 3. LOGISTICS DISPATCH & DELIVERY CONTROLS */}
@@ -911,62 +828,7 @@ export default async function AdminOrderDetailPage({
           )}
 
           {/* 4. DISPATCH DOCUMENTATION & DELIVERY CHALLAN */}
-          {order.invoiceNo && (
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 border-l-4 border-l-emerald-600 min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                  <FileText className="h-4 w-4" />
-                </span>
-                <h3 className="text-sm sm:text-base font-black text-navy truncate">Delivery Challan Documentation</h3>
-              </div>
-
-              <p className="text-xs text-slate-500">
-                Official Material Delivery Challan & Dispatch Slip generated under Challan #{order.invoiceNo}.
-              </p>
-
-              <div className="rounded-2xl bg-slate-50 p-3 sm:p-3.5 space-y-2 text-xs border border-slate-100 min-w-0">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-slate-400">Challan / Slip</span>
-                  <strong className="font-mono font-bold text-navy truncate">{order.invoiceNo}</strong>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-slate-400">Order Volume</span>
-                  <div className="text-right">
-                    <strong className="font-bold text-navy block">
-                      {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : `${formatNumber(order.quantity)} units`}
-                    </strong>
-                    <span className="text-[11px] text-slate-400 italic">
-                      ≈ {formatNumber(order.quantity)} Blocks
-                    </span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-slate-400">HSN Classification</span>
-                  <strong className="font-mono text-slate-600">6810 (AAC Blocks)</strong>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <Link
-                  href={`/invoice/${order.id}`}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] py-3 text-xs font-bold text-white shadow-xs hover:bg-[#0F627F] transition-all"
-                >
-                  <FileText className="h-4 w-4" />
-                  <span>View / Print Official Delivery Challan</span>
-                </Link>
-
-                <a
-                  href={getWaLink("invoice")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-all"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Send Challan Slip on WhatsApp</span>
-                </a>
-              </div>
-            </div>
-          )}
+          <DeliveryChallanPanel order={order as any} userRole="ADMIN" />
         </div>
       </div>
     </div>

@@ -25,14 +25,14 @@ export default async function InvoicePage({
     },
   });
 
-  if (!order || !order.invoiceNo) notFound();
+  if (!order || (!order.invoiceNo && !order.dcNumber)) notFound();
 
-  // Guard: Customer can only view their own invoice; Stocker and Staff are blocked from financial invoices
+  // Guard: Customer can only view their own delivery challan; Salesman can only view their assigned customer's challan
   if (session.role === "CUSTOMER" && order.customerId !== session.id) {
     notFound();
   }
-  if (["STAFF", "STOCKER"].includes(session.role)) {
-    redirect("/login");
+  if (session.role === "SALESMAN" && order.salesmanId !== session.id && order.customer?.salesmanId !== session.id) {
+    notFound();
   }
 
   const serializedOrder = {

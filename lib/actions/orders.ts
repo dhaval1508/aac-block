@@ -19,7 +19,7 @@ async function nextOrderNo() {
   return `SWA-${year}-${String(nextNum).padStart(4, "0")}`;
 }
 
-async function nextInvoiceNo() {
+export async function nextInvoiceNo() {
   const year = new Date().getFullYear();
   const prefix = `INV-${year}-`;
   const count = await prisma.order.count({
@@ -618,12 +618,27 @@ export async function confirmOrderAction(formData: FormData) {
     });
   }
 
+  // Notify Loading & Stock Staff: Confirmed order is ready for loading in yard queue
+  await dispatchNotification({
+    role: "STAFF",
+    title: "New Confirmed Order Ready for Loading",
+    message: `Order ${order.orderNo} for ${order.customer?.companyName || order.customer?.name || "Customer"} is confirmed (${Number(finalCbm || order.totalCbm || 0).toFixed(3)} CBM). Ready for vehicle staging & loading.`,
+    link: `/staff/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
+  });
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   revalidatePath("/customer/orders");
   revalidatePath("/salesman/dashboard");
   revalidatePath("/salesman/orders");
   revalidatePath(`/salesman/orders/${orderId}`);
+  revalidatePath("/staff/dashboard");
+  revalidatePath("/staff/orders");
+  revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath("/stocker/orders");
+  revalidatePath(`/stocker/orders/${orderId}`);
   redirect(`/admin/orders/${orderId}`);
 }
 
@@ -1822,4 +1837,352 @@ export async function saveLoadingAndVehicleAction(formData: FormData) {
   revalidatePath(`/admin/orders/${orderId}`);
   redirect(`/staff/orders/${orderId}?success=Loading%20and%20vehicle%20details%20saved`);
 }
+
+// ============================================================================
+// 12. Shared Truck Staging & Loading Details (Used by Super Admin & Staff)
+// ============================================================================
+export async function saveTruckAndLoadingStagingAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const rawStaffId = String(formData.get("staffId") ?? "").trim();
+  const truckNumber = String(formData.get("truckNumber") ?? "").trim().toUpperCase();
+  const driverName = String(formData.get("driverName") ?? "").trim();
+  const driverMobile = String(formData.get("driverMobile") ?? "").trim();
+  const transporterName = String(formData.get("transporterName") ?? "").trim() || null;
+  const expectedDeliveryRaw = String(formData.get("expectedDelivery") ?? "").trim();
+  const loadingStartTime = String(formData.get("loadingStartTime") ?? "").trim() || null;
+  const loadingEndTime = String(formData.get("loadingEndTime") ?? "").trim() || null;
+  const loadedCbmRaw = formData.get("loadedCbm");
+  const loadedCbm = loadedCbmRaw && !isNaN(Number(loadedCbmRaw)) && Number(loadedCbmRaw) > 0 ? Number(loadedCbmRaw) : null;
+  const netWeightRaw = formData.get("netWeightKg") || formData.get("netWeight");
+  const netWeightKg = netWeightRaw && !isNaN(Number(netWeightRaw)) && Number(netWeightRaw) > 0 ? Number(netWeightRaw) : null;
+  const rstNumber = String(formData.get("rstNumber") ?? "").trim() || null;
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+
+  const returnPath = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
+
+  if (!orderId) {
+    redirect("/login");
+  }
+
+  if (!truckNumber || !driverName || !driverMobile) {
+    redirect(`${returnPath}?error=Truck%20Registration,%20Driver%20Name,%20and%20Mobile%20are%20required`);
+  }
+
+  // Validate mobile (10 digits)
+  const cleanMobile = driverMobile.replace(/[^0-9]/g, "");
+  if (cleanMobile.length < 10) {
+    redirect(`${returnPath}?error=Please%20enter%20a%20valid%2010-digit%20driver%20mobile%20number`);
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      transport: true,
+      weighbridgeSlip: true,
+      loadingRecord: true,
+      customer: true,
+    },
+  });
+
+  if (!order) {
+    redirect(`${returnPath}?error=Order%20not%20found`);
+  }
+
+  // Determine assigned staff ID
+  let targetStaffId = order.assignedStaffId;
+  if (session.role === "ADMIN") {
+    if (rawStaffId) targetStaffId = rawStaffId;
+  } else {
+    // For STAFF/STOCKER: if self-assigning or order was unassigned, claim it
+    if (!targetStaffId || rawStaffId === session.id) {
+      targetStaffId = session.id;
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Upsert Transport
+    await tx.transport.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        truckNumber,
+        driverName,
+        driverMobile: cleanMobile,
+        transporterName,
+        expectedDelivery: expectedDeliveryRaw ? new Date(expectedDeliveryRaw) : null,
+        assignedAt: new Date(),
+      },
+      update: {
+        truckNumber,
+        driverName,
+        driverMobile: cleanMobile,
+        transporterName,
+        ...(expectedDeliveryRaw ? { expectedDelivery: new Date(expectedDeliveryRaw) } : {}),
+      },
+    });
+
+    // 2. Upsert LoadingRecord
+    await tx.loadingRecord.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        vehicleNumber: truckNumber,
+        driverName,
+        driverMobile: cleanMobile,
+        transporterName,
+        loadingStartTime,
+        loadingEndTime,
+        loadedCbm: loadedCbm || (order.totalCbm ? Number(order.totalCbm) : null),
+        netWeight: netWeightKg,
+        rstNumber,
+        remarks,
+        createdById: session.id,
+      },
+      update: {
+        vehicleNumber: truckNumber,
+        driverName,
+        driverMobile: cleanMobile,
+        transporterName,
+        ...(loadingStartTime ? { loadingStartTime } : {}),
+        ...(loadingEndTime ? { loadingEndTime } : {}),
+        ...(loadedCbm !== null ? { loadedCbm } : {}),
+        ...(netWeightKg !== null ? { netWeight: netWeightKg } : {}),
+        ...(rstNumber ? { rstNumber } : {}),
+        ...(remarks ? { remarks } : {}),
+      },
+    });
+
+    // 3. Upsert WeighbridgeSlip if Net Weight or RST provided
+    if (netWeightKg !== null || rstNumber) {
+      await tx.weighbridgeSlip.upsert({
+        where: { orderId },
+        create: {
+          orderId,
+          rstNumber: rstNumber || `RST-${Date.now().toString().slice(-4)}`,
+          vehicleNumber: truckNumber,
+          driverName,
+          driverMobile: cleanMobile,
+          weighbridgeName: "Swarnim Plant Weighbridge",
+          netWeightKg: netWeightKg || 0,
+          remarks,
+          createdById: session.id,
+        },
+        update: {
+          vehicleNumber: truckNumber,
+          driverName,
+          driverMobile: cleanMobile,
+          ...(netWeightKg !== null ? { netWeightKg } : {}),
+          ...(rstNumber ? { rstNumber } : {}),
+          ...(remarks ? { remarks } : {}),
+        },
+      });
+    }
+
+    // 4. Update order status if it was CONFIRMED -> advance to ASSIGNED
+    const nextStatus = order.status === OrderStatus.CONFIRMED ? OrderStatus.ASSIGNED : order.status;
+
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        assignedStaffId: targetStaffId,
+        status: nextStatus,
+        loadedCbm: loadedCbm || order.loadedCbm,
+        version: { increment: 1 },
+        events: {
+          create: {
+            status: nextStatus,
+            title: "Truck Staged & Details Updated",
+            note: `Truck: ${truckNumber} • Driver: ${driverName} (${cleanMobile})${
+              netWeightKg ? ` • Net Wt: ${netWeightKg.toLocaleString()} KG` : ""
+            }${targetStaffId ? ` • Staff Assigned` : ""}`,
+            createdById: session.id,
+          },
+        },
+      },
+    });
+
+    // 5. Audit history record
+    await tx.orderEditHistory.create({
+      data: {
+        orderId,
+        changedById: session.id,
+        changedByName: session.name,
+        userRole: session.role,
+        previousValues: {
+          truckNumber: order.transport?.truckNumber,
+          driverName: order.transport?.driverName,
+          driverMobile: order.transport?.driverMobile,
+          assignedStaffId: order.assignedStaffId,
+          netWeight: order.loadingRecord?.netWeight || (order.weighbridgeSlip?.netWeightKg ? Number(order.weighbridgeSlip.netWeightKg) : null),
+        },
+        newValues: {
+          truckNumber,
+          driverName,
+          driverMobile: cleanMobile,
+          assignedStaffId: targetStaffId,
+          netWeight: netWeightKg,
+        },
+        changedFields: ["transport", "driver", "vehicleStaging"],
+        orderVersion: (order.version || 1) + 1,
+      },
+    });
+  }, { timeout: 20000, maxWait: 10000 });
+
+  // Notifications
+  if (session.role === "ADMIN" && targetStaffId && targetStaffId !== session.id) {
+    await dispatchNotification({
+      userId: targetStaffId,
+      title: "Loading Task Assigned",
+      message: `Order ${order.orderNo} staged with Truck ${truckNumber}. Driver: ${driverName}. Volume: ${Number(order.totalCbm || 0).toFixed(3)} CBM`,
+      link: `/staff/orders/${orderId}`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  } else if (session.role !== "ADMIN") {
+    await dispatchNotification({
+      role: "ADMIN",
+      title: `Truck Details Updated: ${order.orderNo}`,
+      message: `${session.name} updated vehicle details for ${order.orderNo}: Truck ${truckNumber}, Driver ${driverName}${
+        netWeightKg ? `, Net Wt: ${netWeightKg.toLocaleString()} KG` : ""
+      }`,
+      link: `/admin/orders/${orderId}`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath("/staff/dashboard");
+  revalidatePath("/stocker/orders");
+  revalidatePath(`/stocker/orders/${orderId}`);
+  revalidatePath(`/invoice/${orderId}`);
+
+  redirect(`${returnPath}?success=Truck%20and%20loading%20details%20saved%20successfully`);
+}
+
+// ============================================================================
+// 13. Staff Self-Claiming Confirmed Order from Yard Queue
+// ============================================================================
+export async function claimOrderAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !["STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  if (!orderId) redirect("/staff/dashboard");
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, orderNo: true, status: true, assignedStaffId: true, totalCbm: true },
+  });
+
+  if (!order) redirect("/staff/dashboard?error=Order%20not%20found");
+
+  // Concurrency-safe atomic claim: update only if unassigned or already claimed by current user
+  const updateResult = await prisma.order.updateMany({
+    where: {
+      id: orderId,
+      OR: [
+        { assignedStaffId: null },
+        { assignedStaffId: session.id },
+      ],
+    },
+    data: {
+      assignedStaffId: session.id,
+      status: order.status === OrderStatus.CONFIRMED ? OrderStatus.ASSIGNED : order.status,
+    },
+  });
+
+  if (updateResult.count === 0) {
+    redirect(`/staff/dashboard?error=Order%20was%20already%20claimed%20by%20another%20staff%20member`);
+  }
+
+  // Create audit event
+  await prisma.orderEvent.create({
+    data: {
+      orderId,
+      status: order.status === OrderStatus.CONFIRMED ? OrderStatus.ASSIGNED : order.status,
+      title: "Order Claimed by Staff",
+      note: `Staff member ${session.name} accepted loading responsibility for ${order.orderNo}`,
+      createdById: session.id,
+    },
+  });
+
+  await dispatchNotification({
+    role: "ADMIN",
+    title: `Order Claimed: ${order.orderNo}`,
+    message: `Staff member ${session.name} has claimed Order ${order.orderNo} for yard staging and loading.`,
+    link: `/admin/orders/${orderId}`,
+    orderId,
+    type: "STATUS_CHANGE",
+  });
+
+  revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath("/staff/dashboard");
+  revalidatePath(`/admin/orders/${orderId}`);
+  redirect(`/staff/orders/${orderId}?success=Order%20claimed%20successfully`);
+}
+
+// ============================================================================
+// 14. Atomic Delivery Challan Document Generation
+// ============================================================================
+export async function generateDeliveryChallanAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  if (!orderId) redirect("/login");
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, orderNo: true, dcNumber: true, invoiceNo: true, status: true },
+  });
+
+  if (!order) redirect("/login");
+
+  const returnPath = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
+
+  let dcNumber = order.dcNumber;
+  let invoiceNo = order.invoiceNo;
+
+  if (!dcNumber) {
+    dcNumber = await getNextDeliveryChallanNumber();
+  }
+  if (!invoiceNo) {
+    invoiceNo = await nextInvoiceNo();
+  }
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      dcNumber,
+      invoiceNo,
+      events: {
+        create: {
+          status: order.status,
+          title: "Delivery Challan Generated",
+          note: `Official Delivery Challan ${dcNumber} (${invoiceNo}) generated by ${session.name}`,
+          createdById: session.id,
+        },
+      },
+    },
+  });
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath(`/invoice/${orderId}`);
+
+  redirect(`${returnPath}?success=Delivery%20Challan%20${dcNumber}%20generated%20successfully`);
+}
+
 
