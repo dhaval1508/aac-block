@@ -265,6 +265,14 @@ export default async function SalesmanOrderDetailPage({
                 {order.dcNumber || order.invoiceNo || "-"}
               </p>
             </div>
+            {order.weighbridgeSlip?.netWeightKg && (
+              <div>
+                <span className="text-slate-400 font-semibold block">Certified Net Weight:</span>
+                <p className="font-mono font-black text-emerald-700 mt-0.5">
+                  {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG (RST #{order.weighbridgeSlip.rstNumber})
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

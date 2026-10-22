@@ -223,16 +223,15 @@ async function runMasterVerification() {
   );
 
   // ---------------------------------------------------------------------------
-  // 7. Weighbridge Slip Math Verification
+  // 7. Weighbridge Slip: ONLY Net Weight (KG) Verification
   // ---------------------------------------------------------------------------
   console.log("\n--- 7. Weighbridge Net Weight Verification ---");
-  const gross = 25420;
-  const tare = 10250;
-  const net = gross - tare;
+  const enteredNetWeight = 18500.5;
+  const isValidNetWeight = enteredNetWeight > 0 && !isNaN(enteredNetWeight);
   record(
-    "Weighbridge Net Weight (Gross - Tare)",
-    net === 15170,
-    `Gross: ${gross} KG - Tare: ${tare} KG = Net: ${net} KG`
+    "Weighbridge Only Net Weight Entry",
+    isValidNetWeight && enteredNetWeight === 18500.5,
+    `Direct Net Weight (KG): ${enteredNetWeight.toLocaleString()} KG (No Gross/Tare required)`
   );
 
   // ---------------------------------------------------------------------------

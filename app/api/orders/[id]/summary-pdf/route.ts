@@ -368,8 +368,7 @@ export async function GET(
         <span style="color:#15803d;">RST Slip No: <strong>${order.weighbridgeSlip.rstNumber}</strong> • Vehicle: <strong>${order.weighbridgeSlip.vehicleNumber}</strong> • Weighbridge: <strong>${order.weighbridgeSlip.weighbridgeName}</strong></span>
       </div>
       <div style="text-align:right;">
-        <span style="font-size:15px;font-weight:900;color:#14532d;font-family:monospace;">Net Weight: ${Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG</span><br>
-        <span style="font-size:11px;color:#166534;">Gross: ${Number(order.weighbridgeSlip.grossWeightKg).toLocaleString()} KG • Tare: ${Number(order.weighbridgeSlip.tareWeightKg).toLocaleString()} KG</span>
+        <span style="font-size:15px;font-weight:900;color:#14532d;font-family:monospace;">Net Weight: ${Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG</span>
       </div>
     </div>
     ` : ""}

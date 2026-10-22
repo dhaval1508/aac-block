@@ -126,30 +126,69 @@ Swarnim AAC Block Private Limited`;
 export function buildDriverDeliveryWhatsAppMessage(params: {
   driverName: string;
   orderNo: string;
+  dcNumber?: string | null;
   vehicleNumber: string;
+  orderedCbm?: string | number | null;
+  loadedCbm?: string | number | null;
   totalMaterialCbm?: string | number;
   totalCbm?: string | number;
+  approxBlocks?: string | number | null;
+  mortarBags?: string | number | null;
+  netWeightKg?: string | number | null;
   deliveryAddress: string;
   googleMapsLocation?: string | null;
   googleMapsUrl?: string | null;
 }): string {
-  const cbm = params.totalMaterialCbm ?? params.totalCbm ?? "";
+  const cbmValue = params.loadedCbm ?? params.orderedCbm ?? params.totalMaterialCbm ?? params.totalCbm ?? "";
+  const cbmLabel = params.loadedCbm ? "Loaded CBM" : "Ordered / Total CBM";
   const mapsUrl = params.googleMapsLocation || params.googleMapsUrl;
-  const mapsPart = mapsUrl ? `\n\nGoogle Maps Location:\n${mapsUrl}` : "";
-  return `Hello ${params.driverName},
 
-Your delivery details:
+  const lines: string[] = [
+    `Hello ${params.driverName || "Driver"},`,
+    "",
+    "Swarnim AAC Block Delivery Details:",
+    "",
+    `Order ID: ${params.orderNo}`,
+  ];
 
-Order ID: ${params.orderNo}
+  if (params.dcNumber) {
+    lines.push(`Delivery Challan: ${params.dcNumber}`);
+  }
 
-Vehicle Number: ${params.vehicleNumber}
+  lines.push(`Vehicle Number: ${params.vehicleNumber}`);
 
-Total Material: ${cbm} CBM
+  if (cbmValue) {
+    lines.push(`${cbmLabel}: ${cbmValue} CBM`);
+  }
 
-Delivery Address: ${params.deliveryAddress}${mapsPart}
+  if (params.approxBlocks) {
+    lines.push(`Approximate Blocks: ${Number(params.approxBlocks).toLocaleString()} Blocks`);
+  }
 
-Please deliver the material to this location.
+  if (params.mortarBags !== undefined && params.mortarBags !== null) {
+    lines.push(`Block Jointing Morter: ${params.mortarBags} Bags (40 KG)`);
+  }
 
-Thank you,
-Swarnim AAC Block Private Limited`;
+  if (params.netWeightKg) {
+    lines.push(`Net Weight: ${Number(params.netWeightKg).toLocaleString()} KG`);
+  }
+
+  lines.push("");
+  lines.push("Delivery Address:");
+  lines.push(params.deliveryAddress);
+
+  if (mapsUrl) {
+    lines.push("");
+    lines.push("Google Maps Location Link:");
+    lines.push(mapsUrl);
+  }
+
+  lines.push("");
+  lines.push("Please deliver the material to this location.");
+  lines.push("");
+  lines.push("Thank you,");
+  lines.push("Swarnim AAC Block Private Limited");
+
+  return lines.join("\n");
 }
+

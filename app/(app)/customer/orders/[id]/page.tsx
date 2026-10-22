@@ -434,27 +434,21 @@ export default async function CustomerOrderDetailPage({
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
               <div className="bg-white rounded-xl p-2.5 border border-teal-100">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">RST Number</span>
-                <strong className="text-navy font-mono text-sm">{order.weighbridgeSlip.rstNumber}</strong>
+                <strong className="text-navy font-mono text-sm">#{order.weighbridgeSlip.rstNumber}</strong>
               </div>
               <div className="bg-white rounded-xl p-2.5 border border-teal-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Loaded Weight</span>
-                <strong className="text-emerald-700 font-mono text-sm">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Certified Net Weight</span>
+                <strong className="text-emerald-700 font-mono text-base font-black">
                   {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG
                 </strong>
               </div>
-              <div className="bg-white rounded-xl p-2.5 border border-teal-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Gross Weight</span>
-                <strong className="text-slate-700 font-mono">
-                  {Number(order.weighbridgeSlip.grossWeightKg).toLocaleString()} KG
-                </strong>
-              </div>
-              <div className="bg-white rounded-xl p-2.5 border border-teal-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Tare Weight</span>
-                <strong className="text-slate-700 font-mono">
-                  {Number(order.weighbridgeSlip.tareWeightKg).toLocaleString()} KG
+              <div className="bg-white rounded-xl p-2.5 border border-teal-100 col-span-2 sm:col-span-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Dispatch Truck</span>
+                <strong className="text-slate-800 font-mono text-sm">
+                  {order.weighbridgeSlip.vehicleNumber}
                 </strong>
               </div>
             </div>

@@ -383,8 +383,8 @@ model WeighbridgeSlip {
   vehicleNumber   String
   driverName      String
   driverMobile    String
-  grossWeightKg   Decimal   @db.Decimal(10, 2)
-  tareWeightKg    Decimal   @db.Decimal(10, 2)
+  grossWeightKg   Decimal?  @db.Decimal(10, 2)
+  tareWeightKg    Decimal?  @db.Decimal(10, 2)
   netWeightKg     Decimal   @db.Decimal(10, 2)
   remarks         String?
   slipUrl         String?

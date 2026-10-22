@@ -814,6 +814,21 @@ export default async function AdminOrderDetailPage({
                     </span>
                   </div>
                 </div>
+                {order.weighbridgeSlip?.netWeightKg ? (
+                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-200/60">
+                    <span className="text-slate-500 font-semibold">Certified Net Weight</span>
+                    <strong className="font-mono text-emerald-700 font-black">
+                      {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG (RST #{order.weighbridgeSlip.rstNumber})
+                    </strong>
+                  </div>
+                ) : order.loadingRecord?.netWeight ? (
+                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-200/60">
+                    <span className="text-slate-500 font-semibold">Recorded Net Weight</span>
+                    <strong className="font-mono text-emerald-700 font-black">
+                      {Number(order.loadingRecord.netWeight).toLocaleString()} KG
+                    </strong>
+                  </div>
+                ) : null}
               </div>
 
               {order.status === OrderStatus.LOADED && (

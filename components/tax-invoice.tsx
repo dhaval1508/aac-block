@@ -27,6 +27,13 @@ type InvoiceOrder = {
   totalAmount: number | { toString(): string };
   paidAmount: number | { toString(): string };
   deliveryAddress: string;
+  dcNumber?: string | null;
+  weighbridgeSlip?: {
+    rstNumber: string;
+    netWeightKg: number | { toString(): string };
+    weighbridgeName?: string;
+    vehicleNumber?: string;
+  } | null;
   customer: {
     name: string;
     mobile: string;
@@ -88,7 +95,7 @@ export function TaxInvoiceView({
           <div className="min-w-0">
             <h1 className="text-xl font-black text-navy tracking-tight truncate">Material Delivery Challan</h1>
             <p className="text-xs text-slate-500 font-mono truncate">
-              Challan: {order.invoiceNo || "PENDING"} · Order: {order.orderNo}
+              Challan: {order.dcNumber || order.invoiceNo || "PENDING"} · Order: {order.orderNo}
             </p>
           </div>
 
@@ -123,15 +130,15 @@ export function TaxInvoiceView({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo.png"
-                alt="Swarnim AAC Block Pvt. Ltd."
+                alt="SWARNIM AAC BLOCK PRIVATE LIMITED"
                 className="h-10 w-auto object-contain mb-2"
               />
-              <p className="text-xs font-bold text-[#13789B]">Swarnim AAC Block Pvt. Ltd.</p>
+              <p className="text-sm font-black text-[#13789B]">SWARNIM AAC BLOCK PRIVATE LIMITED</p>
               <p className="text-xs text-slate-500">Premium Autoclaved Aerated Concrete Blocks</p>
               <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-                Factory Yard: Near Highway, Odhav Industrial Estate, Ahmedabad, Gujarat 380015
+                Registered Office: Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470
                 <br />
-                <strong>GSTIN: 24AAACS0000A1Z5</strong> · State Code: 24 (Gujarat)
+                <strong>GSTIN: 24ABNCS5280K1ZU</strong> · State Code: 24 (Gujarat)
               </p>
             </div>
 
@@ -139,11 +146,11 @@ export function TaxInvoiceView({
               <span className="inline-block rounded-lg bg-[#111827] px-3 py-1 text-xs font-black uppercase tracking-wider text-white">
                 DELIVERY CHALLAN
               </span>
-              <p className="mt-2 text-lg font-black text-navy font-mono break-all">{order.invoiceNo || "PENDING"}</p>
+              <p className="mt-2 text-lg font-black text-navy font-mono break-all">{order.dcNumber || order.invoiceNo || "PENDING"}</p>
               <div className="text-xs text-slate-500 mt-1 space-y-0.5">
                 <p>Order Ref: <strong className="font-mono text-navy">{order.orderNo}</strong></p>
                 <p>Date: {formatDate(order.confirmedAt || order.createdAt)}</p>
-                <p>Plant: Odhav Live Yard</p>
+                <p>Plant: Swarnim AAC Block Plant</p>
               </div>
             </div>
           </div>
@@ -256,6 +263,14 @@ export function TaxInvoiceView({
                       ≈ {formatNumber(order.loadedQuantity)} Blocks
                     </span>
                   </div>
+                </div>
+              ) : null}
+              {order.weighbridgeSlip?.netWeightKg ? (
+                <div className="flex justify-between items-center text-teal-800 border-t border-slate-200 pt-1.5 font-semibold">
+                  <span>Certified Net Weight</span>
+                  <strong className="font-mono text-sm text-emerald-700">
+                    {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG
+                  </strong>
                 </div>
               ) : null}
             </div>

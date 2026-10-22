@@ -1382,7 +1382,7 @@ export async function editCustomerOrderAction(formData: FormData) {
 }
 
 // ============================================================================
-// 10. Weighbridge Slip / Vajan Slip Management
+// 10. Weighbridge Slip / Vajan Slip Management (Only Net Weight)
 // ============================================================================
 export async function saveWeighbridgeSlipAction(formData: FormData) {
   const session = await getSession();
@@ -1399,8 +1399,7 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
   const vehicleNumber = String(formData.get("vehicleNumber") ?? "").trim().toUpperCase();
   const driverName = String(formData.get("driverName") ?? "").trim();
   const driverMobile = String(formData.get("driverMobile") ?? "").trim();
-  const grossWeightKg = Number(formData.get("grossWeightKg") || 0);
-  const tareWeightKg = Number(formData.get("tareWeightKg") || 0);
+  const netWeightKg = Number(formData.get("netWeightKg") || formData.get("netWeight") || 0);
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
   const slipUrl = String(formData.get("slipUrl") ?? "").trim() || null;
   const fileType = String(formData.get("fileType") ?? "").trim() || null;
@@ -1410,19 +1409,37 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
     redirect(`/staff/orders/${orderId}?error=RST%20Number%20and%20Vehicle%20Number%20are%20required`);
   }
 
-  if (grossWeightKg <= 0 || tareWeightKg <= 0) {
-    redirect(`/staff/orders/${orderId}?error=Please%20enter%20valid%20Gross%20and%20Tare%20weights`);
+  if (isNaN(netWeightKg) || netWeightKg <= 0) {
+    redirect(`/staff/orders/${orderId}?error=Please%20enter%20a%20valid%20positive%20Net%20Weight%20in%20KG`);
   }
 
-  if (grossWeightKg < tareWeightKg) {
-    redirect(`/staff/orders/${orderId}?error=Gross%20Weight%20cannot%20be%20less%20than%20Tare%20Weight`);
+  const targetOrder = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      orderNo: true,
+      status: true,
+      version: true,
+      weighbridgeSlip: true,
+    },
+  });
+
+  if (!targetOrder) {
+    redirect(`/staff/dashboard?error=Order%20not%20found`);
   }
 
-  const netWeightKg = Number((grossWeightKg - tareWeightKg).toFixed(2));
+  // Prevent unauthorized weight modifications after dispatch
+  if (["DISPATCHED", "DELIVERED", "CANCELLED"].includes(targetOrder.status)) {
+    redirect(`/staff/orders/${orderId}?error=Weight%20modifications%20are%20locked%20after%20dispatch`);
+  }
+
+  const previousSlip = targetOrder.weighbridgeSlip;
+  const previousNetWeight = previousSlip?.netWeightKg ? Number(previousSlip.netWeightKg) : null;
+  const isCorrection = previousNetWeight !== null && previousNetWeight !== netWeightKg;
   const slipDate = slipDateRaw ? new Date(slipDateRaw) : new Date();
 
   await prisma.$transaction(async (tx) => {
-    // Upsert WeighbridgeSlip
+    // Upsert WeighbridgeSlip with Net Weight
     await tx.weighbridgeSlip.upsert({
       where: { orderId },
       create: {
@@ -1435,8 +1452,6 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
         vehicleNumber,
         driverName,
         driverMobile,
-        grossWeightKg,
-        tareWeightKg,
         netWeightKg,
         remarks,
         slipUrl,
@@ -1453,15 +1468,13 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
         vehicleNumber,
         driverName,
         driverMobile,
-        grossWeightKg,
-        tareWeightKg,
         netWeightKg,
         remarks,
         ...(slipUrl ? { slipUrl, fileType, fileName } : {}),
       },
     });
 
-    // Update or create Transport details
+    // Sync or create Transport details
     if (vehicleNumber) {
       await tx.transport.upsert({
         where: { orderId },
@@ -1479,23 +1492,77 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
       });
     }
 
-    // Add order timeline event
-    await tx.orderEvent.create({
-      data: {
+    // Sync Net Weight to LoadingRecord if present
+    await tx.loadingRecord.upsert({
+      where: { orderId },
+      create: {
         orderId,
-        status: OrderStatus.LOADED,
-        title: "Weighbridge Slip Recorded",
-        note: `RST #${rstNumber} • Net Weight: ${netWeightKg.toLocaleString()} KG (Gross: ${grossWeightKg.toLocaleString()} KG, Tare: ${tareWeightKg.toLocaleString()} KG) • Vehicle: ${vehicleNumber}`,
+        driverName: driverName || "Assigned Driver",
+        driverMobile: driverMobile || "9879500000",
+        vehicleNumber,
+        rstNumber,
+        netWeight: netWeightKg,
         createdById: session.id,
       },
+      update: {
+        rstNumber,
+        netWeight: netWeightKg,
+        ...(driverName ? { driverName } : {}),
+        ...(driverMobile ? { driverMobile } : {}),
+        vehicleNumber,
+      },
     });
+
+    // Add audit history event
+    if (isCorrection) {
+      await tx.orderEditHistory.create({
+        data: {
+          orderId,
+          changedById: session.id,
+          changedByName: session.name,
+          userRole: session.role,
+          previousValues: {
+            field: "weighbridgeSlip.netWeightKg",
+            previousNetWeightKg: previousNetWeight,
+            rstNumber: previousSlip?.rstNumber,
+          },
+          newValues: {
+            field: "weighbridgeSlip.netWeightKg",
+            newNetWeightKg: netWeightKg,
+            rstNumber,
+          },
+          changedFields: ["weighbridgeSlip.netWeightKg"],
+          orderVersion: targetOrder.version ?? 1,
+        },
+      });
+
+      await tx.orderEvent.create({
+        data: {
+          orderId,
+          status: targetOrder.status,
+          title: "Weighbridge Net Weight Corrected",
+          note: `Net Weight revised: ${previousNetWeight?.toLocaleString()} KG → ${netWeightKg.toLocaleString()} KG • RST #${rstNumber} by ${session.name}`,
+          createdById: session.id,
+        },
+      });
+    } else {
+      await tx.orderEvent.create({
+        data: {
+          orderId,
+          status: targetOrder.status === OrderStatus.ASSIGNED ? OrderStatus.LOADED : targetOrder.status,
+          title: "Weighbridge Net Weight Recorded",
+          note: `RST #${rstNumber} • Net Weight: ${netWeightKg.toLocaleString()} KG • Vehicle: ${vehicleNumber}`,
+          createdById: session.id,
+        },
+      });
+    }
   });
 
   // Notify Admin
   await dispatchNotification({
     role: "ADMIN",
-    title: "Weighbridge Slip Added",
-    message: `Weighbridge slip RST #${rstNumber} recorded. Net weight: ${netWeightKg} KG for truck ${vehicleNumber}.`,
+    title: isCorrection ? "Weighbridge Net Weight Corrected" : "Weighbridge Net Weight Recorded",
+    message: `Weighbridge slip RST #${rstNumber} updated. Verified Net Weight: ${netWeightKg.toLocaleString()} KG for truck ${vehicleNumber}.`,
     link: `/admin/orders/${orderId}`,
     orderId,
     type: "WEIGHBRIDGE_RECORDED",
@@ -1504,7 +1571,8 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
   revalidatePath(`/admin/orders/${orderId}`);
-  redirect(`/staff/orders/${orderId}?success=Weighbridge%20slip%20saved%20successfully`);
+  revalidatePath(`/customer/orders/${orderId}`);
+  redirect(`/staff/orders/${orderId}?success=Weighbridge%20Net%20Weight%20saved%20successfully`);
 }
 
 // ============================================================================
@@ -1528,15 +1596,14 @@ export async function saveLoadingAndVehicleAction(formData: FormData) {
   const loadedCbm = Number(formData.get("loadedCbm") || 0);
   const loadedMortarBags = Number(formData.get("loadedMortarBags") || 0);
   const rstNumber = String(formData.get("rstNumber") ?? "").trim() || null;
-  const grossWeight = Number(formData.get("grossWeight") || 0);
-  const tareWeight = Number(formData.get("tareWeight") || 0);
+  const netWeightInput = Number(formData.get("netWeight") || formData.get("netWeightKg") || 0);
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
 
   if (!orderId || !vehicleNumber || !driverName) {
     redirect(`/staff/orders/${orderId}?error=Driver%20Name%20and%20Vehicle%20Number%20are%20required`);
   }
 
-  const netWeight = grossWeight > 0 && tareWeight > 0 ? Number((grossWeight - tareWeight).toFixed(2)) : null;
+  const netWeight = netWeightInput > 0 ? netWeightInput : null;
 
   await prisma.$transaction(async (tx) => {
     // Upsert LoadingRecord
@@ -1555,8 +1622,6 @@ export async function saveLoadingAndVehicleAction(formData: FormData) {
         loadedCbm: loadedCbm > 0 ? loadedCbm : null,
         loadedMortarBags,
         rstNumber,
-        grossWeight: grossWeight > 0 ? grossWeight : null,
-        tareWeight: tareWeight > 0 ? tareWeight : null,
         netWeight,
         remarks,
         createdById: session.id,
@@ -1573,9 +1638,7 @@ export async function saveLoadingAndVehicleAction(formData: FormData) {
         loadedCbm: loadedCbm > 0 ? loadedCbm : null,
         loadedMortarBags,
         rstNumber,
-        grossWeight: grossWeight > 0 ? grossWeight : null,
-        tareWeight: tareWeight > 0 ? tareWeight : null,
-        netWeight,
+        ...(netWeight !== null ? { netWeight } : {}),
         remarks,
       },
     });

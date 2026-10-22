@@ -20,6 +20,7 @@ interface Props {
     id: string;
     orderNo: string;
     dcNumber?: string | null;
+    invoiceNo?: string | null;
     status: string;
     deliveryAddress: string;
     googleMapsUrl?: string | null;
@@ -92,11 +93,12 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
   const [driverMobile, setDriverMobile] = useState(
     order.weighbridgeSlip?.driverMobile || order.transport?.driverMobile || order.loadingRecord?.driverMobile || ""
   );
-  const [grossWeight, setGrossWeight] = useState<number | "">(
-    order.weighbridgeSlip?.grossWeightKg ? Number(order.weighbridgeSlip.grossWeightKg) : ""
-  );
-  const [tareWeight, setTareWeight] = useState<number | "">(
-    order.weighbridgeSlip?.tareWeightKg ? Number(order.weighbridgeSlip.tareWeightKg) : ""
+  const [netWeight, setNetWeight] = useState<number | "">(
+    order.weighbridgeSlip?.netWeightKg
+      ? Number(order.weighbridgeSlip.netWeightKg)
+      : order.loadingRecord?.netWeight
+      ? Number(order.loadingRecord.netWeight)
+      : ""
   );
   const [remarks, setRemarks] = useState(order.weighbridgeSlip?.remarks || "");
   const [slipUrl, setSlipUrl] = useState(order.weighbridgeSlip?.slipUrl || "");
@@ -120,11 +122,6 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
 
   const [isSlipPending, startSlipTransition] = useTransition();
   const [isVehiclePending, startVehicleTransition] = useTransition();
-
-  // Calculated Net Weight = Gross - Tare
-  const numGross = typeof grossWeight === "number" ? grossWeight : 0;
-  const numTare = typeof tareWeight === "number" ? tareWeight : 0;
-  const calculatedNetWeight = numGross > 0 && numTare > 0 && numGross >= numTare ? Number((numGross - numTare).toFixed(2)) : 0;
 
   // File Upload Handler
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,12 +164,17 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
       destinationAddress
     );
 
-  // Generate WhatsApp Message Template (Section 6)
+  // Generate WhatsApp Message Template (Section 8 - Driver Dispatch)
   const whatsappMessageText = buildDriverDeliveryWhatsAppMessage({
     driverName: driverName || "Driver",
     orderNo: order.orderNo,
+    dcNumber: order.dcNumber || order.invoiceNo || null,
     vehicleNumber: vehicleNumber || "Assigned Vehicle",
-    totalMaterialCbm: Number(order.totalCbm || 0).toFixed(3),
+    loadedCbm: loadedCbm !== "" ? loadedCbm : null,
+    orderedCbm: order.totalCbm ? Number(order.totalCbm).toFixed(3) : null,
+    approxBlocks: order.quantity,
+    mortarBags: typeof loadedMortarBags === "number" ? loadedMortarBags : order.adhesiveBags ?? 0,
+    netWeightKg: netWeight !== "" ? netWeight : null,
     deliveryAddress: destinationAddress,
     googleMapsLocation: mapsUrl,
   });
@@ -347,61 +349,36 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
             </div>
           </div>
 
-          {/* Weights Row: Gross, Tare, Net Weight Calculation */}
-          <div className="rounded-2xl bg-teal-50/50 border border-teal-200/80 p-4 space-y-3">
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#13789B] block">
-              Certified Weight Measurements (KG)
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Gross Weight (KG) *
-                </label>
-                <input
-                  type="number"
-                  name="grossWeightKg"
-                  required
-                  step="1"
-                  min="1"
-                  value={grossWeight}
-                  onChange={(e) => setGrossWeight(e.target.value === "" ? "" : Number(e.target.value))}
-                  placeholder="e.g. 28500"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-mono text-base font-black text-navy outline-none focus:border-[#13789B]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tare Weight (KG) *
-                </label>
-                <input
-                  type="number"
-                  name="tareWeightKg"
-                  required
-                  step="1"
-                  min="1"
-                  value={tareWeight}
-                  onChange={(e) => setTareWeight(e.target.value === "" ? "" : Number(e.target.value))}
-                  placeholder="e.g. 10200"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-mono text-base font-black text-navy outline-none focus:border-[#13789B]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-teal-900 mb-1">
-                  Net Weight (Calculated: Gross - Tare)
-                </label>
-                <div className="w-full rounded-xl border border-teal-300 bg-white px-3.5 py-2.5 font-mono text-base font-black text-emerald-700">
-                  {calculatedNetWeight > 0 ? `${calculatedNetWeight.toLocaleString()} KG` : "0 KG"}
-                </div>
-              </div>
+          {/* Weight Field: Only Net Weight (KG) */}
+          <div className="rounded-2xl bg-teal-50/60 border border-teal-200/80 p-4 space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <label htmlFor="netWeightKgInput" className="block text-xs font-black uppercase tracking-wider text-[#13789B]">
+                Net Weight (KG) *
+              </label>
+              <span className="text-[11px] text-teal-800 font-medium">
+                Direct entry from official weighbridge slip (e.g. 18500)
+              </span>
             </div>
-
-            {numGross > 0 && numTare > 0 && numGross < numTare && (
-              <p className="text-xs text-rose-600 font-bold">
-                ⚠️ Error: Gross weight cannot be less than tare weight.
-              </p>
-            )}
+            <div className="relative">
+              <input
+                id="netWeightKgInput"
+                type="number"
+                name="netWeightKg"
+                required
+                step="0.01"
+                min="1"
+                value={netWeight}
+                onChange={(e) => setNetWeight(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="e.g. 18500"
+                className="w-full rounded-xl border border-teal-300 bg-white px-4 py-3 font-mono text-lg font-black text-navy outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-mono pointer-events-none">
+                KG
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Enter the verified physical Net Weight from the slip. Gross and Tare calculations are no longer required.
+            </p>
           </div>
 
           {/* Slip Upload & Remarks */}
@@ -447,7 +424,7 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              disabled={isSlipPending || !rstNumber || !vehicleNumber || numGross <= 0 || numTare <= 0 || numGross < numTare}
+              disabled={isSlipPending || !rstNumber || !vehicleNumber || typeof netWeight !== "number" || netWeight <= 0}
               className="inline-flex items-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0f607d] disabled:bg-slate-300 py-3 px-6 text-sm font-black text-white shadow-xs transition-all cursor-pointer disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -462,8 +439,7 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
         <form action={saveLoadingAndVehicleAction} className="space-y-4">
           <input type="hidden" name="orderId" value={order.id} />
           <input type="hidden" name="rstNumber" value={rstNumber} />
-          <input type="hidden" name="grossWeight" value={grossWeight} />
-          <input type="hidden" name="tareWeight" value={tareWeight} />
+          <input type="hidden" name="netWeight" value={netWeight} />
 
           <div className="border-b border-slate-100 pb-3">
             <h3 className="text-base font-black text-navy flex items-center gap-2">

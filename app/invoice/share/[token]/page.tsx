@@ -19,6 +19,7 @@ export default async function PublicInvoiceSharePage({
       customer: true,
       product: true,
       transport: true,
+      weighbridgeSlip: true,
     },
   });
 
@@ -39,6 +40,14 @@ export default async function PublicInvoiceSharePage({
           gstRate: Number(order.product.gstRate),
           cbmPerBlock: Number(order.product.cbmPerBlock),
           blocksPerCbm: Number(order.product.blocksPerCbm),
+        }
+      : null,
+    weighbridgeSlip: order.weighbridgeSlip
+      ? {
+          rstNumber: order.weighbridgeSlip.rstNumber,
+          netWeightKg: Number(order.weighbridgeSlip.netWeightKg),
+          weighbridgeName: order.weighbridgeSlip.weighbridgeName,
+          vehicleNumber: order.weighbridgeSlip.vehicleNumber,
         }
       : null,
   };
