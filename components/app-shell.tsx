@@ -7,9 +7,7 @@ import {
   Boxes,
   LayoutDashboard,
   LogOut,
-  PackagePlus,
   PlusCircle,
-  Receipt,
   ShoppingCart,
   Truck,
   Users,
@@ -19,21 +17,14 @@ import {
   User as UserIcon,
   ChevronLeft,
   ChevronRight,
-  Menu,
   X,
-  ShieldCheck,
   Building2,
-  Bell,
-  Search,
   MoreHorizontal,
-  Clock,
   PlayCircle,
-  CheckCircle2,
   Send,
 } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import { cn, ROLE_LABEL } from "@/lib/utils";
-import { Logo } from "@/components/logo";
 import { NotificationBell } from "@/components/notification-bell";
 import type { SessionUser } from "@/lib/session";
 
