@@ -128,9 +128,9 @@ export function CustomerOrderForm({
   const initialAacId =
     defaultProductId && aacProducts.some((p) => p.id === defaultProductId)
       ? defaultProductId
-      : aacProducts.find((p) => p.sizeLabel.includes("6"))?.id || aacProducts[0]?.id || "";
+      : aacProducts.find((p) => p.sizeLabel?.includes("6"))?.id || aacProducts[0]?.id || "";
   const initialProd = aacProducts.find((p) => p.id === initialAacId) || aacProducts[0];
-  const initialRate = initialProd ? Number(initialProd.cbmPerBlock) : 0.018;
+  const initialRate = initialProd ? Number(initialProd.cbmPerBlock) || 0.018 : 0.018;
   const initialQty = defaultQuantity || 1000;
   const initialCbm = Number((initialQty * initialRate).toFixed(3));
 
@@ -208,12 +208,12 @@ export function CustomerOrderForm({
     }
   );
 
-  // Section: GST Billing Option State
+  // Section: GST Billing Option State - Default to Without-GST commercial bill so orders are never blocked
   const [gstBillingSelected, setGstBillingSelected] = useState<boolean>(
-    initialGstBillingSelected ?? Boolean(initialAssigned?.gstin || customerDefaults.gstin)
+    initialGstBillingSelected === true
   );
   const [gstNumber, setGstNumber] = useState<string>(
-    initialGstNumber || initialAssigned?.gstin || customerDefaults.gstin || ""
+    initialGstNumber || (initialAssigned?.gstin && initialAssigned.gstin.length === 15 ? initialAssigned.gstin : "")
   );
   const [gstRegisteredName, setGstRegisteredName] = useState<string>(
     initialGstRegisteredName ||
@@ -229,11 +229,11 @@ export function CustomerOrderForm({
   const [isVerifyingGst, setIsVerifyingGst] = useState<boolean>(false);
   const [gstError, setGstError] = useState<string>("");
   const [gstVerified, setGstVerified] = useState<boolean>(
-    Boolean(initialGstRegisteredName || initialAssigned?.gstin || customerDefaults.gstin)
+    Boolean(initialGstRegisteredName && initialGstNumber && initialGstNumber.length === 15)
   );
 
   const handleVerifyGst = async (overrideNumber?: string): Promise<boolean> => {
-    const raw = (overrideNumber !== undefined ? overrideNumber : gstNumber).trim().toUpperCase();
+    const raw = (overrideNumber !== undefined ? overrideNumber : gstNumber).trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
     if (!raw) {
       setGstError("GST Number is required when GST Billing is selected.");
       setGstVerified(false);
@@ -288,11 +288,9 @@ export function CustomerOrderForm({
     setDeliveryAddress(cust.deliveryAddress || "");
     setCity(cust.city || "Ahmedabad");
     setPincode(cust.pincode || "");
-    if (cust.gstin) {
-      setGstNumber(cust.gstin);
+    if (cust.gstin && cust.gstin.trim().length === 15) {
+      setGstNumber(cust.gstin.trim().toUpperCase());
       setGstRegisteredName(cust.companyName || cust.name);
-      setGstVerified(true);
-      setGstBillingSelected(true);
       setGstError("");
     }
     setDeliveryLocation((prev) => ({
@@ -1282,7 +1280,14 @@ export function CustomerOrderForm({
               type="button"
               onClick={() => {
                 setGstBillingSelected(true);
-                if (gstNumber.length === 15 && !gstVerified) {
+                const prefill = gstNumber || initialAssigned?.gstin || customerDefaults.gstin || "";
+                if (prefill && !gstNumber) {
+                  const cleaned = prefill.toUpperCase().replace(/[^0-9A-Z]/g, "");
+                  setGstNumber(cleaned);
+                  if (cleaned.length === 15 && !gstVerified) {
+                    handleVerifyGst(cleaned);
+                  }
+                } else if (gstNumber.length === 15 && !gstVerified) {
                   handleVerifyGst(gstNumber);
                 }
               }}

@@ -41,6 +41,7 @@ import {
   assignTransportAction,
   dispatchOrderAction,
   deliverOrderAction,
+  markOrderDoneAction,
 } from "@/lib/actions/orders";
 import { DownloadOrderSummaryBtn } from "@/components/download-order-summary-btn";
 import { OpenLocationButton } from "@/components/open-location-button";
@@ -233,11 +234,14 @@ export default async function AdminOrderDetailPage({
           ORDER LIFECYCLE 4-STAGE PIPELINE PROGRESS STEPPER
       ========================================================================= */}
       <OrderLifecycleTracker
+        orderId={order.id}
+        orderNo={order.orderNo}
         status={order.status}
         confirmedAt={order.confirmedAt}
         dispatchedAt={order.dispatchedAt}
         deliveredAt={order.deliveredAt}
         createdAt={order.createdAt}
+        userRole="ADMIN"
       />
 
       {/* =========================================================================

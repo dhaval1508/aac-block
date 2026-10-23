@@ -19,7 +19,7 @@ export default async function CustomerNewOrderPage({
   }>;
 }) {
   const session = await getSession();
-  if (!session || !["CUSTOMER", "ADMIN"].includes(session.role)) redirect("/login");
+  if (!session || !["CUSTOMER", "ADMIN", "SALESMAN"].includes(session.role)) redirect("/login");
 
   const { error, productId, quantity, adhesiveBags } = await searchParams;
 

@@ -42,6 +42,8 @@ export async function placeCustomerOrderAction(formData: FormData) {
     redirect("/login");
   }
 
+  const errorBase = session.role === "SALESMAN" ? "/salesman/orders/new" : "/customer/new-order";
+
   let deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
   const pincode = String(formData.get("pincode") ?? "").trim();
@@ -78,13 +80,13 @@ export async function placeCustomerOrderAction(formData: FormData) {
   let gstState: string | null = null;
 
   if (gstBillingSelected) {
-    const rawGst = String(formData.get("gstNumber") ?? "").trim();
+    const rawGst = String(formData.get("gstNumber") ?? "").trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
     if (!rawGst) {
-      redirect("/customer/new-order?error=GST%20Number%20is%20required%20when%20GST%20Billing%20is%20selected");
+      redirect(`${errorBase}?error=GST%20Number%20is%20required%20when%20GST%20Billing%20is%20selected`);
     }
     const gstResult = await verifyGstNumber(rawGst);
     if (!gstResult.valid) {
-      redirect(`/customer/new-order?error=${encodeURIComponent(gstResult.error || "Invalid GST Number format")}`);
+      redirect(`${errorBase}?error=${encodeURIComponent(gstResult.error || "Invalid GST Number format")}`);
     }
     gstNumber = gstResult.gstin;
     gstRegisteredName = gstResult.registeredName || gstResult.legalName || null;
@@ -240,7 +242,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
   }
 
   if (!deliveryAddress) {
-    redirect("/customer/new-order?error=Delivery%20site%20address%20is%20required");
+    redirect(`${errorBase}?error=Delivery%20site%20address%20is%20required`);
   }
 
   const orderItemsToProcess: OrderItemInput[] = [];
@@ -300,7 +302,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
   }
 
   if (orderItemsToProcess.length === 0) {
-    redirect("/customer/new-order?error=Please%20select%20at%20least%20one%20product%20with%20valid%20quantity");
+    redirect(`${errorBase}?error=Please%20select%20at%20least%20one%20product%20with%20valid%20quantity`);
   }
 
   // Fetch all selected products
@@ -571,7 +573,12 @@ export async function confirmOrderAction(formData: FormData) {
   if (!session || !isAuthorized) redirect("/login");
 
   const orderId = String(formData.get("orderId") ?? "");
-  const returnUrl = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
+  const returnUrl =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
 
   // Concurrency protection: Atomic check and update within transaction
   const result = await prisma.$transaction(async (tx) => {
@@ -864,17 +871,28 @@ export async function startLoadingAction(formData: FormData) {
   const orderId = String(formData.get("orderId") ?? "");
   const order = await prisma.order.findUnique({ where: { id: orderId } });
 
-  if (!order) {
-    redirect("/staff/dashboard?error=Order%20not%20found");
-  }
+  const redirectBase =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
 
-  // Security Guard: Staff can only load orders assigned to them
-  if (["STAFF", "STOCKER"].includes(session.role) && order.assignedStaffId && order.assignedStaffId !== session.id) {
-    redirect(`/staff/dashboard?error=You%20are%20not%20assigned%20to%20order%20${order.orderNo}`);
+  if (!order) {
+    const dashboardBase = session.role === "ADMIN" ? "/admin/orders" : session.role === "STOCKER" ? "/stocker/orders" : "/staff/dashboard";
+    redirect(`${dashboardBase}?error=Order%20not%20found`);
   }
 
   if (order.status !== OrderStatus.ASSIGNED) {
-    redirect(`/staff/orders/${orderId}?error=Order%20is%20not%20in%20assigned%20state`);
+    redirect(`${redirectBase}?error=Order%20is%20not%20in%20assigned%20state`);
+  }
+
+  // If unassigned, auto-assign this staff member
+  if (!order.assignedStaffId && ["STAFF", "STOCKER"].includes(session.role)) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { assignedStaffId: session.id },
+    });
   }
 
   await prisma.order.update({
@@ -905,8 +923,11 @@ export async function startLoadingAction(formData: FormData) {
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/stocker/orders/${orderId}`);
+  revalidatePath("/stocker/orders");
   revalidatePath(`/customer/orders/${orderId}`);
-  redirect(`/staff/orders/${orderId}`);
+  redirect(redirectBase);
 }
 
 // 6. Staff marks loading done with actual counted blocks / CBM
@@ -923,17 +944,20 @@ export async function completeLoadingAction(formData: FormData) {
     where: { id: orderId },
     include: { product: true },
   });
-  if (!order) {
-    redirect("/staff/dashboard?error=Order%20not%20found");
-  }
+  const redirectBase =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
 
-  // Security Guard: Staff can only load orders assigned to them
-  if (["STAFF", "STOCKER"].includes(session.role) && order.assignedStaffId && order.assignedStaffId !== session.id) {
-    redirect(`/staff/dashboard?error=You%20are%20not%20assigned%20to%20order%20${order.orderNo}`);
+  if (!order) {
+    const dashboardBase = session.role === "ADMIN" ? "/admin/orders" : session.role === "STOCKER" ? "/stocker/orders" : "/staff/dashboard";
+    redirect(`${dashboardBase}?error=Order%20not%20found`);
   }
 
   if (order.status !== OrderStatus.LOADING) {
-    redirect(`/staff/orders/${orderId}?error=Order%20is%20not%20in%20loading%20state`);
+    redirect(`${redirectBase}?error=Order%20is%20not%20in%20loading%20state`);
   }
 
   const cbmPerBlock = Number(order.product?.cbmPerBlock || 0.018);
@@ -994,8 +1018,11 @@ export async function completeLoadingAction(formData: FormData) {
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/stocker/orders/${orderId}`);
+  revalidatePath("/stocker/orders");
   revalidatePath(`/customer/orders/${orderId}`);
-  redirect(`/staff/orders/${orderId}`);
+  redirect(redirectBase);
 }
 
 // 7. Admin dispatches loaded order (Automatic Stock Out with CBM stock check)
@@ -1011,7 +1038,12 @@ export async function dispatchOrderAction(formData: FormData) {
     include: { product: true, items: true, transport: true },
   });
 
-  const returnPath = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
+  const returnPath =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
 
   if (!order) {
     redirect(`${returnPath}?error=Order%20not%20found`);
@@ -1064,14 +1096,14 @@ export async function dispatchOrderAction(formData: FormData) {
       // Precision margin 0.0001
       if (currentCbm < reqCbm - 0.0001) {
         redirect(
-          `/admin/orders/${orderId}?error=Not%20enough%20stock%20for%20product.%20Available:%20${currentCbm.toFixed(3)}%20CBM,%20required:%20${reqCbm.toFixed(3)}%20CBM.`
+          `${returnPath}?error=Not%20enough%20stock%20for%20product.%20Available:%20${currentCbm.toFixed(3)}%20CBM,%20required:%20${reqCbm.toFixed(3)}%20CBM.`
         );
       }
     } else {
       const currentStock = await getProductStock(it.productId);
       if (currentStock < it.qty) {
         redirect(
-          `/admin/orders/${orderId}?error=Not%20enough%20stock%20for%20mortar/accessory.%20Available:%20${currentStock}%20bags,%20required:%20${it.qty}%20bags.`
+          `${returnPath}?error=Not%20enough%20stock%20for%20mortar/accessory.%20Available:%20${currentStock}%20bags,%20required:%20${it.qty}%20bags.`
         );
       }
     }
@@ -1167,7 +1199,12 @@ export async function deliverOrderAction(formData: FormData) {
   }
 
   const orderId = String(formData.get("orderId") ?? "");
-  const returnPath = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
+  const returnPath =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
 
   const order = await prisma.order.update({
     where: { id: orderId },
@@ -1218,10 +1255,196 @@ export async function deliverOrderAction(formData: FormData) {
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath(`/stocker/orders/${orderId}`);
+  revalidatePath("/stocker/orders");
+  revalidatePath("/admin/orders");
   revalidatePath("/salesman/dashboard");
   revalidatePath("/salesman/orders");
   revalidatePath(`/salesman/orders/${orderId}`);
   redirect(returnPath);
+}
+
+// 8B. Loader, Stocker & Admin: One-Click Complete & Mark Order Done (Independent of Super Admin)
+export async function markOrderDoneAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const returnPath =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
+
+  if (!orderId) {
+    redirect(returnPath);
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { product: true, items: true, transport: true },
+  });
+
+  if (!order) {
+    redirect(`${returnPath}?error=Order%20not%20found`);
+  }
+
+  if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.REJECTED) {
+    redirect(`${returnPath}?error=Cannot%20complete%20a%20cancelled%20or%20rejected%20order`);
+  }
+
+  if (order.status === OrderStatus.DELIVERED) {
+    redirect(`${returnPath}?success=Order%20is%20already%20marked%20Done`);
+  }
+
+  const now = new Date();
+  const confirmedAt = order.confirmedAt || now;
+  const dispatchedAt = order.dispatchedAt || now;
+  const dcNumber = order.dcNumber || (await getNextDeliveryChallanNumber());
+
+  // If not yet dispatched, deduct inventory stock
+  if (order.status !== OrderStatus.DISPATCHED) {
+    const itemsToDeduct =
+      order.items && order.items.length > 0
+        ? order.items.map((it) => {
+            const isBlock = it.productType === "AAC_BLOCK";
+            const cbmPerUnit = Number(it.cbmPerUnit || 0);
+            let qty = it.loadedQuantity && it.loadedQuantity > 0 ? it.loadedQuantity : it.quantity;
+            let cbm = it.loadedCbm && Number(it.loadedCbm) > 0 ? Number(it.loadedCbm) : Number(it.totalCbm || 0);
+            if (isBlock && cbm <= 0 && cbmPerUnit > 0) {
+              cbm = Number((qty * cbmPerUnit).toFixed(4));
+            }
+            return {
+              productId: it.productId,
+              productType: it.productType,
+              qty,
+              cbm,
+            };
+          })
+        : order.productId
+        ? [
+            {
+              productId: order.productId,
+              productType: order.product?.category || "AAC_BLOCK",
+              qty: order.loadedQuantity && order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity,
+              cbm: order.loadedCbm && Number(order.loadedCbm) > 0 ? Number(order.loadedCbm) : Number(order.totalCbm || 0),
+            },
+          ]
+        : [];
+
+    await prisma.$transaction(async (tx) => {
+      for (const it of itemsToDeduct) {
+        if (it.productId && (it.qty > 0 || it.cbm > 0)) {
+          await tx.stockMovement.create({
+            data: {
+              productId: it.productId,
+              orderId: order.id,
+              type: StockType.OUT,
+              quantityDelta: -it.qty,
+              cbmDelta: it.cbm > 0 ? -it.cbm : null,
+              referenceNo: order.orderNo,
+              note: `Stock out on order Done & delivery of ${order.orderNo}`,
+              createdById: session.id,
+            },
+          });
+        }
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.DELIVERED,
+          confirmedAt,
+          dispatchedAt,
+          deliveredAt: now,
+          dcNumber,
+          events: {
+            create: [
+              ...(!order.dispatchedAt
+                ? [
+                    {
+                      status: OrderStatus.DISPATCHED,
+                      title: "Order Dispatched",
+                      note: `Truck ${order.transport?.truckNumber || ""} cleared from yard by ${session.name} (${session.role})`,
+                      createdById: session.id,
+                    },
+                  ]
+                : []),
+              {
+                status: OrderStatus.DELIVERED,
+                title: "Order Done & Delivered",
+                note: `Order execution marked Done and site delivery verified by ${session.name} (${session.role})`,
+                createdById: session.id,
+              },
+            ],
+          },
+        },
+      });
+    });
+  } else {
+    // Already dispatched, mark delivered directly
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: OrderStatus.DELIVERED,
+        deliveredAt: now,
+        events: {
+          create: {
+            status: OrderStatus.DELIVERED,
+            title: "Order Done & Delivered",
+            note: `Site delivery confirmed and order marked Done by ${session.name} (${session.role})`,
+            createdById: session.id,
+          },
+        },
+      },
+    });
+  }
+
+  // Real-time notifications
+  await dispatchNotification({
+    userId: order.customerId,
+    title: "Order Completed & Delivered",
+    message: `Your order ${order.orderNo} has been completed and delivered. Delivery Challan: ${dcNumber}.`,
+    link: `/customer/orders/${orderId}`,
+    orderId,
+    type: "DELIVERED",
+  });
+
+  await dispatchNotification({
+    role: "ADMIN",
+    title: `Order Done: ${order.orderNo}`,
+    message: `Order ${order.orderNo} completed & marked Done by ${session.name} (${session.role}).`,
+    link: `/admin/orders/${orderId}`,
+    orderId,
+    type: "DELIVERED",
+  });
+
+  if (order.salesmanId) {
+    await dispatchNotification({
+      userId: order.salesmanId,
+      title: "Customer Order Completed",
+      message: `Order ${order.orderNo} has been completed & delivered at site.`,
+      link: `/salesman/orders/${orderId}`,
+      orderId,
+      type: "DELIVERED",
+    });
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/staff/orders/${orderId}`);
+  revalidatePath("/staff/dashboard");
+  revalidatePath(`/stocker/orders/${orderId}`);
+  revalidatePath("/stocker/orders");
+  revalidatePath(`/customer/orders/${orderId}`);
+  revalidatePath("/customer/orders");
+  revalidatePath("/admin/stock");
+  revalidatePath("/stocker/stock");
+
+  redirect(`${returnPath}?success=Order%20marked%20Done%20and%20Delivered%20successfully`);
 }
 
 // Safe Super Admin Delete / Archive functionality
@@ -1762,12 +1985,19 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
   const fileType = String(formData.get("fileType") ?? "").trim() || null;
   const fileName = String(formData.get("fileName") ?? "").trim() || null;
 
+  const redirectBase =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
+
   if (!orderId || !rstNumber || !vehicleNumber) {
-    redirect(`/staff/orders/${orderId}?error=RST%20Number%20and%20Vehicle%20Number%20are%20required`);
+    redirect(`${redirectBase}?error=RST%20Number%20and%20Vehicle%20Number%20are%20required`);
   }
 
   if (isNaN(netWeightKg) || netWeightKg <= 0) {
-    redirect(`/staff/orders/${orderId}?error=Please%20enter%20a%20valid%20positive%20Net%20Weight%20in%20KG`);
+    redirect(`${redirectBase}?error=Please%20enter%20a%20valid%20positive%20Net%20Weight%20in%20KG`);
   }
 
   const targetOrder = await prisma.order.findUnique({
@@ -1782,12 +2012,13 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
   });
 
   if (!targetOrder) {
-    redirect(`/staff/dashboard?error=Order%20not%20found`);
+    const dashboardBase = session.role === "ADMIN" ? "/admin/orders" : session.role === "STOCKER" ? "/stocker/orders" : "/staff/dashboard";
+    redirect(`${dashboardBase}?error=Order%20not%20found`);
   }
 
   // Prevent unauthorized weight modifications after dispatch
   if (["DISPATCHED", "DELIVERED", "CANCELLED"].includes(targetOrder.status)) {
-    redirect(`/staff/orders/${orderId}?error=Weight%20modifications%20are%20locked%20after%20dispatch`);
+    redirect(`${redirectBase}?error=Weight%20modifications%20are%20locked%20after%20dispatch`);
   }
 
   const previousSlip = targetOrder.weighbridgeSlip;
@@ -1928,8 +2159,11 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/stocker/orders/${orderId}`);
+  revalidatePath("/stocker/orders");
   revalidatePath(`/customer/orders/${orderId}`);
-  redirect(`/staff/orders/${orderId}?success=Weighbridge%20Net%20Weight%20saved%20successfully`);
+  redirect(`${redirectBase}?success=Weighbridge%20Net%20Weight%20saved%20successfully`);
 }
 
 // ============================================================================
@@ -1956,8 +2190,15 @@ export async function saveLoadingAndVehicleAction(formData: FormData) {
   const netWeightInput = Number(formData.get("netWeight") || formData.get("netWeightKg") || 0);
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
 
+  const redirectBase =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
+
   if (!orderId || !vehicleNumber || !driverName) {
-    redirect(`/staff/orders/${orderId}?error=Driver%20Name%20and%20Vehicle%20Number%20are%20required`);
+    redirect(`${redirectBase}?error=Driver%20Name%20and%20Vehicle%20Number%20are%20required`);
   }
 
   const netWeight = netWeightInput > 0 ? netWeightInput : null;
@@ -2032,7 +2273,10 @@ export async function saveLoadingAndVehicleAction(formData: FormData) {
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/staff/dashboard");
   revalidatePath(`/admin/orders/${orderId}`);
-  redirect(`/staff/orders/${orderId}?success=Loading%20and%20vehicle%20details%20saved`);
+  revalidatePath("/admin/orders");
+  revalidatePath(`/stocker/orders/${orderId}`);
+  revalidatePath("/stocker/orders");
+  redirect(`${redirectBase}?success=Loading%20and%20vehicle%20details%20saved`);
 }
 
 // ============================================================================
@@ -2060,7 +2304,12 @@ export async function saveTruckAndLoadingStagingAction(formData: FormData) {
   const rstNumber = String(formData.get("rstNumber") ?? "").trim() || null;
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
 
-  const returnPath = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
+  const returnPath =
+    session.role === "ADMIN"
+      ? `/admin/orders/${orderId}`
+      : session.role === "STOCKER"
+      ? `/stocker/orders/${orderId}`
+      : `/staff/orders/${orderId}`;
 
   if (!orderId) {
     redirect("/login");
