@@ -95,24 +95,34 @@ export default async function AdminOrderDetailPage({
 
   if (!order) notFound();
 
-  const currentStock = order.productId ? await getProductStock(order.productId) : 0;
-  const currentCbm = order.productId ? await getProductCbm(order.productId) : 0;
+  const primaryProductId =
+    order.productId ||
+    order.items?.find((i) => i.productType === "AAC_BLOCK")?.productId ||
+    order.items?.[0]?.productId;
+
+  const currentStock = primaryProductId ? await getProductStock(primaryProductId) : 0;
+  const currentCbm = primaryProductId ? await getProductCbm(primaryProductId) : 0;
   const orderCbm = Number(order.totalCbm ?? 0);
   const outCbm = Number(order.loadedCbm ?? 0) > 0 ? Number(order.loadedCbm) : orderCbm;
   const outQty = order.loadedQuantity > 0 ? order.loadedQuantity : order.quantity;
-  const isAacBlock = order.product?.category === "AAC_BLOCK" || (!order.product?.category && (order.totalCbm !== null || order.quantity > 0));
-  const hasEnoughStock = isAacBlock && orderCbm > 0 ? (currentCbm >= (outCbm - 0.0001)) : (currentStock >= outQty);
+  const isAacBlock =
+    order.product?.category === "AAC_BLOCK" ||
+    (!order.product?.category && (order.totalCbm !== null || order.quantity > 0));
+  const hasEnoughStock =
+    isAacBlock && orderCbm > 0
+      ? currentCbm >= outCbm - 0.0001
+      : currentStock >= outQty;
 
   // WhatsApp Helpers
   const whatsappInfo = {
     orderNo: order.orderNo,
-    customerName: order.customer.companyName || order.customer.name,
-    productName: order.product?.name || order.items[0]?.product.name || "AAC Blocks",
-    sizeLabel: order.product?.sizeLabel || order.items[0]?.product.sizeLabel || "Standard",
+    customerName: order.customer?.companyName || order.customer?.name || "Customer",
+    productName: order.product?.name || order.items?.[0]?.product?.name || "AAC Blocks",
+    sizeLabel: order.product?.sizeLabel || order.items?.[0]?.product?.sizeLabel || "Standard",
     quantity: order.quantity,
     loadedQuantity: order.loadedQuantity,
-    totalAmount: Number(order.totalAmount),
-    paidAmount: Number(order.paidAmount),
+    totalAmount: Number(order.totalAmount || 0),
+    paidAmount: Number(order.paidAmount || 0),
     invoiceNo: order.invoiceNo,
     shareToken: order.shareToken,
     truckNumber: order.transport?.truckNumber,
@@ -123,32 +133,9 @@ export default async function AdminOrderDetailPage({
 
   const getWaLink = (type: Parameters<typeof buildWhatsAppMessage>[0]) =>
     whatsappHref(
-      order.customer.mobile,
+      order.customer?.mobile || "",
       buildWhatsAppMessage(type, whatsappInfo, process.env.NEXT_PUBLIC_APP_URL || "")
     );
-
-  // 7-Stage Order Lifecycle Pipeline
-  const pipelineStages = [
-    { key: OrderStatus.PENDING, label: "Placed / Review" },
-    { key: OrderStatus.CONFIRMED, label: "Confirmed" },
-    { key: OrderStatus.ASSIGNED, label: "Staff Assigned" },
-    { key: OrderStatus.LOADING, label: "Loading" },
-    { key: OrderStatus.LOADED, label: "Loaded & Staged" },
-    { key: OrderStatus.DISPATCHED, label: "Dispatched" },
-    { key: OrderStatus.DELIVERED, label: "Delivered" },
-  ];
-
-  const stageOrder: OrderStatus[] = [
-    OrderStatus.PENDING,
-    OrderStatus.CONFIRMED,
-    OrderStatus.ASSIGNED,
-    OrderStatus.LOADING,
-    OrderStatus.LOADED,
-    OrderStatus.DISPATCHED,
-    OrderStatus.DELIVERED,
-  ];
-
-  const currentStageIndex = stageOrder.indexOf(order.status);
 
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 min-w-0 max-w-full">
@@ -188,7 +175,7 @@ export default async function AdminOrderDetailPage({
               )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 truncate">
-              Client: <strong className="font-semibold text-navy">{order.customer.companyName || order.customer.name}</strong>
+              Client: <strong className="font-semibold text-navy">{order.customer?.companyName || order.customer?.name || "Customer"}</strong>
               {(order.salesman?.name || order.salesmanNameSnapshot) && (
                 <span className="inline-block ml-2 rounded-md bg-purple-50 px-2 py-0.5 text-xs font-bold text-purple-700 border border-purple-200">
                   Salesman: {order.salesman?.name || order.salesmanNameSnapshot}
@@ -324,7 +311,7 @@ export default async function AdminOrderDetailPage({
                 </span>
                 <h2 className="text-sm sm:text-base font-black text-navy truncate">Customer & Construction Site</h2>
               </div>
-              {order.customer.gstin && (
+              {order.customer?.gstin && (
                 <span className="rounded-lg bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-mono font-bold text-slate-700 self-start sm:self-auto shrink-0">
                   GSTIN: {order.customer.gstin}
                 </span>
@@ -334,22 +321,24 @@ export default async function AdminOrderDetailPage({
             <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 text-xs min-w-0">
               <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-1 min-w-0">
                 <span className="text-slate-400 uppercase font-bold text-[10px] block truncate">Client / Company Name</span>
-                <p className="font-bold text-sm text-navy truncate">{order.customer.companyName || order.customer.name}</p>
-                <p className="text-slate-500 truncate">Contact: {order.customer.name}</p>
+                <p className="font-bold text-sm text-navy truncate">{order.customer?.companyName || order.customer?.name || "Customer"}</p>
+                <p className="text-slate-500 truncate">Contact: {order.customer?.name || "-"}</p>
               </div>
 
               <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-1 min-w-0">
                 <span className="text-slate-400 uppercase font-bold text-[10px] block truncate">Phone & Communications</span>
                 <div className="flex items-center justify-between gap-2 min-w-0">
-                  <p className="font-bold text-sm text-navy truncate">{order.customer.mobile}</p>
-                  <a
-                    href={telHref(order.customer.mobile)}
-                    className="flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline shrink-0"
-                  >
-                    <Phone className="h-3 w-3" /> Call
-                  </a>
+                  <p className="font-bold text-sm text-navy truncate">{order.customer?.mobile || "-"}</p>
+                  {order.customer?.mobile && (
+                    <a
+                      href={telHref(order.customer.mobile)}
+                      className="flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline shrink-0"
+                    >
+                      <Phone className="h-3 w-3" /> Call
+                    </a>
+                  )}
                 </div>
-                <p className="text-slate-500 truncate">{order.customer.email}</p>
+                <p className="text-slate-500 truncate">{order.customer?.email || "-"}</p>
               </div>
 
               <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-2 sm:col-span-2 min-w-0">
@@ -429,7 +418,7 @@ export default async function AdminOrderDetailPage({
               <div className="grid gap-3 sm:grid-cols-2 text-xs bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3.5 sm:p-4">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-emerald-800 block">GST Registered Name</span>
-                  <p className="font-extrabold text-sm text-navy mt-0.5">{order.gstRegisteredName || order.customer.companyName || order.customer.name}</p>
+                  <p className="font-extrabold text-sm text-navy mt-0.5">{order.gstRegisteredName || order.customer?.companyName || order.customer?.name || "Customer"}</p>
                   {order.gstTradeName && order.gstTradeName !== order.gstRegisteredName && (
                     <p className="text-[11px] text-slate-500 mt-0.5">Trade Name: {order.gstTradeName}</p>
                   )}
@@ -437,7 +426,7 @@ export default async function AdminOrderDetailPage({
                 <div>
                   <span className="text-[10px] uppercase font-bold text-emerald-800 block">GST Number (GSTIN)</span>
                   <p className="font-black text-sm font-mono text-emerald-800 mt-0.5 tracking-wider">
-                    {order.gstNumber || order.customer.gstin || "—"}
+                    {order.gstNumber || order.customer?.gstin || "—"}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="inline-flex items-center gap-1 rounded bg-emerald-100/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
@@ -491,13 +480,13 @@ export default async function AdminOrderDetailPage({
                       {order.items.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/50">
                           <td className="p-2.5">
-                            <p className="font-bold text-navy">{item.product.name}</p>
-                            <span className="text-[10px] text-slate-400 capitalize">{item.product.category?.replace("_", " ") || "Material"}</span>
+                            <p className="font-bold text-navy">{item.product?.name || "Product"}</p>
+                            <span className="text-[10px] text-slate-400 capitalize">{item.product?.category?.replace("_", " ") || "Material"}</span>
                           </td>
                           <td className="p-2.5 text-center">
-                            {item.product.sizeLabel ? (
+                            {item.product?.sizeLabel ? (
                               <span className="font-mono text-slate-700">{formatBlockSizeName(item.product.sizeLabel)} ({item.product.dimensions})</span>
-                            ) : item.product.bagWeightKg ? (
+                            ) : item.product?.bagWeightKg ? (
                               <span className="text-slate-700">{Number(item.product.bagWeightKg)} kg Bag</span>
                             ) : (
                               "-"
@@ -741,7 +730,6 @@ export default async function AdminOrderDetailPage({
               hasEnoughStock={hasEnoughStock}
               currentCbm={currentCbm}
               userRole="ADMIN"
-              getWaLink={getWaLink}
             />
           )}
 

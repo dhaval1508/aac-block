@@ -563,88 +563,111 @@ export async function placeCustomerOrderAction(formData: FormData) {
   redirect(`/customer/orders/${order.id}?success=1`);
 }
 
-// 2. Admin confirms order
+// 2. Admin & Loading Staff confirms order
 export async function confirmOrderAction(formData: FormData) {
   const session = await getSession();
-  if (!session || session.role !== "ADMIN") redirect("/login");
+  const isAuthorized =
+    session && (session.role === "ADMIN" || session.role === "STAFF" || session.role === "STOCKER");
+  if (!session || !isAuthorized) redirect("/login");
 
   const orderId = String(formData.get("orderId") ?? "");
-  const quantity = Math.floor(Number(formData.get("quantity") ?? 0));
-  const rate = Number(formData.get("rate") ?? 0);
+  const returnUrl = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { product: true, items: true, customer: true },
-  });
+  // Concurrency protection: Atomic check and update within transaction
+  const result = await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: { product: true, items: true, customer: true },
+    });
 
-  if (!order || order.status !== OrderStatus.PENDING) {
-    redirect(`/admin/orders/${orderId}?error=Order%20is%20not%20pending`);
-  }
+    if (!order) {
+      throw new Error("Order not found");
+    }
 
-  const cbmRaw = formData.get("cbm");
-  const cbmPerBlock = Number(order.product?.cbmPerBlock || 0.018);
-  let finalCbm = cbmRaw && Number(cbmRaw) > 0 ? Number(cbmRaw) : Number(order.totalCbm || 0);
-  let finalQty = quantity > 0 ? quantity : order.quantity;
+    if (order.status !== OrderStatus.PENDING) {
+      // Order was already confirmed by another user; prevent duplicate transition
+      return { alreadyConfirmed: true, order, invoiceNo: order.invoiceNo, finalCbm: Number(order.totalCbm || 0) };
+    }
 
-  if (cbmRaw && Number(cbmRaw) > 0 && cbmPerBlock > 0) {
-    finalCbm = Number(cbmRaw);
-    finalQty = Math.round(finalCbm / cbmPerBlock);
-  } else if (quantity > 0 && cbmPerBlock > 0) {
-    finalQty = quantity;
-    finalCbm = Number((finalQty * cbmPerBlock).toFixed(4));
-  }
+    const quantity = Math.floor(Number(formData.get("quantity") ?? 0));
+    const rate = Number(formData.get("rate") ?? 0);
+    const cbmRaw = formData.get("cbm");
+    const cbmPerBlock = Number(order.product?.cbmPerBlock || 0.018);
+    let finalCbm = cbmRaw && Number(cbmRaw) > 0 ? Number(cbmRaw) : Number(order.totalCbm || 0);
+    let finalQty = quantity > 0 ? quantity : order.quantity;
 
-  const finalRate = rate > 0 ? rate : Number(order.rate);
+    if (cbmRaw && Number(cbmRaw) > 0 && cbmPerBlock > 0) {
+      finalCbm = Number(cbmRaw);
+      finalQty = Math.round(finalCbm / cbmPerBlock);
+    } else if (quantity > 0 && cbmPerBlock > 0) {
+      finalQty = quantity;
+      finalCbm = Number((finalQty * cbmPerBlock).toFixed(4));
+    }
 
-  let subtotal = order.subtotal;
-  let gstAmount = order.gstAmount;
-  let totalAmount = order.totalAmount;
+    const finalRate = rate > 0 ? rate : Number(order.rate);
 
-  if (quantity > 0 || rate > 0 || (cbmRaw && Number(cbmRaw) > 0)) {
-    const s = finalQty * finalRate;
-    const g = s * (Number(order.gstRate) / 100);
-    subtotal = s as any;
-    gstAmount = g as any;
-    totalAmount = (s + g) as any;
-  }
+    let subtotal = order.subtotal;
+    let gstAmount = order.gstAmount;
+    let totalAmount = order.totalAmount;
 
-  const invoiceNo = await nextInvoiceNo();
-  const shareToken = crypto.randomBytes(24).toString("hex");
+    if (quantity > 0 || rate > 0 || (cbmRaw && Number(cbmRaw) > 0)) {
+      const s = finalQty * finalRate;
+      const g = s * (Number(order.gstRate) / 100);
+      subtotal = s as any;
+      gstAmount = g as any;
+      totalAmount = (s + g) as any;
+    }
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      quantity: finalQty,
-      totalCbm: finalCbm > 0 ? finalCbm : null,
-      rate: finalRate,
-      subtotal,
-      gstAmount,
-      totalAmount,
-      invoiceNo,
-      shareToken,
-      status: OrderStatus.CONFIRMED,
-      confirmedAt: new Date(),
-      events: {
-        create: {
-          status: OrderStatus.CONFIRMED,
-          title: "Order Confirmed",
-          note: `Order approved by Super Admin and Delivery Challan ${invoiceNo} generated`,
-          createdById: session.id,
+    const invoiceNo = await nextInvoiceNo();
+    const shareToken = crypto.randomBytes(24).toString("hex");
+    const actorRoleLabel = session.role === "ADMIN" ? "Super Admin" : "Loading & Stock Staff";
+
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        quantity: finalQty,
+        totalCbm: finalCbm > 0 ? finalCbm : null,
+        rate: finalRate,
+        subtotal,
+        gstAmount,
+        totalAmount,
+        invoiceNo,
+        shareToken,
+        status: OrderStatus.CONFIRMED,
+        confirmedAt: new Date(),
+        events: {
+          create: {
+            status: OrderStatus.CONFIRMED,
+            title: "Order Confirmed",
+            note: `Order confirmed by ${actorRoleLabel} (${session.name}) and Delivery Challan ${invoiceNo} generated`,
+            createdById: session.id,
+          },
         },
       },
-    },
+    });
+
+    return { alreadyConfirmed: false, order, invoiceNo, finalCbm };
   });
+
+  if (result.alreadyConfirmed) {
+    redirect(returnUrl);
+  }
+
+  const { order, invoiceNo, finalCbm } = result;
 
   // Notify customer
-  await dispatchNotification({
-    userId: order.customerId,
-    title: "Order Confirmed by Factory",
-    message: `Order ${order.orderNo} has been confirmed. Challan: ${invoiceNo}`,
-    link: `/customer/orders/${orderId}`,
-    orderId,
-    type: "STATUS_CHANGE",
-  });
+  if (order.customerId) {
+    await dispatchNotification({
+      userId: order.customerId,
+      title: "Order Confirmed by Factory",
+      message: `Order ${order.orderNo} has been confirmed. Challan: ${invoiceNo}`,
+      link: `/customer/orders/${orderId}`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  }
 
+  // Notify salesman
   if (order.salesmanId) {
     await dispatchNotification({
       userId: order.salesmanId,
@@ -656,15 +679,28 @@ export async function confirmOrderAction(formData: FormData) {
     });
   }
 
-  // Notify Loading & Stock Staff: Confirmed order is ready for loading in yard queue
-  await dispatchNotification({
-    role: "STAFF",
-    title: "New Confirmed Order Ready for Loading",
-    message: `Order ${order.orderNo} for ${order.customer?.companyName || order.customer?.name || "Customer"} is confirmed (${Number(finalCbm || order.totalCbm || 0).toFixed(3)} CBM). Ready for vehicle staging & loading.`,
-    link: `/staff/orders/${orderId}`,
-    orderId,
-    type: "STATUS_CHANGE",
-  });
+  // Notify other role
+  if (session.role !== "ADMIN") {
+    // Staff confirmed: notify Super Admin
+    await dispatchNotification({
+      role: "ADMIN",
+      title: "Order Confirmed by Loading Staff",
+      message: `Order ${order.orderNo} for ${order.customer?.companyName || order.customer?.name || "Customer"} confirmed by ${session.name}. Challan: ${invoiceNo}. Ready for vehicle staging & loading.`,
+      link: `/admin/orders/${orderId}`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  } else {
+    // Admin confirmed: notify Loading & Stock Staff
+    await dispatchNotification({
+      role: "STAFF",
+      title: "New Confirmed Order Ready for Loading",
+      message: `Order ${order.orderNo} for ${order.customer?.companyName || order.customer?.name || "Customer"} is confirmed (${Number(finalCbm || order.totalCbm || 0).toFixed(3)} CBM). Ready for vehicle staging & loading.`,
+      link: `/staff/orders/${orderId}`,
+      orderId,
+      type: "STATUS_CHANGE",
+    });
+  }
 
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
@@ -677,7 +713,8 @@ export async function confirmOrderAction(formData: FormData) {
   revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/stocker/orders");
   revalidatePath(`/stocker/orders/${orderId}`);
-  redirect(`/admin/orders/${orderId}`);
+
+  redirect(returnUrl);
 }
 
 // 3. Admin rejects order

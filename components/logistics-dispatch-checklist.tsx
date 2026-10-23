@@ -55,7 +55,6 @@ interface Props {
   hasEnoughStock: boolean;
   currentCbm: number;
   userRole: "ADMIN" | "STAFF" | "STOCKER";
-  getWaLink?: (type: any) => string;
 }
 
 export function LogisticsDispatchChecklist({
@@ -63,7 +62,6 @@ export function LogisticsDispatchChecklist({
   hasEnoughStock,
   currentCbm,
   userRole,
-  getWaLink,
 }: Props) {
   const isConfirmed = order.status !== OrderStatus.PENDING && order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.REJECTED;
   const hasItems = (order.items && order.items.length > 0) || order.quantity > 0;

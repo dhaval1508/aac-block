@@ -61,7 +61,8 @@ export async function addStockAction(formData: FormData) {
   const returnPath = session.role === "ADMIN" ? "/admin/stock" : "/stocker/stock";
 
   const productId = String(formData.get("productId") ?? "").trim();
-  const rawQuantity = Number(formData.get("quantity") ?? 0);
+  const rawQuantityInput = formData.get("quantity");
+  const rawCbmInput = formData.get("cbm");
   const type = (String(formData.get("type") ?? "IN").toUpperCase() as StockType) || StockType.IN;
   const referenceNo = String(formData.get("referenceNo") ?? "").trim() || null;
   const note = String(formData.get("note") ?? "").trim() || null;
@@ -85,8 +86,8 @@ export async function addStockAction(formData: FormData) {
       ? new Date(rawEntryDate)
       : new Date();
 
-  if (!productId || !Number.isFinite(rawQuantity) || rawQuantity <= 0) {
-    redirect(`${returnPath}?error=Please%20select%20a%20valid%20product%20and%20enter%20quantity`);
+  if (!productId) {
+    redirect(`${returnPath}?error=Please%20select%20a%20valid%20product`);
   }
 
   const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -103,31 +104,36 @@ export async function addStockAction(formData: FormData) {
   // For Mortar: exact entered quantity is in 40 KG Bags.
   const cbmPerBlock = Number(product.cbmPerBlock) || 0.018;
 
-  const rawCbmInput = formData.get("cbm");
   let cbmValue = 0;
   let blockQuantity = 0;
 
   if (isMortar) {
-    const bags = Math.floor(rawQuantity);
+    const rawVal =
+      rawQuantityInput !== null && rawQuantityInput !== ""
+        ? Number(rawQuantityInput)
+        : rawCbmInput !== null && rawCbmInput !== ""
+        ? Number(rawCbmInput)
+        : 0;
+    const bags = Math.floor(rawVal);
     if (!Number.isFinite(bags) || bags <= 0) {
-      redirect(`${returnPath}?error=Please%20enter%20valid%20mortar%20bags%20quantity`);
+      redirect(`${returnPath}?error=Please%20enter%20valid%20mortar%20bags%20quantity%20greater%20than%200`);
     }
     cbmValue = 0;
     blockQuantity = bags;
   } else {
     // For AAC blocks, prioritize direct cbm input over any hidden field
-    const enteredCbm =
+    const rawVal =
       rawCbmInput !== null && rawCbmInput !== ""
         ? Number(rawCbmInput)
-        : Number.isFinite(rawQuantity) && rawQuantity > 0
-        ? rawQuantity
+        : rawQuantityInput !== null && rawQuantityInput !== ""
+        ? Number(rawQuantityInput)
         : 0;
 
-    if (!Number.isFinite(enteredCbm) || enteredCbm <= 0) {
+    if (!Number.isFinite(rawVal) || rawVal <= 0) {
       redirect(`${returnPath}?error=Please%20enter%20valid%20CBM%20quantity%20greater%20than%200`);
     }
 
-    cbmValue = Number(enteredCbm.toFixed(4));
+    cbmValue = Number(rawVal.toFixed(4));
     blockQuantity = Math.max(1, Math.round(cbmValue / cbmPerBlock));
   }
 
@@ -219,7 +225,8 @@ export async function updateStockAction(formData: FormData) {
   const returnPath = session.role === "ADMIN" ? "/admin/stock" : "/stocker/stock";
 
   const movementId = String(formData.get("movementId") ?? "").trim();
-  const rawQuantity = Number(formData.get("quantity") ?? 0);
+  const rawQuantityInput = formData.get("quantity");
+  const rawCbmInput = formData.get("cbm");
   const referenceNo = String(formData.get("referenceNo") ?? "").trim() || null;
   const note = String(formData.get("note") ?? "").trim() || null;
 
@@ -242,8 +249,8 @@ export async function updateStockAction(formData: FormData) {
       ? new Date(rawEntryDate)
       : undefined;
 
-  if (!movementId || !Number.isFinite(rawQuantity) || rawQuantity <= 0) {
-    redirect(`${returnPath}?error=Invalid%20entry%20data%20for%20update`);
+  if (!movementId) {
+    redirect(`${returnPath}?error=Invalid%20movement%20identifier`);
   }
 
   try {
@@ -264,25 +271,35 @@ export async function updateStockAction(formData: FormData) {
 
       const cbmPerBlock = Number(existing.product.cbmPerBlock) || 0.018;
 
-      const rawCbm = formData.get("cbm");
       let newCbmDelta = 0;
       let newQuantityDelta = 0;
 
       if (isMortar) {
-        const bags = Math.floor(rawQuantity);
+        const rawVal =
+          rawQuantityInput !== null && rawQuantityInput !== ""
+            ? Number(rawQuantityInput)
+            : rawCbmInput !== null && rawCbmInput !== ""
+            ? Number(rawCbmInput)
+            : 0;
+        const bags = Math.floor(rawVal);
+        if (!Number.isFinite(bags) || bags <= 0) {
+          throw new Error("Please enter valid mortar bags quantity greater than 0");
+        }
         newQuantityDelta = existing.type === StockType.OUT ? -bags : bags;
         newCbmDelta = 0;
       } else {
-        // Direct CBM or conversion
-        let cbmVal: number;
-        if (rawCbm !== null && rawCbm !== "" && !isNaN(Number(rawCbm))) {
-          cbmVal = Number(Number(rawCbm).toFixed(4));
-        } else if (rawQuantity > 0) {
-          cbmVal = Number(rawQuantity.toFixed(4));
-        } else {
-          cbmVal = existing.cbmDelta ? Math.abs(Number(existing.cbmDelta)) : Math.abs(existing.quantityDelta) * cbmPerBlock;
+        const rawVal =
+          rawCbmInput !== null && rawCbmInput !== ""
+            ? Number(rawCbmInput)
+            : rawQuantityInput !== null && rawQuantityInput !== ""
+            ? Number(rawQuantityInput)
+            : 0;
+
+        if (!Number.isFinite(rawVal) || rawVal <= 0) {
+          throw new Error("Please enter valid CBM quantity greater than 0");
         }
 
+        const cbmVal = Number(rawVal.toFixed(4));
         const blocks = Math.max(1, Math.round(cbmVal / cbmPerBlock));
         newCbmDelta = existing.type === StockType.OUT ? -cbmVal : cbmVal;
         newQuantityDelta = existing.type === StockType.OUT ? -blocks : blocks;

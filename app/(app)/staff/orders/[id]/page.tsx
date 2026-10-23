@@ -21,6 +21,8 @@ import {
   ORDER_STATUS_LABEL,
   telHref,
 } from "@/lib/utils";
+import { OrderStatus } from "@prisma/client";
+import { confirmOrderAction } from "@/lib/actions/orders";
 import { StaffLoadingForm } from "@/components/staff-loading-form";
 import { TruckStagingForm } from "@/components/truck-staging-form";
 import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
@@ -194,7 +196,7 @@ if (!order) notFound();
             ) : null}
           </div>
           <p className="text-xs text-slate-500 truncate mt-0.5">
-            Customer: {order.customer.companyName || order.customer.name}
+            Customer: {order.customer?.companyName || order.customer?.name || "Customer"}
           </p>
         </div>
       </div>
@@ -327,23 +329,101 @@ if (!order) notFound();
         </div>
       </div>
 
-      {/* Shared Loading Staff & Truck Staging Form */}
-      <TruckStagingForm
-        order={order as any}
-        staffList={staffList}
-        userRole={session.role as any}
-        currentUserId={session.id}
-        currentUserName={session.name}
-      />
+      {/* 1. ORDER CONFIRMATION ACTION FOR LOADING & STOCK STAFF */}
+      {order.status === OrderStatus.PENDING && (
+        <div className="rounded-3xl border border-amber-300 bg-amber-50/60 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-black text-navy">Order Confirmation & Yard Clearance</h2>
+              <p className="text-xs text-slate-600 mt-0.5">
+                This order is in <strong>Placed</strong> status. Confirming authorizes factory dispatch clearance and unlocks vehicle staging & loading.
+              </p>
+            </div>
+          </div>
 
-      {/* Shared Delivery Challan Documentation */}
-      <DeliveryChallanPanel
-        order={order as any}
-        userRole={session.role as any}
-      />
+          <form action={confirmOrderAction} className="space-y-3">
+            <input type="hidden" name="orderId" value={order.id} />
+            <input type="hidden" name="quantity" value={order.quantity} />
+            {order.totalCbm ? (
+              <input type="hidden" name="cbm" value={Number(order.totalCbm).toFixed(3)} />
+            ) : null}
+
+            <div className="rounded-2xl bg-white border border-amber-200/80 p-4 text-xs space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Order Reference:</span>
+                <span className="font-black text-navy font-mono">{order.orderNo}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Customer:</span>
+                <span className="font-bold text-navy">{order.customer?.companyName || order.customer?.name || "Customer"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Total Volume:</span>
+                <span className="font-black text-navy font-mono">
+                  {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : `${formatNumber(order.quantity)} blocks`}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Block Quantity:</span>
+                <span className="font-black text-navy font-mono">≈ {formatNumber(order.quantity)} Blocks</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3.5 text-sm font-bold text-white shadow-xs transition-all cursor-pointer"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Confirm Order</span>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Shared Loading Staff & Truck Staging Form (Available after confirmation) */}
+      {order.status !== OrderStatus.PENDING && (
+        <TruckStagingForm
+          order={order as any}
+          staffList={staffList}
+          userRole={session.role as any}
+          currentUserId={session.id}
+          currentUserName={session.name}
+        />
+      )}
+
+      {/* Shared Delivery Challan Documentation (Available after confirmation) */}
+      {order.status !== OrderStatus.PENDING && (
+        <DeliveryChallanPanel
+          order={order as any}
+          userRole={session.role as any}
+        />
+      )}
 
       {/* Loading Action Area */}
       <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+        {order.status === OrderStatus.PENDING ? (
+          <div className="rounded-2xl bg-amber-50/50 border border-amber-200/80 p-5 text-center space-y-2">
+            <Clock className="mx-auto h-8 w-8 text-amber-600" />
+            <h3 className="text-base font-bold text-navy">Order Awaiting Confirmation</h3>
+            <p className="text-xs text-slate-600 max-w-md mx-auto">
+              Please click <strong>Confirm Order</strong> above to clear the order for factory loading and vehicle staging.
+            </p>
+          </div>
+        ) : null}
+
+        {order.status === OrderStatus.CONFIRMED ? (
+          <div className="rounded-2xl bg-blue-50/60 border border-blue-200/80 p-5 text-center space-y-2">
+            <Clock className="mx-auto h-8 w-8 text-[#1E72A8]" />
+            <h3 className="text-base font-bold text-navy">Order Confirmed — Awaiting Vehicle Staging</h3>
+            <p className="text-xs text-slate-600 max-w-md mx-auto">
+              Order is cleared for dispatch. Please stage a truck and assign loading staff above to begin physical loading.
+            </p>
+          </div>
+        ) : null}
+
         {order.status === "ASSIGNED" || order.status === "LOADING" ? (
           <StaffLoadingForm
             orderId={order.id}

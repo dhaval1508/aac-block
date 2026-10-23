@@ -48,9 +48,10 @@ export default async function StaffDashboardPage({
     assignedStaffId: session.id,
   };
 
-  // Shared Yard Queue: Confirmed orders waiting for staging/loading (or unassigned ASSIGNED)
+  // Shared Yard Queue: Placed orders waiting for confirmation, and Confirmed orders waiting for staging/loading
   const queueWhere = {
     OR: [
+      { status: OrderStatus.PENDING },
       { status: OrderStatus.CONFIRMED },
       { status: OrderStatus.ASSIGNED, assignedStaffId: null },
     ],
@@ -146,7 +147,7 @@ export default async function StaffDashboardPage({
   // Fetch orders with STRICT ZERO-FINANCIAL projection
   const orders = await prisma.order.findMany({
     where: queryWhere,
-    orderBy: tab === "queue" ? { confirmedAt: "asc" } : { createdAt: "desc" },
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       orderNo: true,
@@ -341,11 +342,11 @@ export default async function StaffDashboardPage({
           }`}
         >
           <div className="flex items-center justify-between text-amber-700">
-            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Confirmed Queue</span>
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Yard Queue</span>
             <Inbox className="h-4 w-4 shrink-0 ml-1" />
           </div>
           <p className="mt-1.5 text-xl sm:text-2xl font-black text-navy truncate">{confirmedQueueCount}</p>
-          <span className="text-[10px] sm:text-[11px] text-amber-800 font-semibold truncate">Ready for loading</span>
+          <span className="text-[10px] sm:text-[11px] text-amber-800 font-semibold truncate">Placed & Confirmed</span>
         </Link>
 
         <Link
@@ -442,7 +443,7 @@ export default async function StaffDashboardPage({
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
         {[
-          { key: "queue", label: `⚡ Confirmed Orders / Ready for Loading (${confirmedQueueCount})`, isQueue: true },
+          { key: "queue", label: `⚡ Yard Queue / Orders (${confirmedQueueCount})`, isQueue: true },
           { key: "active", label: `My Active Tasks (${pendingLoading + currentlyLoading})` },
           { key: "pending", label: `Pending Loading (${pendingLoading})` },
           { key: "loading", label: `In Progress (${currentlyLoading})` },
@@ -473,10 +474,10 @@ export default async function StaffDashboardPage({
           <div>
             <h2 className="text-sm sm:text-base font-black text-navy flex items-center gap-2">
               <Inbox className="h-4 w-4 text-amber-600" />
-              Confirmed Orders / Ready for Loading Assignment
+              Yard Queue / Placed & Confirmed Orders
             </h2>
             <p className="text-xs text-slate-600">
-              Orders confirmed by Super Admin. Open any order to stage vehicle details, assign staff, and start loading.
+              Placed orders awaiting confirmation and confirmed orders ready for vehicle staging & loading.
             </p>
           </div>
           <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full self-start sm:self-auto shrink-0">

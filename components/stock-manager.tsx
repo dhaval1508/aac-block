@@ -119,6 +119,7 @@ export function StockManager({
   const [quantity, setQuantity] = useState<number | "">("");
   const [referenceNo, setReferenceNo] = useState("");
   const [note, setNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Mortar Form Specific State
   const [purchasePrice, setPurchasePrice] = useState<number | "">(
@@ -575,7 +576,7 @@ export function StockManager({
             </div>
           </div>
 
-          <form action={addStockAction} className="space-y-4">
+          <form action={addStockAction} onSubmit={() => setIsSubmitting(true)} className="space-y-4">
             {/* Movement Type: Stock In vs Stock Out */}
             <div>
               <label className="label">Movement Type *</label>
@@ -776,6 +777,7 @@ export function StockManager({
                     }`}
                   />
                   <input type="hidden" name="approximateBlocks" value={quantity || ""} />
+                  <input type="hidden" name="quantity" value={cbmInput || ""} />
 
                   {/* Calculated Blocks Count Underneath */}
                   <p className="mt-1 text-xs text-slate-500 italic">
@@ -833,6 +835,7 @@ export function StockManager({
             <button
               type="submit"
               disabled={
+                isSubmitting ||
                 exceedsStock ||
                 (selectedCategory === "MORTAR"
                   ? quantity === "" || Number(quantity) <= 0
@@ -843,12 +846,18 @@ export function StockManager({
                   ? "bg-emerald-600 hover:bg-emerald-700"
                   : "bg-rose-600 hover:bg-rose-700"
               } ${
-                exceedsStock || quantity === "" || Number(quantity) <= 0
+                isSubmitting ||
+                exceedsStock ||
+                (selectedCategory === "MORTAR"
+                  ? quantity === "" || Number(quantity) <= 0
+                  : cbmInput === "" || Number(cbmInput) <= 0)
                   ? "opacity-50 cursor-not-allowed"
                   : "active:scale-[0.99]"
               }`}
             >
-              {selectedCategory === "MORTAR"
+              {isSubmitting
+                ? "Processing..."
+                : selectedCategory === "MORTAR"
                 ? movementType === "IN"
                   ? "✓ Confirm Mortar Stock Intake (40 KG Bags)"
                   : "✓ Confirm Mortar Stock Outflow (40 KG Bags)"
@@ -1572,7 +1581,7 @@ export function StockManager({
               </button>
             </div>
 
-            <form action={updateStockAction} className="space-y-4">
+            <form action={updateStockAction} onSubmit={() => setIsSubmitting(true)} className="space-y-4">
               <input type="hidden" name="movementId" value={editingMovement.id} />
 
               <div className="rounded-2xl bg-slate-50 p-3 text-xs flex items-center justify-between">
@@ -1613,6 +1622,7 @@ export function StockManager({
                     placeholder="Enter CBM quantity"
                   />
                   <input type="hidden" name="approximateBlocks" value={editQuantity} />
+                  <input type="hidden" name="quantity" value={editCbm || ""} />
                   <p className="mt-1 text-xs text-slate-500 italic">
                     {Number(editCbm) > 0
                       ? `≈ ${formatNumber(Math.round(Number(editCbm) / Number(editingMovement.product.cbmPerBlock || 0.018)))} Blocks`
@@ -1741,9 +1751,12 @@ export function StockManager({
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#13789B] hover:bg-[#0F627F] text-white px-5 py-2 text-xs font-bold shadow-xs cursor-pointer"
+                  disabled={isSubmitting}
+                  className={`rounded-xl bg-[#13789B] hover:bg-[#0F627F] text-white px-5 py-2 text-xs font-bold shadow-xs cursor-pointer ${
+                    isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                 >
-                  Save Changes
+                  {isSubmitting ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>
