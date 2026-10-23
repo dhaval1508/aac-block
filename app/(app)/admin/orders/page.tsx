@@ -376,58 +376,46 @@ export default async function AdminOrdersPage({
       <div className="card rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden min-w-0">
         {/* Desktop Table View */}
         <div className="hidden lg:block overflow-x-auto min-w-0">
-          <table className="w-full text-left text-xs min-w-[980px]">
+          <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
-                <th className="py-4 px-4 whitespace-nowrap">
+              <tr className="border-b border-slate-200 bg-slate-50/90 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
+                <th className="py-3.5 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Hash className="h-3.5 w-3.5 text-slate-400" />
                     <span>Order ID & Date</span>
                   </div>
                 </th>
-                <th className="py-4 px-4 whitespace-nowrap">
+                <th className="py-3.5 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Customer Name & Site</span>
+                    <span>Customer & Site</span>
                   </div>
                 </th>
-                <th className="py-4 px-4 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <UserCheck className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Created By</span>
-                  </div>
-                </th>
-                <th className="py-4 px-4 whitespace-nowrap">
+                <th className="py-3.5 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Boxes className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Block Size</span>
+                    <span>Materials & Specs</span>
                   </div>
                 </th>
-                <th className="py-4 px-4 text-right whitespace-nowrap">
+                <th className="py-3.5 px-3.5 text-right whitespace-nowrap">
                   <div className="flex items-center justify-end gap-1.5">
                     <Layers className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Order Volume</span>
+                    <span>Volume & Mortar</span>
                   </div>
                 </th>
-                <th className="py-4 px-4 text-center whitespace-nowrap">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Package className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Block Jointing Morter (40 KG Bags)</span>
-                  </div>
-                </th>
-                <th className="py-4 px-4 whitespace-nowrap">
+                <th className="py-3.5 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Truck className="h-3.5 w-3.5 text-slate-400" />
                     <span>Transport</span>
                   </div>
                 </th>
-                <th className="py-4 px-4 text-center whitespace-nowrap">
+                <th className="py-3.5 px-3.5 text-center whitespace-nowrap">
                   <div className="flex items-center justify-center gap-1.5">
                     <Activity className="h-3.5 w-3.5 text-slate-400" />
                     <span>Status</span>
                   </div>
                 </th>
-                <th className="py-4 px-4 text-right whitespace-nowrap">
+                <th className="py-3.5 px-3.5 text-right whitespace-nowrap sticky right-0 bg-slate-50/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.03)]">
                   <div className="flex items-center justify-end gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
                     <span>Actions</span>

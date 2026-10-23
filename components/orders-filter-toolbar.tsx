@@ -90,14 +90,14 @@ export function OrdersFilterToolbar({
             name="q"
             defaultValue={initialSearch}
             placeholder="Search Order #, Customer, Company, Truck, Driver..."
-            className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-xs font-medium text-navy placeholder:text-slate-400 focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/10 outline-none transition-colors"
+            className="w-full h-10 rounded-2xl border border-slate-200 bg-white pl-10 pr-4 text-xs font-medium text-navy placeholder:text-slate-400 focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/10 outline-none transition-colors"
           />
         </form>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Creator Filter Dropdown */}
-          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-            <UserCheck className="h-3.5 w-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 h-10 text-xs">
+            <UserCheck className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <select
               defaultValue={creator || "all"}
               onChange={(e) => updateFilters({ creator: e.target.value })}
@@ -112,8 +112,8 @@ export function OrdersFilterToolbar({
 
           {/* Salesman Filter Dropdown */}
           {salesmen && salesmen.length > 0 && (
-            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-              <User className="h-3.5 w-3.5 text-slate-400" />
+            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 h-10 text-xs">
+              <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
               <select
                 defaultValue={salesman || "all"}
                 onChange={(e) => updateFilters({ salesman: e.target.value })}
@@ -132,8 +132,8 @@ export function OrdersFilterToolbar({
           )}
 
           {/* Sort Dropdown */}
-          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-            <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 h-10 text-xs">
+            <ArrowUpDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <select
               defaultValue={sort}
               onChange={(e) => updateFilters({ sort: e.target.value })}
@@ -149,7 +149,7 @@ export function OrdersFilterToolbar({
           {isFiltered && (
             <Link
               href="/admin/orders"
-              className="flex items-center gap-1.5 rounded-2xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors"
+              className="flex items-center gap-1.5 rounded-2xl bg-rose-50 border border-rose-200 px-3.5 h-10 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors"
               title="Reset all active filters"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -159,52 +159,54 @@ export function OrdersFilterToolbar({
         </div>
       </div>
 
-      {/* Row 2: Status Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 pt-2 border-t border-slate-100 min-w-0">
-        {tabs.map((tab) => {
-          const active = (status || "all") === tab.key;
+      {/* Row 2: Status Filter Tabs - Sleek Scrollable Rail */}
+      <div className="pt-2 border-t border-slate-100 min-w-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scroll-smooth no-scrollbar">
+          {tabs.map((tab) => {
+            const active = (status || "all") === tab.key;
 
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => updateFilters({ status: tab.key })}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
-                active
-                  ? "bg-[#13789B] text-white shadow-xs"
-                  : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-              }`}
-            >
-              {tab.key === "pending" ? (
-                <Clock className={`h-3 w-3 ${active ? "text-white" : "text-amber-500"}`} />
-              ) : tab.key === "confirmed" ? (
-                <CheckCircle2 className={`h-3 w-3 ${active ? "text-white" : "text-emerald-500"}`} />
-              ) : tab.key === "assigned" ? (
-                <UserCheck className={`h-3 w-3 ${active ? "text-white" : "text-purple-500"}`} />
-              ) : tab.key === "loading" ? (
-                <Loader2 className={`h-3 w-3 ${active ? "text-white" : "text-sky-500"}`} />
-              ) : tab.key === "loaded" ? (
-                <CheckCircle2 className={`h-3 w-3 ${active ? "text-white" : "text-teal-500"}`} />
-              ) : tab.key === "dispatched" ? (
-                <Truck className={`h-3 w-3 ${active ? "text-white" : "text-indigo-500"}`} />
-              ) : tab.key === "delivered" ? (
-                <ShieldCheck className={`h-3 w-3 ${active ? "text-white" : "text-emerald-600"}`} />
-              ) : tab.key === "rejected" ? (
-                <XCircle className={`h-3 w-3 ${active ? "text-white" : "text-rose-500"}`} />
-              ) : (
-                <Layers className={`h-3 w-3 ${active ? "text-white" : "text-slate-400"}`} />
-              )}
-              <span>{tab.label}</span>
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
-                  active ? "bg-white/20 text-white" : "bg-white text-slate-500 border border-slate-200"
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => updateFilters({ status: tab.key })}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all shrink-0 cursor-pointer whitespace-nowrap ${
+                  active
+                    ? "bg-[#13789B] text-white shadow-xs"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300"
                 }`}
               >
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
+                {tab.key === "pending" ? (
+                  <Clock className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-amber-500"}`} />
+                ) : tab.key === "confirmed" ? (
+                  <CheckCircle2 className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-emerald-500"}`} />
+                ) : tab.key === "assigned" ? (
+                  <UserCheck className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-purple-500"}`} />
+                ) : tab.key === "loading" ? (
+                  <Loader2 className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-sky-500"}`} />
+                ) : tab.key === "loaded" ? (
+                  <CheckCircle2 className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-teal-500"}`} />
+                ) : tab.key === "dispatched" ? (
+                  <Truck className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-indigo-500"}`} />
+                ) : tab.key === "delivered" ? (
+                  <ShieldCheck className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-emerald-600"}`} />
+                ) : tab.key === "rejected" ? (
+                  <XCircle className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-rose-500"}`} />
+                ) : (
+                  <Layers className={`h-3 w-3 shrink-0 ${active ? "text-white" : "text-slate-400"}`} />
+                )}
+                <span>{tab.label}</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                    active ? "bg-white/20 text-white" : "bg-white text-slate-500 border border-slate-200"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

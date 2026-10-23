@@ -21,6 +21,11 @@ import {
   Layers,
   AlertTriangle,
   X,
+  CheckCircle2,
+  Loader2,
+  PackageCheck,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { OrderStatus } from "@prisma/client";
 import {
@@ -32,6 +37,31 @@ import {
 } from "@/lib/utils";
 import { OpenLocationButton } from "@/components/open-location-button";
 import { deleteOrderAction, archiveOrderAction } from "@/lib/actions/orders";
+
+function getStatusIcon(status: OrderStatus) {
+  switch (status) {
+    case OrderStatus.PENDING:
+      return <Clock className="h-3 w-3 shrink-0 text-amber-500" />;
+    case OrderStatus.CONFIRMED:
+      return <CheckCircle2 className="h-3 w-3 shrink-0 text-blue-500" />;
+    case OrderStatus.ASSIGNED:
+      return <UserCheck className="h-3 w-3 shrink-0 text-indigo-500" />;
+    case OrderStatus.LOADING:
+      return <Loader2 className="h-3 w-3 shrink-0 text-purple-500 animate-spin" />;
+    case OrderStatus.LOADED:
+      return <PackageCheck className="h-3 w-3 shrink-0 text-teal-500" />;
+    case OrderStatus.DISPATCHED:
+      return <Truck className="h-3 w-3 shrink-0 text-sky-500" />;
+    case OrderStatus.DELIVERED:
+      return <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-500" />;
+    case OrderStatus.REJECTED:
+      return <XCircle className="h-3 w-3 shrink-0 text-rose-500" />;
+    case OrderStatus.CANCELLED:
+      return <AlertCircle className="h-3 w-3 shrink-0 text-slate-500" />;
+    default:
+      return null;
+  }
+}
 
 interface AdminOrderRowProps {
   order: {
@@ -106,12 +136,12 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
   return (
     <>
       <tr className="hover:bg-slate-50/80 transition-colors group">
-        {/* Order ID & Date */}
-        <td className="py-4 px-4 align-top">
+        {/* 1. Order ID & Date */}
+        <td className="py-3.5 px-3.5 align-top whitespace-nowrap">
           <div className="flex flex-col gap-1">
             <Link
               href={`/admin/orders/${order.id}`}
-              className="font-black text-sm text-[#13789B] group-hover:underline block font-mono"
+              className="font-black text-sm text-[#13789B] group-hover:underline block font-mono tracking-tight"
             >
               {order.orderNo}
             </Link>
@@ -124,97 +154,77 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
                 className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700 w-fit mt-0.5"
                 title={`GST: ${order.gstRegisteredName || 'Verified'} | ${order.gstNumber || ''}`}
               >
-                <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
                 <span>GST Bill</span>
               </span>
             ) : order.gstBillingSelected === false ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600 w-fit mt-0.5">
-                <FileText className="h-3 w-3 text-slate-400" />
+                <FileText className="h-3 w-3 text-slate-400 shrink-0" />
                 <span>Without GST</span>
               </span>
             ) : null}
           </div>
         </td>
 
-        {/* Customer & Destination */}
-        <td className="py-4 px-4 align-top">
+        {/* 2. Customer, Creator & Destination */}
+        <td className="py-3.5 px-3.5 align-top min-w-[200px]">
           <p
-            className="font-bold text-navy truncate max-w-[190px]"
+            className="font-extrabold text-navy text-sm truncate max-w-[210px]"
             title={order.customer.companyName || order.customer.name}
           >
             {order.customer.companyName || order.customer.name}
           </p>
-          {(order.salesman?.name || order.salesmanNameSnapshot) && (
-            <span className="inline-flex items-center gap-1 mt-1 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
-              <UserCheck className="h-2.5 w-2.5 text-purple-600" />
-              <span>Sales: {order.salesman?.name || order.salesmanNameSnapshot}</span>
-            </span>
-          )}
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span
-              className="text-[11px] text-slate-500 truncate max-w-[140px] inline-flex items-center gap-1"
-              title={order.deliveryAddress}
-            >
-              <MapPin className="h-3 w-3 text-rose-500 shrink-0" />
-              <span className="truncate">{order.deliveryAddress}</span>
+
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {order.createdByRole === "SALESMAN" ? (
+              <span className="inline-flex items-center gap-1 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
+                <UserCheck className="h-2.5 w-2.5 text-purple-600 shrink-0" />
+                <span className="truncate max-w-[140px]">Sales: {order.createdByNameSnapshot || order.salesman?.name || "Salesman"}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded bg-teal-50 border border-teal-200 px-1.5 py-0.5 text-[10px] font-bold text-[#13789B]">
+                <Building2 className="h-2.5 w-2.5 text-[#13789B] shrink-0" />
+                <span>Direct Customer</span>
+              </span>
+            )}
+          </div>
+
+          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+            <MapPin className="h-3 w-3 text-rose-500 shrink-0" />
+            <span className="truncate max-w-[130px]" title={order.deliveryAddress}>
+              {order.deliveryAddress}
             </span>
             <OpenLocationButton address={order.deliveryAddress} variant="badge" />
           </div>
         </td>
 
-        {/* Created By */}
-        <td className="py-4 px-4 align-top">
-          {order.createdByRole === "SALESMAN" ? (
-            <div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2.5 py-0.5 text-[10px] font-bold text-purple-700">
-                <User className="h-3 w-3 text-purple-600" />
-                <span>Salesman</span>
-              </span>
-              <span className="block text-[11px] text-slate-700 font-semibold mt-1 truncate max-w-[130px]">
-                {order.createdByNameSnapshot || order.salesman?.name || "Salesman"}
-              </span>
-            </div>
-          ) : (
-            <div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2.5 py-0.5 text-[10px] font-bold text-[#13789B]">
-                <Building2 className="h-3 w-3 text-[#13789B]" />
-                <span>Customer</span>
-              </span>
-              <span className="block text-[11px] text-slate-500 mt-1 truncate max-w-[130px]">
-                Direct Order
-              </span>
-            </div>
-          )}
-        </td>
-
-        {/* All Ordered Items (With expandable multi-item breakdown) */}
-        <td className="py-4 px-4 align-top">
+        {/* 3. Block Specs & Materials */}
+        <td className="py-3.5 px-3.5 align-top min-w-[180px]">
           {items.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {hasMultipleItems ? (
                 <div>
                   <button
                     type="button"
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-[11px] font-bold transition-colors cursor-pointer"
                   >
-                    <Layers className="h-3.5 w-3.5" />
+                    <Layers className="h-3 w-3 shrink-0" />
                     <span>{items.length} Material Items</span>
                     {isExpanded ? (
-                      <ChevronUp className="h-3 w-3" />
+                      <ChevronUp className="h-2.5 w-2.5 shrink-0" />
                     ) : (
-                      <ChevronDown className="h-3 w-3" />
+                      <ChevronDown className="h-2.5 w-2.5 shrink-0" />
                     )}
                   </button>
 
-                  {/* Summary line */}
-                  <span className="text-[11px] text-slate-500 block mt-1 truncate max-w-[200px]">
+                  <span className="text-[11px] text-slate-500 block mt-1 truncate max-w-[180px] font-mono">
                     {items.map((i) => i.productName || i.product?.name).join(" + ")}
                   </span>
                 </div>
               ) : (
                 <div>
-                  <span className="font-bold text-slate-800 block text-xs">
+                  <span className="font-bold text-navy block text-xs">
                     {items[0].productName || items[0].product?.name || "AAC Block"}
                   </span>
                   <span className="text-[11px] text-slate-400 block font-mono mt-0.5">
@@ -225,7 +235,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
             </div>
           ) : (
             <div>
-              <span className="font-bold text-slate-800 block text-xs">
+              <span className="font-bold text-navy block text-xs">
                 {order.product?.sizeLabel
                   ? formatBlockSizeName(order.product.sizeLabel)
                   : "Standard AAC Block"}
@@ -237,8 +247,8 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
           )}
         </td>
 
-        {/* Total CBM & Approximate Blocks */}
-        <td className="py-4 px-4 text-right align-top">
+        {/* 4. Total Volume & Mortar */}
+        <td className="py-3.5 px-3.5 text-right align-top whitespace-nowrap min-w-[140px]">
           <p className="font-black text-sm text-navy">
             {order.totalCbm
               ? `${Number(order.totalCbm).toFixed(3)} CBM`
@@ -247,56 +257,57 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
           <span className="text-[11px] text-slate-400 italic block mt-0.5">
             ≈ {formatNumber(order.quantity)} Blocks
           </span>
+          {order.adhesiveBags && order.adhesiveBags > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-200 px-2 py-0.5 text-[10px] font-mono font-bold text-navy mt-1">
+              <Package className="h-3 w-3 text-[#13789B] shrink-0" />
+              <span>+{order.adhesiveBags} Bags Mortar</span>
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400 block mt-0.5">No Mortar</span>
+          )}
         </td>
 
-        {/* Morter Bags */}
-        <td className="py-4 px-4 text-center align-top">
-          <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 border border-sky-200 px-2.5 py-1 text-xs font-mono font-bold text-navy shadow-2xs">
-            <Package className="h-3.5 w-3.5 text-[#13789B]" />
-            <span>{order.adhesiveBags ?? 0} Bags</span>
-          </span>
-        </td>
-
-        {/* Transport */}
-        <td className="py-4 px-4 align-top">
+        {/* 5. Transport */}
+        <td className="py-3.5 px-3.5 align-top whitespace-nowrap min-w-[130px]">
           {order.transport ? (
             <div>
               <span className="font-bold text-navy block font-mono text-xs flex items-center gap-1">
-                <Truck className="h-3 w-3 text-slate-400" />
-                {order.transport.truckNumber}
+                <Truck className="h-3 w-3 text-[#13789B] shrink-0" />
+                <span>{order.transport.truckNumber}</span>
               </span>
-              <span className="text-[11px] text-slate-500 block truncate max-w-[130px] mt-0.5">
-                {order.transport.driverName}
+              <span className="text-[11px] text-slate-500 block truncate max-w-[120px] mt-0.5">
+                {order.transport.driverName || "Driver"}
               </span>
             </div>
           ) : (
-            <span className="inline-flex items-center gap-1 text-slate-400 italic text-[11px]">
-              <Clock className="h-3 w-3 text-slate-300" />
+            <span className="inline-flex items-center gap-1 text-slate-400 italic text-[11px] bg-slate-50 rounded-lg px-2 py-0.5 border border-slate-200">
+              <Clock className="h-3 w-3 text-slate-300 shrink-0" />
               <span>Unassigned</span>
             </span>
           )}
         </td>
 
-        {/* Status */}
-        <td className="py-4 px-4 text-center align-top">
+        {/* 6. Status */}
+        <td className="py-3.5 px-3.5 text-center align-top whitespace-nowrap min-w-[120px]">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border shadow-2xs ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold border shadow-2xs ${
               ORDER_STATUS_CLASS[order.status]
             }`}
           >
+            {getStatusIcon(order.status)}
             <span>{ORDER_STATUS_LABEL[order.status]}</span>
           </span>
         </td>
 
-        {/* Actions */}
-        <td className="py-4 px-4 text-right align-top">
+        {/* 7. Actions (Sticky right so it is NEVER cut off) */}
+        <td className="py-3.5 px-3.5 text-right align-top whitespace-nowrap sticky right-0 bg-white/95 backdrop-blur-xs group-hover:bg-slate-50/95 transition-colors shadow-[-6px_0_12px_rgba(0,0,0,0.03)] min-w-[110px]">
           <div className="flex items-center justify-end gap-1.5">
             <Link
               href={`/admin/orders/${order.id}`}
-              className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] text-[#13789B] hover:text-white px-3 py-1.5 text-xs font-bold transition-all shadow-2xs group/btn cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-xl bg-[#13789B] hover:bg-[#0f607d] text-white px-3 py-1.5 text-xs font-bold transition-all shadow-xs group/btn cursor-pointer whitespace-nowrap"
             >
               <span>Manage</span>
-              <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+              <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform shrink-0" />
             </Link>
 
             {isFinalized ? (
@@ -306,7 +317,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
                 title="Archive Order (Legal Retention Protected)"
                 className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
               >
-                <Archive className="h-3.5 w-3.5" />
+                <Archive className="h-3.5 w-3.5 shrink-0" />
               </button>
             ) : (
               <button
@@ -315,7 +326,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
                 title="Safe Delete Order"
                 className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3.5 w-3.5 shrink-0" />
               </button>
             )}
           </div>
@@ -325,7 +336,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
       {/* Expandable Multi-Item Row Breakdown */}
       {isExpanded && items.length > 0 && (
         <tr className="bg-slate-50/90 border-b border-indigo-100">
-          <td colSpan={9} className="px-6 py-4">
+          <td colSpan={7} className="px-6 py-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2">
