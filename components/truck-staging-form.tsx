@@ -278,11 +278,11 @@ export function TruckStagingForm({
           )}
         </div>
 
-        {/* Section 2: Truck & Driver Information (Required Fields) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-          <div className="sm:col-span-2 md:col-span-1">
-            <label className="block font-bold text-slate-700 mb-1">
-              Truck Registration Number *
+        {/* Section 2: Vehicle & Driver Information */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+          <div>
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+              Truck Registration Number <span className="text-rose-500 font-black">*</span>
             </label>
             <input
               type="text"
@@ -291,46 +291,12 @@ export function TruckStagingForm({
               value={truckNumber}
               onChange={(e) => setTruckNumber(e.target.value.toUpperCase())}
               placeholder="e.g. GJ-01-AX-9942"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 font-mono font-black text-navy text-sm uppercase tracking-wider outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-black text-navy text-sm uppercase tracking-wider outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">
-              Driver Name *
-            </label>
-            <input
-              type="text"
-              name="driverName"
-              required
-              value={driverName}
-              onChange={(e) => setDriverName(e.target.value)}
-              placeholder="e.g. Sanjay Parmar"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">
-              Driver Mobile Number *
-            </label>
-            <input
-              type="tel"
-              name="driverMobile"
-              required
-              maxLength={13}
-              value={driverMobile}
-              onChange={(e) => setDriverMobile(e.target.value)}
-              placeholder="10-digit mobile"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-        </div>
-
-        {/* Section 3: Transporter & Delivery Date */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
               Transporter / Logistics Agency
             </label>
             <input
@@ -339,12 +305,43 @@ export function TruckStagingForm({
               value={transporterName}
               onChange={(e) => setTransporterName(e.target.value)}
               placeholder="e.g. Gujarat Express Freight / Swarnim Logistics"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-navy outline-none focus:border-[#13789B]"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+              Driver Name <span className="text-rose-500 font-black">*</span>
+            </label>
+            <input
+              type="text"
+              name="driverName"
+              required
+              value={driverName}
+              onChange={(e) => setDriverName(e.target.value)}
+              placeholder="e.g. Sanjay Parmar"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+              Driver Mobile Number <span className="text-rose-500 font-black">*</span>
+            </label>
+            <input
+              type="tel"
+              name="driverMobile"
+              required
+              maxLength={13}
+              value={driverMobile}
+              onChange={(e) => setDriverMobile(e.target.value)}
+              placeholder="10-digit mobile number"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
               Expected Loading / Dispatch Date
             </label>
             <input
@@ -352,16 +349,31 @@ export function TruckStagingForm({
               name="expectedDelivery"
               value={expectedDelivery}
               onChange={(e) => setExpectedDelivery(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-navy outline-none focus:border-[#13789B]"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+              Loaded Volume (CBM)
+            </label>
+            <input
+              type="number"
+              step="0.001"
+              name="loadedCbm"
+              value={loadedCbm}
+              onChange={(e) => setLoadedCbm(e.target.value === "" ? "" : Number(e.target.value))}
+              placeholder="e.g. 18.000"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
             />
           </div>
         </div>
 
-        {/* Section 4: Certified Net Weight (Only Net Weight) */}
-        <div className="rounded-2xl bg-teal-50/70 border border-teal-200 p-4 space-y-2">
+        {/* Section 3: Certified Net Weight (Direct Weighbridge Entry) */}
+        <div className="rounded-2xl bg-teal-50/70 border border-teal-200 p-4 space-y-2.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <label htmlFor="netWeightInput" className="block text-xs font-black uppercase tracking-wider text-[#13789B] flex items-center gap-1.5">
-              <Scale className="h-4 w-4" />
+            <label htmlFor="netWeightInput" className="block text-xs font-black uppercase tracking-wider text-[#13789B] flex items-center gap-1.5 whitespace-nowrap">
+              <Scale className="h-4 w-4 shrink-0" />
               <span>Certified Net Weight (KG)</span>
             </label>
             <span className="text-[11px] text-teal-800 font-medium">
@@ -369,7 +381,7 @@ export function TruckStagingForm({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="relative">
               <input
                 id="netWeightInput"
@@ -380,7 +392,7 @@ export function TruckStagingForm({
                 value={netWeightKg}
                 onChange={(e) => setNetWeightKg(e.target.value === "" ? "" : Number(e.target.value))}
                 placeholder="e.g. 18500"
-                className="w-full rounded-xl border border-teal-300 bg-white px-4 py-2.5 font-mono text-base font-black text-navy outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+                className="w-full h-11 rounded-xl border border-teal-300 bg-white px-4 font-mono text-base font-black text-navy outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-mono pointer-events-none">
                 KG
@@ -394,7 +406,7 @@ export function TruckStagingForm({
                 value={rstNumber}
                 onChange={(e) => setRstNumber(e.target.value.toUpperCase())}
                 placeholder="RST Slip No. (e.g. 1245)"
-                className="w-full rounded-xl border border-teal-300 bg-white px-4 py-2.5 font-mono font-bold text-navy text-xs outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-teal-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
           </div>
@@ -403,56 +415,43 @@ export function TruckStagingForm({
           </p>
         </div>
 
-        {/* Section 5: Loading Timings & Remarks */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        {/* Section 4: Loading Timings & Remarks */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Loading Start Time</label>
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">Loading Start Time</label>
             <input
               type="text"
               name="loadingStartTime"
               value={loadingStartTime}
               onChange={(e) => setLoadingStartTime(e.target.value)}
               placeholder="e.g. 10:30 AM"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 font-mono text-navy outline-none focus:border-[#13789B]"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Loading Completion Time</label>
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">Loading Completion Time</label>
             <input
               type="text"
               name="loadingEndTime"
               value={loadingEndTime}
               onChange={(e) => setLoadingEndTime(e.target.value)}
               placeholder="e.g. 11:45 AM"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 font-mono text-navy outline-none focus:border-[#13789B]"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
             />
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Loaded Volume (CBM)</label>
+          <div className="sm:col-span-2">
+            <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">Loading Remarks</label>
             <input
-              type="number"
-              step="0.001"
-              name="loadedCbm"
-              value={loadedCbm}
-              onChange={(e) => setLoadedCbm(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="e.g. 18.000"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 font-mono font-bold text-navy outline-none focus:border-[#13789B]"
+              type="text"
+              name="remarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="e.g. Tarpaulin secured / Weighbridge verified / Corner blocks checked"
+              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 text-xs sm:text-sm text-navy outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
             />
           </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Loading Remarks</label>
-          <input
-            type="text"
-            name="remarks"
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            placeholder="e.g. Tarpaulin secured / Weighbridge verified / Corner blocks checked"
-            className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-navy outline-none focus:border-[#13789B]"
-          />
         </div>
 
         {/* Action Buttons */}
