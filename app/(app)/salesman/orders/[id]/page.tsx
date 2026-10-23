@@ -25,6 +25,7 @@ import {
 } from "@/lib/utils";
 import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
 import { OpenLocationButton } from "@/components/open-location-button";
+import { OrderLifecycleTracker } from "@/components/order-lifecycle-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -158,6 +159,15 @@ export default async function SalesmanOrderDetailPage({
         </div>
       </div>
 
+      {/* 4-STAGE ORDER LIFECYCLE PROGRESSION */}
+      <OrderLifecycleTracker
+        status={order.status}
+        confirmedAt={order.confirmedAt}
+        dispatchedAt={order.dispatchedAt}
+        deliveredAt={order.deliveredAt}
+        createdAt={order.createdAt}
+      />
+
       {/* GST Billing Details Card */}
       <div className="card rounded-3xl bg-white border border-slate-200 p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -206,39 +216,79 @@ export default async function SalesmanOrderDetailPage({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Specifications */}
         <div className="card rounded-3xl bg-white border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-            <Layers className="h-4 w-4 text-[#13789B]" />
-            <h2 className="text-xs font-black uppercase tracking-wider text-navy">
-              Order Specifications
-            </h2>
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-[#13789B]" />
+              <h2 className="text-xs font-black uppercase tracking-wider text-navy">
+                Order Specifications
+              </h2>
+            </div>
+            {totalCbm > 0 && (
+              <span className="text-xs font-black text-[#13789B] font-mono bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-100">
+                {totalCbm.toFixed(3)} CBM
+              </span>
+            )}
           </div>
 
-          <div className="space-y-3 text-xs">
-            <div className="flex justify-between items-center py-1 border-b border-slate-50">
-              <span className="text-slate-500 font-semibold">Block Size:</span>
-              <span className="font-bold text-navy">{blockSizesSummary}</span>
-            </div>
+          {order.items && order.items.length > 0 ? (
+            <div className="space-y-3">
+              <div className="divide-y divide-slate-100">
+                {order.items.map((it) => (
+                  <div key={it.id} className="py-2.5 flex items-start justify-between gap-2 text-xs">
+                    <div>
+                      <p className="font-bold text-navy text-sm">{it.productName}</p>
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        {it.dimensions || (it.sizeLabel ? formatBlockSizeName(it.sizeLabel) : it.productType)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      {it.totalCbm ? (
+                        <>
+                          <div className="font-black text-navy font-mono text-sm">{Number(it.totalCbm).toFixed(3)} CBM</div>
+                          <div className="text-[10px] text-slate-400 italic">≈ {formatNumber(it.quantity)} Blocks</div>
+                        </>
+                      ) : (
+                        <div className="font-black text-navy font-mono text-sm">{formatNumber(it.quantity)} Bags</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-            <div className="flex justify-between items-center py-1 border-b border-slate-50">
-              <span className="text-slate-500 font-semibold">Ordered Volume:</span>
-              <span className="font-black text-navy text-sm font-mono">
-                {totalCbm > 0 ? `${totalCbm.toFixed(3)} CBM` : "-"}
-              </span>
+              <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-bold">Total AAC Volume:</span>
+                <span className="font-black text-navy font-mono text-sm">{totalCbm.toFixed(3)} CBM</span>
+              </div>
             </div>
+          ) : (
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-semibold">Block Size:</span>
+                <span className="font-bold text-navy">{blockSizesSummary}</span>
+              </div>
 
-            <div className="flex justify-between items-center py-1 border-b border-slate-50">
-              <span className="text-slate-500 font-semibold">Approximate Blocks:</span>
-              <span className="font-bold text-navy font-mono">
-                ≈ {formatNumber(order.quantity)} Blocks
-              </span>
-            </div>
+              <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-semibold">Ordered Volume:</span>
+                <span className="font-black text-navy text-sm font-mono">
+                  {totalCbm > 0 ? `${totalCbm.toFixed(3)} CBM` : "-"}
+                </span>
+              </div>
 
-            <div className="flex justify-between items-center py-1 border-b border-slate-50">
-              <span className="text-slate-500 font-semibold">Block Jointing Morter:</span>
-              <span className="rounded-lg bg-sky-50 border border-sky-200 px-2 py-0.5 font-bold font-mono text-navy">
-                {order.adhesiveBags ?? 0} Bags (40 KG)
-              </span>
+              <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-semibold">Approximate Blocks:</span>
+                <span className="font-bold text-navy font-mono">
+                  ≈ {formatNumber(order.quantity)} Blocks
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                <span className="text-slate-500 font-semibold">Block Jointing Morter:</span>
+                <span className="rounded-lg bg-sky-50 border border-sky-200 px-2 py-0.5 font-bold font-mono text-navy">
+                  {order.adhesiveBags ?? 0} Bags (40 KG)
+                </span>
+              </div>
             </div>
+          )}
 
             {order.loadedQuantity && (
               <div className="flex justify-between items-center py-1 border-b border-slate-50">
@@ -257,7 +307,6 @@ export default async function SalesmanOrderDetailPage({
                 </p>
               </div>
             )}
-          </div>
         </div>
 
         {/* Delivery Location Card */}

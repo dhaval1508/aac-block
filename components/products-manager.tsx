@@ -294,8 +294,12 @@ export function ProductsManager({
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-base font-black text-slate-900">{formatBlockSizeName(p.sizeLabel)}</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">{p.dimensions}</p>
+                    <h3 className="text-base font-black text-slate-900">
+                      {p.name && p.name !== "AAC Block" ? p.name : formatBlockSizeName(p.sizeLabel)}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Size: <span className="font-bold text-[#13789B]">{p.sizeLabel}</span> · {p.dimensions}
+                    </p>
                   </div>
                   {p.active ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
@@ -390,7 +394,10 @@ export function ProductsManager({
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3 px-4 font-black text-slate-900">{formatBlockSizeName(p.sizeLabel)}</td>
+                  <td className="py-3 px-4">
+                    <p className="font-black text-slate-900">{p.name && p.name !== "AAC Block" ? p.name : formatBlockSizeName(p.sizeLabel)}</p>
+                    <span className="text-[11px] font-bold text-[#13789B]">{p.sizeLabel}</span>
+                  </td>
                   <td className="py-3 px-4 text-slate-600 font-mono">{p.dimensions}</td>
                   <td className="py-3 px-4 font-bold text-slate-800">
                     {Number(p.cbmPerBlock).toFixed(4)} CBM

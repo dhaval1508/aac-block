@@ -37,6 +37,16 @@ interface Props {
       sizeLabel?: string | null;
       dimensions?: string | null;
     } | null;
+    items?: Array<{
+      id: string;
+      productName: string;
+      sizeLabel?: string | null;
+      dimensions?: string | null;
+      quantity: number;
+      cbmPerUnit?: any;
+      totalCbm?: any;
+      productType?: string | null;
+    }> | null;
     transport?: {
       truckNumber?: string | null;
       driverName?: string | null;
@@ -73,7 +83,7 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
   const rstNumber =
     order.weighbridgeSlip?.rstNumber || order.loadingRecord?.rstNumber || null;
 
-  // Build WhatsApp Share Message
+  // Build WhatsApp Share Message with ALL material items
   const waChallanHref = React.useMemo(() => {
     const mobile = order.customer?.mobile || order.transport?.driverMobile;
     if (!mobile) return "";
@@ -81,6 +91,23 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
     if (!cleanPhone) return "";
 
     const mapsLink = mapsHref(order.deliveryAddress);
+    const materialLines: string[] = [];
+
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((it) => {
+        const isBlock = it.productType === "AAC_BLOCK" || (!it.productType && it.totalCbm);
+        if (isBlock) {
+          materialLines.push(
+            `• ${it.productName || "AAC Block"} ${it.sizeLabel ? `(${it.sizeLabel})` : ""}: ${
+              it.totalCbm ? `${Number(it.totalCbm).toFixed(3)} CBM` : ""
+            } (≈ ${it.quantity.toLocaleString()} Blocks)`
+          );
+        } else {
+          materialLines.push(`• ${it.productName || "Block Jointing Morter"}: ${it.quantity} Bags (40 KG)`);
+        }
+      });
+    }
+
     const lines = [
       `*SWARNIM AAC BLOCK - MATERIAL DELIVERY CHALLAN*`,
       `Delivery Challan: ${challanNo || "Pending Generation"}`,
@@ -88,6 +115,7 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
       `Customer / Consignee: ${order.customer?.companyName || order.customer?.name || "Client"}`,
       order.totalCbm ? `Total Volume: ${Number(order.totalCbm).toFixed(3)} CBM (≈ ${order.quantity.toLocaleString()} Blocks)` : null,
       order.adhesiveBags ? `Jointing Morter: ${order.adhesiveBags} Bags (40 KG)` : null,
+      materialLines.length > 0 ? `\n*Material Breakdown:*\n${materialLines.join("\n")}` : null,
       order.transport?.truckNumber ? `Vehicle Number: ${order.transport.truckNumber}` : null,
       order.transport?.driverName ? `Driver: ${order.transport.driverName} (${order.transport.driverMobile || ""})` : null,
       netWeight ? `Certified Net Weight: ${netWeight.toLocaleString()} KG` : null,
@@ -163,6 +191,25 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
                 </span>
               </div>
             </div>
+
+            {order.items && order.items.length > 0 && (
+              <div className="py-2 border-y border-slate-200/60 space-y-1.5">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                  All Consigned Material Items ({order.items.length})
+                </span>
+                {order.items.map((it) => (
+                  <div key={it.id} className="flex justify-between items-center text-[11px]">
+                    <span className="text-navy font-semibold truncate">
+                      {it.productName || "AAC Block"} {it.sizeLabel ? `(${it.sizeLabel})` : ""}
+                    </span>
+                    <span className="font-mono text-slate-700 shrink-0">
+                      {it.totalCbm ? `${Number(it.totalCbm).toFixed(3)} CBM` : `${it.quantity} Bags`}
+                      {it.totalCbm ? ` (≈ ${it.quantity} blk)` : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex justify-between items-center gap-2">
               <span className="text-slate-500 font-semibold">Block Jointing Morter</span>

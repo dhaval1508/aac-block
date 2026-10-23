@@ -25,6 +25,7 @@ import { StaffLoadingForm } from "@/components/staff-loading-form";
 import { TruckStagingForm } from "@/components/truck-staging-form";
 import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
 import { OpenLocationButton } from "@/components/open-location-button";
+import { OrderLifecycleTracker } from "@/components/order-lifecycle-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -204,6 +205,15 @@ if (!order) notFound();
           <span>{decodeURIComponent(error)}</span>
         </div>
       ) : null}
+
+      {/* 4-STAGE ORDER PROGRESSION TRACKER */}
+      <OrderLifecycleTracker
+        status={order.status}
+        confirmedAt={order.confirmedAt}
+        dispatchedAt={order.dispatchedAt}
+        deliveredAt={order.deliveredAt}
+        createdAt={order.createdAt}
+      />
 
       {/* Site Delivery Address & Instructions */}
       <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">

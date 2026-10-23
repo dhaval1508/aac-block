@@ -43,6 +43,24 @@ type InvoiceOrder = {
     gstin: string | null;
     billingAddress: string | null;
   };
+  items?: Array<{
+    id: string;
+    productName: string;
+    sizeLabel?: string | null;
+    dimensions?: string | null;
+    quantity: number;
+    loadedQuantity?: number;
+    cbmPerUnit?: number | null;
+    totalCbm?: number | null;
+    productType?: string | null;
+    product?: {
+      name?: string | null;
+      sizeLabel?: string | null;
+      dimensions?: string | null;
+      category?: string | null;
+      cbmPerBlock?: number | null;
+    } | null;
+  }>;
   product: {
     name: string;
     sizeLabel: string;
@@ -69,19 +87,44 @@ export function TaxInvoiceView({
     window.print();
   };
 
+  const aacItems = (order.items && order.items.length > 0)
+    ? order.items.filter((it) => it.productType === "AAC_BLOCK" || (!it.productType && it.totalCbm))
+    : order.product
+    ? [
+        {
+          id: "primary",
+          productName: order.product.name,
+          sizeLabel: order.product.sizeLabel,
+          dimensions: order.product.dimensions,
+          quantity: order.quantity,
+          cbmPerUnit: Number(order.product.cbmPerBlock),
+          totalCbm: order.totalCbm
+            ? Number(order.totalCbm)
+            : Number(order.product.cbmPerBlock) * order.quantity,
+        },
+      ]
+    : [];
+
+  const mortarItems = (order.items && order.items.length > 0)
+    ? order.items.filter((it) => it.productType === "MORTAR" || it.product?.category === "MORTAR")
+    : [];
+
+  const totalMortarBags =
+    mortarItems.reduce((acc, it) => acc + it.quantity, 0) || (order.adhesiveBags ?? 0);
+
   const totalCbmNum = order.totalCbm
     ? Number(order.totalCbm)
-    : order.product
-    ? Number(order.product.cbmPerBlock) * order.quantity
-    : 0;
+    : aacItems.reduce((acc, it) => acc + (Number(it.totalCbm) || 0), 0);
+
+  const totalAacBlocks = aacItems.reduce((acc, it) => acc + it.quantity, 0) || order.quantity;
   const loadedCbmNum = order.loadedCbm ? Number(order.loadedCbm) : 0;
 
   const waMessage = buildWhatsAppMessage("invoice", {
     orderNo: order.orderNo,
     customerName: order.customer.companyName || order.customer.name,
-    sizeLabel: order.product?.sizeLabel || "Standard",
-    quantity: order.quantity,
-    invoiceNo: order.invoiceNo,
+    sizeLabel: order.product?.sizeLabel || aacItems[0]?.sizeLabel || "Standard",
+    quantity: totalAacBlocks,
+    invoiceNo: order.invoiceNo || order.dcNumber,
     shareToken: order.shareToken,
     truckNumber: order.transport?.truckNumber,
     driverName: order.transport?.driverName,
@@ -210,28 +253,38 @@ export function TaxInvoiceView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="py-3 px-3">
-                    <p className="font-bold text-navy text-sm">
-                      {order.product?.name || "AAC Blocks"} {order.product?.sizeLabel || ""}
-                    </p>
-                    <p className="text-[11px] text-slate-400">Standard Autoclaved Aerated Concrete</p>
-                  </td>
-                  <td className="py-3 px-3 font-mono text-slate-700 font-semibold">{order.product?.dimensions || "-"}</td>
-                  <td className="py-3 px-3 text-right font-mono text-slate-700 font-semibold">
-                    {order.product ? `${Number(order.product.cbmPerBlock).toFixed(4)} CBM` : "-"}
-                  </td>
-                  <td className="py-3 px-3 text-right text-slate-600 font-mono">6810</td>
-                  <td className="py-3 px-3 text-right">
-                    <p className="font-black text-navy text-sm font-mono">
-                      {totalCbmNum.toFixed(3)} CBM
-                    </p>
-                    <p className="text-[11px] text-slate-400 italic">
-                      ≈ {formatNumber(order.quantity)} Blocks
-                    </p>
-                  </td>
-                </tr>
-                {order.adhesiveBags && order.adhesiveBags > 0 ? (
+                {aacItems.map((item, idx) => {
+                  const itemCbm = Number(item.totalCbm || (item.quantity * Number(item.cbmPerUnit || 0)));
+                  const unitCbm = Number(item.cbmPerUnit || (item.product?.cbmPerBlock || 0));
+
+                  return (
+                    <tr key={item.id || idx}>
+                      <td className="py-3 px-3">
+                        <p className="font-bold text-navy text-sm">
+                          {item.productName || item.product?.name || "AAC Block"} {item.sizeLabel || item.product?.sizeLabel || ""}
+                        </p>
+                        <p className="text-[11px] text-slate-400">Standard Autoclaved Aerated Concrete</p>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-slate-700 font-semibold">
+                        {item.dimensions || item.product?.dimensions || "-"}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-slate-700 font-semibold">
+                        {unitCbm > 0 ? `${unitCbm.toFixed(4)} CBM` : "-"}
+                      </td>
+                      <td className="py-3 px-3 text-right text-slate-600 font-mono">6810</td>
+                      <td className="py-3 px-3 text-right">
+                        <p className="font-black text-navy text-sm font-mono">
+                          {itemCbm.toFixed(3)} CBM
+                        </p>
+                        <p className="text-[11px] text-slate-400 italic">
+                          ≈ {formatNumber(item.quantity)} Blocks
+                        </p>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {totalMortarBags > 0 ? (
                   <tr>
                     <td className="py-3 px-3">
                       <p className="font-bold text-navy text-sm">Block Jointing Morter</p>
@@ -242,10 +295,10 @@ export function TaxInvoiceView({
                     <td className="py-3 px-3 text-right text-slate-600 font-mono">38245090</td>
                     <td className="py-3 px-3 text-right">
                       <p className="font-black text-navy text-sm font-mono">
-                        {order.adhesiveBags} Bags
+                        {totalMortarBags} Bags
                       </p>
                       <p className="text-[11px] text-slate-400 italic">
-                        {order.adhesiveBags * 40} KG
+                        {totalMortarBags * 40} KG
                       </p>
                     </td>
                   </tr>
@@ -264,22 +317,24 @@ export function TaxInvoiceView({
               </div>
             </div>
 
-            <div className="w-full sm:w-auto rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5 space-y-1.5 min-w-[240px]">
+            <div className="w-full sm:w-auto rounded-2xl bg-slate-50 border border-slate-200/80 p-3.5 space-y-1.5 min-w-[260px]">
               <div className="flex justify-between items-start text-slate-600">
                 <span>Total Volume Dispatched</span>
                 <div className="text-right">
                   <strong className="text-navy font-mono text-sm block">{totalCbmNum.toFixed(3)} CBM</strong>
-                  <span className="text-[11px] text-slate-400 italic">≈ {formatNumber(order.quantity)} Blocks</span>
+                  <span className="text-[11px] text-slate-400 italic">≈ {formatNumber(totalAacBlocks)} Blocks</span>
                 </div>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Block Specification</span>
-                <strong className="text-[#13789B] font-mono text-sm">{order.product?.sizeLabel || "Standard"}</strong>
+                <span>Block Specifications</span>
+                <strong className="text-[#13789B] font-mono text-xs text-right max-w-[170px] truncate">
+                  {aacItems.map((it) => it.sizeLabel || "Standard").join(", ") || "Standard"}
+                </strong>
               </div>
-              {order.adhesiveBags && order.adhesiveBags > 0 ? (
+              {totalMortarBags > 0 ? (
                 <div className="flex justify-between text-slate-600">
                   <span>Jointing Morter (40 KG)</span>
-                  <strong className="text-sky-800 font-mono text-sm">{order.adhesiveBags} Bags</strong>
+                  <strong className="text-sky-800 font-mono text-sm">{totalMortarBags} Bags</strong>
                 </div>
               ) : null}
               {order.loadedQuantity && order.loadedQuantity > 0 ? (

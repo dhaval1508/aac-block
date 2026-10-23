@@ -40,6 +40,7 @@ import { resolveDateRange, buildPrismaDateFilter } from "@/lib/date-utils";
 import { DateRangeFilter } from "@/components/date-range-filter";
 import { OrdersFilterToolbar } from "@/components/orders-filter-toolbar";
 import { OpenLocationButton } from "@/components/open-location-button";
+import { AdminOrderRow } from "@/components/admin-order-row";
 
 export const dynamic = "force-dynamic";
 
@@ -169,7 +170,10 @@ export default async function AdminOrdersPage({
         transport: true,
         assignedStaff: { select: { name: true } },
         salesman: { select: { id: true, name: true } },
-        items: { select: { id: true } },
+        items: {
+          include: { product: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
     }),
     prisma.order.count({ where: whereClause }),
@@ -433,145 +437,7 @@ export default async function AdminOrdersPage({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {orders.map((o) => (
-                <tr key={o.id} className="hover:bg-slate-50/80 transition-colors group">
-                  <td className="py-4 px-4 align-top">
-                    <div className="flex flex-col gap-1">
-                      <Link
-                        href={`/admin/orders/${o.id}`}
-                        className="font-black text-sm text-[#13789B] group-hover:underline block font-mono"
-                      >
-                        {o.orderNo}
-                      </Link>
-                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                        <Calendar className="h-3 w-3 shrink-0 text-slate-400" />
-                        <span>{formatDate(o.createdAt)}</span>
-                      </div>
-                      {/* GST Billing Chip */}
-                      {o.gstBillingSelected === true ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700 w-fit mt-0.5"
-                          title={`GST Registered: ${o.gstRegisteredName || 'Verified'} | GSTIN: ${o.gstNumber || ''}`}
-                        >
-                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                          <span>GST Bill</span>
-                        </span>
-                      ) : o.gstBillingSelected === false ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600 w-fit mt-0.5"
-                        >
-                          <FileText className="h-3 w-3 text-slate-400" />
-                          <span>Without GST</span>
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-4 align-top">
-                    <p className="font-bold text-navy truncate max-w-[190px]" title={o.customer.companyName || o.customer.name}>
-                      {o.customer.companyName || o.customer.name}
-                    </p>
-                    {(o.salesman?.name || o.salesmanNameSnapshot) && (
-                      <span className="inline-flex items-center gap-1 mt-1 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
-                        <UserCheck className="h-2.5 w-2.5 text-purple-600" />
-                        <span>Sales: {o.salesman?.name || o.salesmanNameSnapshot}</span>
-                      </span>
-                    )}
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] text-slate-500 truncate max-w-[140px] inline-flex items-center gap-1" title={o.deliveryAddress}>
-                        <MapPin className="h-3 w-3 text-rose-500 shrink-0" />
-                        <span className="truncate">{o.deliveryAddress}</span>
-                      </span>
-                      <OpenLocationButton address={o.deliveryAddress} variant="badge" />
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-4 align-top">
-                    {o.createdByRole === "SALESMAN" ? (
-                      <div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 border border-purple-200 px-2.5 py-0.5 text-[10px] font-bold text-purple-700">
-                          <User className="h-3 w-3 text-purple-600" />
-                          <span>Salesman</span>
-                        </span>
-                        <span className="block text-[11px] text-slate-700 font-semibold mt-1 truncate max-w-[130px]">
-                          {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
-                        </span>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2.5 py-0.5 text-[10px] font-bold text-[#13789B]">
-                          <Building2 className="h-3 w-3 text-[#13789B]" />
-                          <span>Customer</span>
-                        </span>
-                        <span className="block text-[11px] text-slate-500 mt-1 truncate max-w-[130px]">
-                          Direct Order
-                        </span>
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="py-4 px-4 align-top">
-                    <span className="font-bold text-slate-800 block text-xs">
-                      {o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : (o.items && o.items.length > 0 ? `${o.items.length} sizes` : "Standard")}
-                    </span>
-                    <span className="text-[11px] text-slate-400 block font-mono mt-0.5">{o.product?.dimensions || "-"}</span>
-                  </td>
-
-                  <td className="py-4 px-4 text-right align-top">
-                    <p className="font-black text-sm text-navy">
-                      {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
-                    </p>
-                    <span className="text-[11px] text-slate-400 italic block mt-0.5">
-                      ≈ {formatNumber(o.quantity)} Blocks
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-4 text-center align-top">
-                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 border border-sky-200 px-3 py-1 text-xs font-mono font-bold text-navy shadow-2xs">
-                      <Package className="h-3.5 w-3.5 text-[#13789B]" />
-                      <span>{o.adhesiveBags ?? 0} Bags</span>
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-4 align-top">
-                    {o.transport ? (
-                      <div>
-                        <span className="font-bold text-navy block font-mono text-xs flex items-center gap-1">
-                          <Truck className="h-3 w-3 text-slate-400" />
-                          {o.transport.truckNumber}
-                        </span>
-                        <span className="text-[11px] text-slate-500 block truncate max-w-[130px] mt-0.5">
-                          {o.transport.driverName}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-slate-400 italic text-[11px]">
-                        <Clock className="h-3 w-3 text-slate-300" />
-                        <span>Unassigned</span>
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="py-4 px-4 text-center align-top">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border shadow-2xs ${
-                        ORDER_STATUS_CLASS[o.status]
-                      }`}
-                    >
-                      {getStatusIcon(o.status)}
-                      <span>{ORDER_STATUS_LABEL[o.status]}</span>
-                    </span>
-                  </td>
-
-                  <td className="py-4 px-4 text-right align-top">
-                    <Link
-                      href={`/admin/orders/${o.id}`}
-                      className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] text-[#13789B] hover:text-white px-3 py-1.5 text-xs font-bold transition-all shadow-2xs group/btn cursor-pointer"
-                    >
-                      <span>Manage</span>
-                      <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
-                    </Link>
-                  </td>
-                </tr>
+                <AdminOrderRow key={o.id} order={o as any} />
               ))}
             </tbody>
           </table>
@@ -634,9 +500,13 @@ export default async function AdminOrdersPage({
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
-                <div className="min-w-0">
-                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Size</span>
-                  <p className="font-bold text-navy truncate">{o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "AAC Blocks"}</p>
+                <div className="min-w-0 col-span-2">
+                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Material Items</span>
+                  <p className="font-bold text-navy truncate">
+                    {o.items && o.items.length > 0
+                      ? o.items.map((it) => `${it.productName || it.product?.name} (${it.totalCbm ? `${Number(it.totalCbm).toFixed(2)} CBM` : `${it.quantity} Bags`})`).join(" · ")
+                      : (o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "AAC Blocks")}
+                  </p>
                 </div>
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Jointing Morter (40 KG)</span>

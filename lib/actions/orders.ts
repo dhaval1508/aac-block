@@ -964,7 +964,9 @@ export async function completeLoadingAction(formData: FormData) {
 // 7. Admin dispatches loaded order (Automatic Stock Out with CBM stock check)
 export async function dispatchOrderAction(formData: FormData) {
   const session = await getSession();
-  if (!session || session.role !== "ADMIN") redirect("/login");
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
 
   const orderId = String(formData.get("orderId") ?? "");
   const order = await prisma.order.findUnique({
@@ -972,8 +974,18 @@ export async function dispatchOrderAction(formData: FormData) {
     include: { product: true, items: true, transport: true },
   });
 
-  if (!order || order.status !== OrderStatus.LOADED) {
-    redirect(`/admin/orders/${orderId}?error=Order%20must%20be%20loaded%20before%20dispatch`);
+  const returnPath = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
+
+  if (!order) {
+    redirect(`${returnPath}?error=Order%20not%20found`);
+  }
+
+  if (order.status === OrderStatus.DISPATCHED || order.status === OrderStatus.DELIVERED) {
+    redirect(`${returnPath}?error=Order%20has%20already%20been%20dispatched`);
+  }
+
+  if (order.status === OrderStatus.PENDING || order.status === OrderStatus.CANCELLED || order.status === OrderStatus.REJECTED) {
+    redirect(`${returnPath}?error=Order%20must%20be%20confirmed%20and%20staged%20before%20dispatch`);
   }
 
   // Deduct stock for all items
@@ -1099,21 +1111,26 @@ export async function dispatchOrderAction(formData: FormData) {
   }
 
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/admin/stock");
   revalidatePath("/stocker/stock");
   revalidatePath("/admin/dashboard");
+  revalidatePath("/staff/dashboard");
   revalidatePath("/salesman/dashboard");
   revalidatePath("/salesman/orders");
   revalidatePath(`/salesman/orders/${orderId}`);
-  redirect(`/admin/orders/${orderId}`);
+  redirect(returnPath);
 }
 
-// 8. Admin marks material delivered
+// 8. Admin & Authorized Loading Staff mark material delivered
 export async function deliverOrderAction(formData: FormData) {
   const session = await getSession();
-  if (!session || session.role !== "ADMIN") redirect("/login");
+  if (!session || !["ADMIN", "STAFF", "STOCKER"].includes(session.role)) {
+    redirect("/login");
+  }
 
   const orderId = String(formData.get("orderId") ?? "");
+  const returnPath = session.role === "ADMIN" ? `/admin/orders/${orderId}` : `/staff/orders/${orderId}`;
 
   const order = await prisma.order.update({
     where: { id: orderId },
@@ -1124,7 +1141,7 @@ export async function deliverOrderAction(formData: FormData) {
         create: {
           status: OrderStatus.DELIVERED,
           title: "Order Delivered",
-          note: "Material received and confirmed at customer site",
+          note: `Material delivery confirmed by ${session.name} (${session.role})`,
           createdById: session.id,
         },
       },
@@ -1163,10 +1180,79 @@ export async function deliverOrderAction(formData: FormData) {
   }
 
   revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath(`/staff/orders/${orderId}`);
   revalidatePath("/salesman/dashboard");
   revalidatePath("/salesman/orders");
   revalidatePath(`/salesman/orders/${orderId}`);
-  redirect(`/admin/orders/${orderId}`);
+  redirect(returnPath);
+}
+
+// Safe Super Admin Delete / Archive functionality
+export async function deleteOrderAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { movements: true },
+  });
+
+  if (!order) {
+    redirect("/admin/orders?error=Order%20not%20found");
+  }
+
+  // Legal retention safeguard: Cannot permanently delete dispatched or delivered orders with stock movements
+  if (order.status === OrderStatus.DISPATCHED || order.status === OrderStatus.DELIVERED || order.movements.length > 0) {
+    redirect("/admin/orders?error=Cannot%20delete%20dispatched%20or%20delivered%20orders%20with%20inventory%20movements.%20Use%20Archive%20instead.");
+  }
+
+  await prisma.order.delete({
+    where: { id: orderId },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/staff/dashboard");
+  revalidatePath("/salesman/orders");
+  redirect("/admin/orders?success=Order%20deleted%20successfully");
+}
+
+export async function archiveOrderAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    redirect("/login");
+  }
+
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim() || "Archived by Super Admin";
+
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) {
+    redirect("/admin/orders?error=Order%20not%20found");
+  }
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      status: OrderStatus.CANCELLED,
+      events: {
+        create: {
+          status: OrderStatus.CANCELLED,
+          title: "Order Archived / Cancelled",
+          note: reason,
+          createdById: session.id,
+        },
+      },
+    },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/dashboard");
+  redirect("/admin/orders?success=Order%20archived%20successfully");
 }
 
 // 9. Admin records payment
@@ -2258,5 +2344,6 @@ export async function generateDeliveryChallanAction(formData: FormData) {
 
   redirect(`${returnPath}?success=Delivery%20Challan%20${dcNumber}%20generated%20successfully`);
 }
+
 
 

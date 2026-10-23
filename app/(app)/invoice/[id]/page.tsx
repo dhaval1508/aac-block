@@ -22,6 +22,10 @@ export default async function InvoicePage({
       product: true,
       transport: true,
       weighbridgeSlip: true,
+      items: {
+        include: { product: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
@@ -43,6 +47,26 @@ export default async function InvoicePage({
     gstAmount: Number(order.gstAmount),
     totalAmount: Number(order.totalAmount),
     paidAmount: Number(order.paidAmount),
+    items: order.items.map((it) => ({
+      id: it.id,
+      productName: it.productName,
+      sizeLabel: it.sizeLabel,
+      dimensions: it.dimensions,
+      quantity: it.quantity,
+      loadedQuantity: it.loadedQuantity,
+      cbmPerUnit: it.cbmPerUnit ? Number(it.cbmPerUnit) : null,
+      totalCbm: it.totalCbm ? Number(it.totalCbm) : null,
+      productType: it.productType,
+      product: it.product
+        ? {
+            name: it.product.name,
+            sizeLabel: it.product.sizeLabel,
+            dimensions: it.product.dimensions,
+            category: it.product.category,
+            cbmPerBlock: Number(it.product.cbmPerBlock),
+          }
+        : null,
+    })),
     product: order.product
       ? {
           ...order.product,

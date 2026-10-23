@@ -47,6 +47,8 @@ import { OpenLocationButton } from "@/components/open-location-button";
 import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
 import { TruckStagingForm } from "@/components/truck-staging-form";
 import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
+import { OrderLifecycleTracker } from "@/components/order-lifecycle-tracker";
+import { LogisticsDispatchChecklist } from "@/components/logistics-dispatch-checklist";
 import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -241,48 +243,15 @@ export default async function AdminOrderDetailPage({
       )}
 
       {/* =========================================================================
-          ORDER LIFECYCLE 7-STAGE PIPELINE PROGRESS STEPPER
+          ORDER LIFECYCLE 4-STAGE PIPELINE PROGRESS STEPPER
       ========================================================================= */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3 sm:mb-4 min-w-0">
-          <h2 className="text-xs font-black uppercase tracking-wider text-slate-400">Order Execution Pipeline</h2>
-          <span className="text-xs font-bold text-navy truncate">
-            Current Stage: <span className="text-[#13789B]">{ORDER_STATUS_LABEL[order.status]}</span>
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7 min-w-0">
-          {pipelineStages.map((stg, idx) => {
-            const isCompleted = currentStageIndex > idx;
-            const isCurrent = currentStageIndex === idx;
-
-            return (
-              <div
-                key={stg.key}
-                className={`flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-2xl border text-center transition-all min-w-0 ${
-                  isCurrent
-                    ? "border-[#13789B] bg-[#13789B]/5 text-[#13789B] ring-2 ring-[#13789B]/20"
-                    : isCompleted
-                    ? "border-emerald-200 bg-emerald-50/50 text-emerald-800"
-                    : "border-slate-100 bg-slate-50/50 text-slate-400"
-                }`}
-              >
-                <div
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold mb-1 ${
-                    isCurrent
-                      ? "bg-[#13789B] text-white"
-                      : isCompleted
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-200 text-slate-500"
-                  }`}
-                >
-                  {isCompleted ? <Check className="h-3.5 w-3.5" /> : idx + 1}
-                </div>
-                <span className="text-[10px] sm:text-[11px] font-bold leading-tight truncate block w-full">{stg.label}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <OrderLifecycleTracker
+        status={order.status}
+        confirmedAt={order.confirmedAt}
+        dispatchedAt={order.dispatchedAt}
+        deliveredAt={order.deliveredAt}
+        createdAt={order.createdAt}
+      />
 
       {/* =========================================================================
           FOUR TOP KPI CARDS FOR THIS SPECIFIC ORDER
@@ -766,122 +735,14 @@ export default async function AdminOrderDetailPage({
           )}
 
           {/* 3. LOGISTICS DISPATCH & DELIVERY CONTROLS */}
-          {(order.status === OrderStatus.LOADING || order.status === OrderStatus.LOADED || order.status === OrderStatus.DISPATCHED || order.status === OrderStatus.DELIVERED) && (
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 border-l-4 border-l-indigo-600 min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                  <Boxes className="h-4 w-4" />
-                </span>
-                <h3 className="text-sm sm:text-base font-black text-navy truncate">Logistics & Dispatch Verification</h3>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-3 sm:p-3.5 space-y-2 text-xs border border-slate-100 min-w-0">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-slate-400">Assigned Loading Staff</span>
-                  <strong className="font-bold text-navy truncate">{order.assignedStaff?.name || "—"}</strong>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-slate-400">Vehicle / Driver</span>
-                  <strong className="font-bold text-navy truncate">
-                    {order.transport?.truckNumber} ({order.transport?.driverName})
-                  </strong>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-slate-400">Physically Loaded</span>
-                  <div className="text-right">
-                    <strong className="font-black text-emerald-700 block">
-                      {Number(order.loadedCbm || order.totalCbm || 0).toFixed(3)} CBM
-                    </strong>
-                    <span className="text-[11px] text-slate-400 italic">
-                      ≈ {formatNumber(order.loadedQuantity || order.quantity)} Blocks
-                    </span>
-                  </div>
-                </div>
-                {order.weighbridgeSlip?.netWeightKg ? (
-                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-200/60">
-                    <span className="text-slate-500 font-semibold">Certified Net Weight</span>
-                    <strong className="font-mono text-emerald-700 font-black">
-                      {Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG (RST #{order.weighbridgeSlip.rstNumber})
-                    </strong>
-                  </div>
-                ) : order.loadingRecord?.netWeight ? (
-                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-200/60">
-                    <span className="text-slate-500 font-semibold">Recorded Net Weight</span>
-                    <strong className="font-mono text-emerald-700 font-black">
-                      {Number(order.loadingRecord.netWeight).toLocaleString()} KG
-                    </strong>
-                  </div>
-                ) : null}
-              </div>
-
-              {order.status === OrderStatus.LOADED && (
-                <>
-                  {!hasEnoughStock ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 sm:p-3.5 text-xs text-rose-800">
-                      <strong>Cannot Dispatch:</strong> Current factory yard stock ({currentCbm.toFixed(3)} CBM) is lower than
-                      loaded quantity ({outCbm.toFixed(3)} CBM). Please record production stock-in before dispatching.
-                    </div>
-                  ) : (
-                    <form action={dispatchOrderAction}>
-                      <input type="hidden" name="orderId" value={order.id} />
-                      <button
-                        type="submit"
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all cursor-pointer"
-                      >
-                        <Send className="h-4 w-4" />
-                        <span>Authorize Dispatch & Deduct Stock</span>
-                      </button>
-                    </form>
-                  )}
-
-                  <a
-                    href={getWaLink("loaded")}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-all w-full"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span>WhatsApp: Loading Completed</span>
-                  </a>
-                </>
-              )}
-
-              {order.status === OrderStatus.DISPATCHED && (
-                <div className="space-y-2">
-                  <a
-                    href={getWaLink("dispatched")}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-all w-full"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span>WhatsApp: Truck Dispatched</span>
-                  </a>
-                  <form action={deliverOrderAction}>
-                    <input type="hidden" name="orderId" value={order.id} />
-                    <button
-                      type="submit"
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-all cursor-pointer"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Confirm Material Delivered to Site</span>
-                    </button>
-                  </form>
-                </div>
-              )}
-
-              {order.status === OrderStatus.DELIVERED && (
-                <a
-                  href={getWaLink("delivered")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-all w-full"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>WhatsApp: Delivery Confirmation</span>
-                </a>
-              )}
-            </div>
+          {order.status !== OrderStatus.PENDING && (
+            <LogisticsDispatchChecklist
+              order={order as any}
+              hasEnoughStock={hasEnoughStock}
+              currentCbm={currentCbm}
+              userRole="ADMIN"
+              getWaLink={getWaLink}
+            />
           )}
 
           {/* 4. DISPATCH DOCUMENTATION & DELIVERY CHALLAN */}

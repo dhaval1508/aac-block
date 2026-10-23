@@ -29,6 +29,7 @@ import {
 } from "@/lib/utils";
 import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
 import { OpenLocationButton } from "@/components/open-location-button";
+import { OrderLifecycleTracker } from "@/components/order-lifecycle-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -174,53 +175,13 @@ export default async function CustomerOrderDetailPage({
 
       {/* Visual Order Progress Stepper */}
       {!isRejected ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-3.5 sm:p-6 shadow-xs overflow-x-auto min-w-0">
-          <h2 className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-400 mb-3 sm:mb-4">
-            Live Order Status Progression
-          </h2>
-          <div className="relative min-w-[280px]">
-            <div className="grid grid-cols-6 gap-0.5 sm:gap-2">
-              {steps.map((st, i) => {
-                const isPassed = currentStepIdx >= i;
-                const isCurrent = currentStepIdx === i;
-
-                return (
-                  <div key={st.key} className="flex flex-col items-center text-center min-w-0">
-                    <div
-                      className={`flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold transition-all shrink-0 ${
-                        isCurrent
-                          ? "bg-[#13789B] text-white ring-4 ring-[#13789B]/20 shadow-md"
-                          : isPassed
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-100 text-slate-400"
-                      }`}
-                    >
-                      {isPassed && !isCurrent ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      ) : (
-                        <span>{i + 1}</span>
-                      )}
-                    </div>
-                    <p
-                      className={`mt-1.5 sm:mt-2 text-[9px] sm:text-xs font-bold leading-tight truncate max-w-full ${
-                        isCurrent
-                          ? "text-[#13789B]"
-                          : isPassed
-                          ? "text-navy"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      {st.label}
-                    </p>
-                    <span className="hidden sm:block text-[10px] text-slate-400 mt-0.5 truncate max-w-full">
-                      {st.desc}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <OrderLifecycleTracker
+          status={order.status}
+          confirmedAt={order.confirmedAt}
+          dispatchedAt={order.dispatchedAt}
+          deliveredAt={order.deliveredAt}
+          createdAt={order.createdAt}
+        />
       ) : (
         <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-rose-900 shadow-xs">
           <h3 className="font-bold text-sm">Order Status: Rejected</h3>

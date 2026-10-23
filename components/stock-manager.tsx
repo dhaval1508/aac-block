@@ -147,6 +147,7 @@ export function StockManager({
 
   // Edit Modal Internal Form State
   const [editQuantity, setEditQuantity] = useState<number>(0);
+  const [editCbm, setEditCbm] = useState<string>("");
   const [editPurchasePrice, setEditPurchasePrice] = useState<number | "">("");
   const [editSellingPrice, setEditSellingPrice] = useState<number | "">("");
   const [editSupplier, setEditSupplier] = useState("");
@@ -405,6 +406,13 @@ export function StockManager({
   const handleOpenEdit = (m: Movement) => {
     setEditingMovement(m);
     setEditQuantity(Math.abs(m.quantityDelta));
+    const isMortar = m.product.category === "MORTAR" || m.product.sizeLabel?.includes("40");
+    if (!isMortar) {
+      const cbmVal = m.cbmDelta ? Math.abs(Number(m.cbmDelta)) : Math.abs(m.quantityDelta) * Number(m.product.cbmPerBlock || 0.018);
+      setEditCbm(cbmVal.toFixed(3));
+    } else {
+      setEditCbm("");
+    }
     setEditPurchasePrice(m.purchasePrice != null ? m.purchasePrice : "");
     setEditSellingPrice(m.sellingPrice != null ? m.sellingPrice : "");
     setEditSupplier(m.supplier || "");
@@ -767,7 +775,7 @@ export function StockManager({
                       exceedsStock ? "border-rose-500 text-rose-700 bg-rose-50" : ""
                     }`}
                   />
-                  <input type="hidden" name="quantity" value={quantity || ""} />
+                  <input type="hidden" name="approximateBlocks" value={quantity || ""} />
 
                   {/* Calculated Blocks Count Underneath */}
                   <p className="mt-1 text-xs text-slate-500 italic">
@@ -1578,21 +1586,56 @@ export function StockManager({
                 </span>
               </div>
 
-              {/* Quantity */}
-              <div>
-                <label className="label">
-                  Quantity ({editingMovement.product.sizeLabel?.includes("40") ? "40 KG Bags" : "Blocks"}) *
-                </label>
-                <input
-                  name="quantity"
-                  type="number"
-                  min="1"
-                  required
-                  value={editQuantity}
-                  onChange={(e) => setEditQuantity(Math.max(1, Number(e.target.value)))}
-                  className="field text-base font-bold font-mono"
-                />
-              </div>
+              {/* Quantity / Volume depending on Category */}
+              {!editingMovement.product.sizeLabel?.includes("40") && editingMovement.product.category !== "MORTAR" ? (
+                <div>
+                  <label className="label flex items-center justify-between">
+                    <span>Quantity (CBM) *</span>
+                    <span className="text-[10px] font-bold text-[#13789B]">
+                      1 Block = {Number(editingMovement.product.cbmPerBlock || 0.018).toFixed(4)} CBM
+                    </span>
+                  </label>
+                  <input
+                    name="cbm"
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    required
+                    value={editCbm}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditCbm(val);
+                      const rate = Number(editingMovement.product.cbmPerBlock || 0.018);
+                      const num = Number(val) || 0;
+                      setEditQuantity(num > 0 ? Math.round(num / rate) : 0);
+                    }}
+                    className="field text-base font-bold font-mono"
+                    placeholder="Enter CBM quantity"
+                  />
+                  <input type="hidden" name="approximateBlocks" value={editQuantity} />
+                  <p className="mt-1 text-xs text-slate-500 italic">
+                    {Number(editCbm) > 0
+                      ? `≈ ${formatNumber(Math.round(Number(editCbm) / Number(editingMovement.product.cbmPerBlock || 0.018)))} Blocks`
+                      : "Enter CBM to calculate approximate blocks count"}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="label">Quantity (40 KG Bags) *</label>
+                  <input
+                    name="quantity"
+                    type="number"
+                    min="1"
+                    required
+                    value={editQuantity}
+                    onChange={(e) => setEditQuantity(Math.max(1, Number(e.target.value)))}
+                    className="field text-base font-bold font-mono"
+                  />
+                  <p className="mt-1 text-xs text-slate-500 italic">
+                    Total weight: {editQuantity * 40} KG ({((editQuantity * 40) / 1000).toFixed(2)} MT)
+                  </p>
+                </div>
+              )}
 
               {/* Purchase Price & Selling Price */}
               <div className="grid grid-cols-2 gap-2.5">

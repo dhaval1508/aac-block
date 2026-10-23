@@ -99,13 +99,37 @@ export async function addStockAction(formData: FormData) {
     product.category === "ADHESIVE" ||
     product.category === "BLOCK_JOINTING_MORTAR";
 
-  // For AAC Blocks: input quantity is in CBM.
-  // For Mortar: input quantity is in 40 KG Bags.
+  // For AAC Blocks: exact entered quantity is in CBM.
+  // For Mortar: exact entered quantity is in 40 KG Bags.
   const cbmPerBlock = Number(product.cbmPerBlock) || 0.018;
-  const cbmValue = isMortar ? 0 : Number(rawQuantity.toFixed(4));
-  const blockQuantity = isMortar
-    ? Math.floor(rawQuantity)
-    : Math.max(1, Math.round(cbmValue / cbmPerBlock));
+
+  const rawCbmInput = formData.get("cbm");
+  let cbmValue = 0;
+  let blockQuantity = 0;
+
+  if (isMortar) {
+    const bags = Math.floor(rawQuantity);
+    if (!Number.isFinite(bags) || bags <= 0) {
+      redirect(`${returnPath}?error=Please%20enter%20valid%20mortar%20bags%20quantity`);
+    }
+    cbmValue = 0;
+    blockQuantity = bags;
+  } else {
+    // For AAC blocks, prioritize direct cbm input over any hidden field
+    const enteredCbm =
+      rawCbmInput !== null && rawCbmInput !== ""
+        ? Number(rawCbmInput)
+        : Number.isFinite(rawQuantity) && rawQuantity > 0
+        ? rawQuantity
+        : 0;
+
+    if (!Number.isFinite(enteredCbm) || enteredCbm <= 0) {
+      redirect(`${returnPath}?error=Please%20enter%20valid%20CBM%20quantity%20greater%20than%200`);
+    }
+
+    cbmValue = Number(enteredCbm.toFixed(4));
+    blockQuantity = Math.max(1, Math.round(cbmValue / cbmPerBlock));
+  }
 
   try {
     if (type === "OUT") {
@@ -240,6 +264,7 @@ export async function updateStockAction(formData: FormData) {
 
       const cbmPerBlock = Number(existing.product.cbmPerBlock) || 0.018;
 
+      const rawCbm = formData.get("cbm");
       let newCbmDelta = 0;
       let newQuantityDelta = 0;
 
@@ -248,7 +273,16 @@ export async function updateStockAction(formData: FormData) {
         newQuantityDelta = existing.type === StockType.OUT ? -bags : bags;
         newCbmDelta = 0;
       } else {
-        const cbmVal = Number(rawQuantity.toFixed(4));
+        // Direct CBM or conversion
+        let cbmVal: number;
+        if (rawCbm !== null && rawCbm !== "" && !isNaN(Number(rawCbm))) {
+          cbmVal = Number(Number(rawCbm).toFixed(4));
+        } else if (rawQuantity > 0) {
+          cbmVal = Number(rawQuantity.toFixed(4));
+        } else {
+          cbmVal = existing.cbmDelta ? Math.abs(Number(existing.cbmDelta)) : Math.abs(existing.quantityDelta) * cbmPerBlock;
+        }
+
         const blocks = Math.max(1, Math.round(cbmVal / cbmPerBlock));
         newCbmDelta = existing.type === StockType.OUT ? -cbmVal : cbmVal;
         newQuantityDelta = existing.type === StockType.OUT ? -blocks : blocks;
