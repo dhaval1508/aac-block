@@ -135,28 +135,28 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-4 border-l-4 border-l-emerald-600 min-w-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-100 pb-3 min-w-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-2xs">
             <FileText className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-sm sm:text-base font-black text-navy truncate">
+            <h3 className="text-sm sm:text-base font-black text-navy">
               Delivery Challan Documentation
             </h3>
-            <p className="text-[11px] text-slate-500 truncate">
+            <p className="text-[11px] text-slate-500">
               Official Material Delivery Challan & Dispatch Slip
             </p>
           </div>
         </div>
 
         {challanNo ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 font-mono text-xs font-black text-emerald-800 self-start sm:self-auto shrink-0">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 font-mono text-xs font-black text-emerald-800 shrink-0">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
             <span>{challanNo}</span>
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-800 self-start sm:self-auto shrink-0">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-800 shrink-0">
             <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
             <span>Challan: Pending Generation</span>
           </span>
@@ -172,14 +172,14 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
           {/* Details Grid */}
           <div className="rounded-2xl bg-slate-50 p-3.5 sm:p-4 space-y-2.5 text-xs border border-slate-100 min-w-0">
             <div className="flex justify-between items-center gap-2">
-              <span className="text-slate-500 font-semibold">Challan / Slip Number</span>
-              <strong className="font-mono font-black text-navy text-sm sm:text-base truncate">
+              <span className="text-slate-500 font-semibold shrink-0">Challan / Slip Number</span>
+              <strong className="font-mono font-black text-navy text-sm sm:text-base text-right break-words">
                 {challanNo}
               </strong>
             </div>
 
             <div className="flex justify-between items-center gap-2">
-              <span className="text-slate-500 font-semibold">Order Volume</span>
+              <span className="text-slate-500 font-semibold shrink-0">Order Volume</span>
               <div className="text-right">
                 <strong className="font-bold text-navy block">
                   {order.totalCbm
@@ -198,11 +198,11 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
                   All Consigned Material Items ({order.items.length})
                 </span>
                 {order.items.map((it) => (
-                  <div key={it.id} className="flex justify-between items-center text-[11px]">
-                    <span className="text-navy font-semibold truncate">
+                  <div key={it.id} className="flex justify-between items-center text-[11px] gap-2">
+                    <span className="text-navy font-semibold">
                       {it.productName || "AAC Block"} {it.sizeLabel ? `(${it.sizeLabel})` : ""}
                     </span>
-                    <span className="font-mono text-slate-700 shrink-0">
+                    <span className="font-mono text-slate-700 shrink-0 text-right">
                       {it.totalCbm ? `${Number(it.totalCbm).toFixed(3)} CBM` : `${it.quantity} Bags`}
                       {it.totalCbm ? ` (≈ ${it.quantity} blk)` : ""}
                     </span>
@@ -212,23 +212,23 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
             )}
 
             <div className="flex justify-between items-center gap-2">
-              <span className="text-slate-500 font-semibold">Block Jointing Morter</span>
-              <strong className="font-bold text-navy">
+              <span className="text-slate-500 font-semibold shrink-0">Block Jointing Morter</span>
+              <strong className="font-bold text-navy text-right">
                 {order.adhesiveBags ?? 0} Bags (40 KG)
               </strong>
             </div>
 
             <div className="flex justify-between items-center gap-2">
-              <span className="text-slate-500 font-semibold">HSN Classification</span>
-              <strong className="font-mono text-slate-700">
+              <span className="text-slate-500 font-semibold shrink-0">HSN Classification</span>
+              <strong className="font-mono text-slate-700 text-right">
                 6810 (AAC Blocks) · 38245090 (Jointing Morter)
               </strong>
             </div>
 
             {order.transport?.truckNumber && (
               <div className="flex justify-between items-center gap-2 pt-1.5 border-t border-slate-200/60">
-                <span className="text-slate-500 font-semibold">Staged Vehicle & Driver</span>
-                <strong className="font-mono text-navy font-bold truncate">
+                <span className="text-slate-500 font-semibold shrink-0">Staged Vehicle & Driver</span>
+                <strong className="font-mono text-navy font-bold text-right break-words">
                   {order.transport.truckNumber} ({order.transport.driverName || "Driver"})
                 </strong>
               </div>
@@ -236,17 +236,17 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
 
             {netWeight !== null && (
               <div className="flex justify-between items-center gap-2 pt-1.5 border-t border-slate-200/60">
-                <span className="text-slate-500 font-semibold">Certified Net Weight</span>
-                <strong className="font-mono text-emerald-700 font-black">
+                <span className="text-slate-500 font-semibold shrink-0">Certified Net Weight</span>
+                <strong className="font-mono text-emerald-700 font-black text-right">
                   {netWeight.toLocaleString()} KG {rstNumber ? `(RST #${rstNumber})` : ""}
                 </strong>
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 pt-1.5 border-t border-slate-200/60">
-              <span className="text-slate-500 font-semibold">Delivery Site & Map</span>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-navy font-semibold truncate max-w-xs">{order.deliveryAddress}</span>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1.5 pt-1.5 border-t border-slate-200/60">
+              <span className="text-slate-500 font-semibold shrink-0">Delivery Site & Map</span>
+              <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                <span className="text-navy font-semibold break-words">{order.deliveryAddress}</span>
                 <OpenLocationButton address={order.deliveryAddress} variant="badge" />
               </div>
             </div>
@@ -258,18 +258,18 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
               href={`/invoice/${order.id}`}
               className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0f607d] py-3 text-xs font-black text-white shadow-md shadow-[#13789B]/20 transition-all cursor-pointer active:scale-[0.99]"
             >
-              <Printer className="h-4 w-4" />
+              <Printer className="h-4 w-4 shrink-0" />
               <span>View / Print Official Delivery Challan</span>
             </Link>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <a
                 href={`/api/orders/${order.id}/summary-pdf`}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-slate-800 hover:bg-slate-900 py-2.5 text-xs font-bold text-white shadow-2xs transition-all"
+                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-slate-800 hover:bg-slate-900 py-3 px-3 text-xs font-bold text-white shadow-2xs transition-all text-center"
               >
-                <Download className="h-4 w-4" />
+                <Download className="h-4 w-4 shrink-0" />
                 <span>Download Challan PDF</span>
               </a>
 
@@ -278,9 +278,9 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
                   href={waChallanHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-2.5 text-xs font-bold text-white shadow-2xs transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3 px-3 text-xs font-bold text-white shadow-2xs transition-all text-center"
                 >
-                  <MessageCircle className="h-4 w-4" />
+                  <MessageCircle className="h-4 w-4 shrink-0" />
                   <span>Send Challan Slip on WhatsApp</span>
                 </a>
               ) : null}

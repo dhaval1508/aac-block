@@ -144,13 +144,13 @@ export function TruckStagingForm({
   if (isFinalized) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-4 border-l-4 border-l-slate-400 min-w-0">
-        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
               <Truck className="h-4 w-4" />
             </span>
-            <div>
-              <h3 className="text-sm sm:text-base font-black text-navy truncate">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-black text-navy">
                 Loading Staff & Truck Staging
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -196,28 +196,28 @@ export function TruckStagingForm({
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-4 border-l-4 border-l-[#13789B] min-w-0">
       {/* Card Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#13789B] shadow-2xs">
             <Truck className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-sm sm:text-base font-black text-navy truncate">
+            <h3 className="text-sm sm:text-base font-black text-navy">
               Loading Staff & Truck Staging
             </h3>
-            <p className="text-[11px] text-slate-500 truncate">
+            <p className="text-[11px] text-slate-500">
               Staging vehicle, driver contact, yard assignment & certified Net Weight
             </p>
           </div>
         </div>
 
         {order.assignedStaff ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700 self-start sm:self-auto shrink-0">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700 shrink-0">
             <UserCheck className="h-3.5 w-3.5" />
             <span>Assigned: {order.assignedStaff.name}</span>
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-700 self-start sm:self-auto shrink-0">
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-700 shrink-0">
             <AlertCircle className="h-3.5 w-3.5" />
             <span>Yard Queue: Unassigned</span>
           </span>
@@ -279,8 +279,8 @@ export function TruckStagingForm({
         </div>
 
         {/* Section 2: Truck & Driver Information (Required Fields) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          <div className="sm:col-span-2 md:col-span-1">
             <label className="block font-bold text-slate-700 mb-1">
               Truck Registration Number *
             </label>
@@ -291,7 +291,7 @@ export function TruckStagingForm({
               value={truckNumber}
               onChange={(e) => setTruckNumber(e.target.value.toUpperCase())}
               placeholder="e.g. GJ-01-AX-9942"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono font-black text-navy text-sm uppercase outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 font-mono font-black text-navy text-sm uppercase tracking-wider outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
             />
           </div>
 
@@ -306,7 +306,7 @@ export function TruckStagingForm({
               value={driverName}
               onChange={(e) => setDriverName(e.target.value)}
               placeholder="e.g. Sanjay Parmar"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-bold text-navy outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
             />
           </div>
 
@@ -322,7 +322,7 @@ export function TruckStagingForm({
               value={driverMobile}
               onChange={(e) => setDriverMobile(e.target.value)}
               placeholder="10-digit mobile"
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono font-bold text-navy outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
             />
           </div>
         </div>
@@ -456,12 +456,12 @@ export function TruckStagingForm({
         </div>
 
         {/* Action Buttons */}
-        <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
+        <div className="pt-2 flex flex-col gap-2.5">
           <button
             type="submit"
-            className="w-full flex-1 flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0f607d] py-3 text-xs font-black text-white shadow-md shadow-[#13789B]/20 transition-all cursor-pointer active:scale-[0.99]"
+            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#13789B] hover:bg-[#0f607d] py-3.5 px-4 text-xs sm:text-sm font-black text-white shadow-md shadow-[#13789B]/20 transition-all cursor-pointer active:scale-[0.99]"
           >
-            <CheckCircle2 className="h-4 w-4" />
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>Save Truck & Loading Details</span>
           </button>
 
@@ -470,9 +470,9 @@ export function TruckStagingForm({
               href={driverWaHref}
               target="_blank"
               rel="noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-5 py-3 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition-all"
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-3.5 px-4 text-xs sm:text-sm font-bold text-white shadow-md shadow-emerald-600/20 transition-all text-center"
             >
-              <MessageCircle className="h-4 w-4" />
+              <MessageCircle className="h-4 w-4 shrink-0" />
               <span>Send Truck & Driver Info on WhatsApp</span>
             </a>
           )}

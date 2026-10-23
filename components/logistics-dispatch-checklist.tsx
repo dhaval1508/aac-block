@@ -141,13 +141,13 @@ export function LogisticsDispatchChecklist({
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-4 border-l-4 border-l-indigo-600 min-w-0">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-100 pb-3 min-w-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-2xs">
             <Boxes className="h-5 w-5" />
           </span>
-          <div>
-            <h3 className="text-sm sm:text-base font-black text-navy truncate">
+          <div className="min-w-0">
+            <h3 className="text-sm sm:text-base font-black text-navy">
               Logistics & Dispatch Verification Checklist
             </h3>
             <p className="text-[11px] text-slate-500">

@@ -299,9 +299,9 @@ export default async function AdminOrderDetailPage({
       {/* =========================================================================
           MAIN 2-COLUMN LAYOUT: ORDER DETAILS & OPERATIONAL WORKFLOWS
       ========================================================================= */}
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3 min-w-0">
+      <div className="grid gap-6 lg:grid-cols-2 min-w-0">
         {/* Left Column: Customer, Product Spec & Audit Timeline */}
-        <div className="space-y-4 sm:space-y-6 lg:col-span-2 min-w-0">
+        <div className="space-y-4 sm:space-y-6 min-w-0">
           {/* Customer & Construction Site Details */}
           <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
