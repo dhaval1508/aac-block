@@ -259,10 +259,10 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 text-xs">
             <div>
-              <label className="block font-bold text-slate-700 mb-1">
-                Weighbridge Slip RST Number *
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Weighbridge Slip RST Number <span className="text-rose-500 font-black">*</span>
               </label>
               <input
                 type="text"
@@ -271,12 +271,12 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={rstNumber}
                 onChange={(e) => setRstNumber(e.target.value)}
                 placeholder="e.g. RST-98214"
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 font-mono font-bold text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
                 Receipt / Slip Number (if different)
               </label>
               <input
@@ -285,13 +285,13 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={receiptNumber}
                 onChange={(e) => setReceiptNumber(e.target.value)}
                 placeholder="e.g. RCP-0045"
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 font-mono text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">
-                Weighbridge Name *
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Weighbridge Name <span className="text-rose-500 font-black">*</span>
               </label>
               <input
                 type="text"
@@ -300,13 +300,13 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={weighbridgeName}
                 onChange={(e) => setWeighbridgeName(e.target.value)}
                 placeholder="Swarnim Plant Weighbridge"
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">
-                Vehicle Registration Number *
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Vehicle Registration Number <span className="text-rose-500 font-black">*</span>
               </label>
               <input
                 type="text"
@@ -315,13 +315,13 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
                 placeholder="GJ-01-AB-1234"
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 font-mono font-black text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-black text-navy text-sm uppercase tracking-wider outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">
-                Driver Full Name *
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Driver Full Name <span className="text-rose-500 font-black">*</span>
               </label>
               <input
                 type="text"
@@ -330,13 +330,13 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={driverName}
                 onChange={(e) => setDriverName(e.target.value)}
                 placeholder="Driver Name"
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">
-                Driver Mobile Number *
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Driver Mobile Number <span className="text-rose-500 font-black">*</span>
               </label>
               <input
                 type="tel"
@@ -345,7 +345,7 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={driverMobile}
                 onChange={(e) => setDriverMobile(e.target.value)}
                 placeholder="10-digit mobile number"
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2 font-mono text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
           </div>
@@ -452,9 +452,11 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 text-xs">
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Driver Full Name *</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Driver Full Name <span className="text-rose-500 font-black">*</span>
+              </label>
               <input
                 type="text"
                 name="driverName"
@@ -462,12 +464,14 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={driverName}
                 onChange={(e) => setDriverName(e.target.value)}
                 placeholder="Full Name"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Driver Contact Number *</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Driver Contact Number <span className="text-rose-500 font-black">*</span>
+              </label>
               <input
                 type="tel"
                 name="driverMobile"
@@ -475,12 +479,14 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={driverMobile}
                 onChange={(e) => setDriverMobile(e.target.value)}
                 placeholder="10-digit mobile number"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Vehicle Registration Number *</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Vehicle Registration Number <span className="text-rose-500 font-black">*</span>
+              </label>
               <input
                 type="text"
                 name="vehicleNumber"
@@ -488,72 +494,84 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
                 placeholder="GJ-01-AB-1234"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-black text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-black text-navy text-sm uppercase tracking-wider outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Transporter Name</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Transporter Name
+              </label>
               <input
                 type="text"
                 name="transporterName"
                 value={transporterName}
                 onChange={(e) => setTransporterName(e.target.value)}
                 placeholder="e.g. Swarnim Logistics / Direct Truck"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Vehicle Type</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Vehicle Type
+              </label>
               <input
                 type="text"
                 name="vehicleType"
                 value={vehicleType}
                 onChange={(e) => setVehicleType(e.target.value)}
                 placeholder="e.g. 10 Wheeler / 14 Wheeler / 22 Wheeler"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Loaded AAC Block Size</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Loaded AAC Block Size
+              </label>
               <input
                 type="text"
                 name="loadedBlockSize"
                 value={loadedBlockSize}
                 onChange={(e) => setLoadedBlockSize(e.target.value)}
                 placeholder="e.g. 6 Inch (600 × 200 × 150 mm)"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Loading Start Time</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Loading Start Time
+              </label>
               <input
                 type="text"
                 name="loadingStartTime"
                 value={loadingStartTime}
                 onChange={(e) => setLoadingStartTime(e.target.value)}
                 placeholder="e.g. 10:30 AM"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Loading Completion Time</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Loading Completion Time
+              </label>
               <input
                 type="text"
                 name="loadingEndTime"
                 value={loadingEndTime}
                 onChange={(e) => setLoadingEndTime(e.target.value)}
                 placeholder="e.g. 11:45 AM"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Loaded CBM (m³)</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Loaded CBM (m³)
+              </label>
               <input
                 type="number"
                 step="0.001"
@@ -561,31 +579,33 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 value={loadedCbm}
                 onChange={(e) => setLoadedCbm(e.target.value === "" ? "" : Number(e.target.value))}
                 placeholder="e.g. 18.000"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-bold text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Block Jointing Morter (40 KG Bags)</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">
+                Block Jointing Mortar (40 KG Bags)
+              </label>
               <input
                 type="number"
                 name="loadedMortarBags"
                 value={loadedMortarBags}
                 onChange={(e) => setLoadedMortarBags(e.target.value === "" ? "" : Number(e.target.value))}
                 placeholder="e.g. 10"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono font-bold text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 font-mono font-bold text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block font-bold text-slate-700 mb-1">Remarks</label>
+              <label className="block font-bold text-slate-700 mb-1.5 whitespace-nowrap">Remarks</label>
               <input
                 type="text"
                 name="remarks"
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
                 placeholder="e.g. Clean truck bed / Tarp securely tied"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-navy outline-none focus:border-[#13789B]"
+                className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3.5 text-navy text-xs sm:text-sm outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
               />
             </div>
           </div>

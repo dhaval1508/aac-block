@@ -299,8 +299,128 @@ export default async function AdminOrderDetailPage({
       {/* =========================================================================
           MAIN 2-COLUMN LAYOUT: ORDER DETAILS & OPERATIONAL WORKFLOWS
       ========================================================================= */}
+      {/* =========================================================================
+          100% FULL-WIDTH: ORDER ITEMS & MATERIAL BREAKDOWN
+      ========================================================================= */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 shadow-2xs">
+              <Layers className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-black text-navy">Order Items & Volume Breakdown</h2>
+              <p className="text-[11px] text-slate-500">Official material manifest specifications and cubic meter volume</p>
+            </div>
+          </div>
+          {order.totalCbm ? (
+            <span className="rounded-xl bg-[#13789B]/10 border border-[#13789B]/30 px-3 py-1 text-xs font-black text-[#13789B] shrink-0 self-start sm:self-auto">
+              Total Volume: {Number(order.totalCbm).toFixed(3)} m³ CBM (≈ {formatNumber(order.quantity)} Blocks)
+            </span>
+          ) : null}
+        </div>
+
+        {order.items && order.items.length > 0 ? (
+          <div className="space-y-3">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
+                    <th className="p-3">Item Description</th>
+                    <th className="p-3 text-center">Unit Specs</th>
+                    <th className="p-3 text-right">Volume & Quantity</th>
+                    <th className="p-3 text-right">Unit CBM</th>
+                    <th className="p-3 text-right">Total CBM</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {order.items.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/50">
+                      <td className="p-3">
+                        <p className="font-bold text-navy text-sm">{item.product?.name || "Product"}</p>
+                        <span className="text-[10px] text-slate-400 capitalize">{item.product?.category?.replace("_", " ") || "Material"}</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        {item.product?.sizeLabel ? (
+                          <span className="font-mono text-slate-700 font-semibold">{formatBlockSizeName(item.product.sizeLabel)} ({item.product.dimensions})</span>
+                        ) : item.product?.bagWeightKg ? (
+                          <span className="text-slate-700 font-semibold">{Number(item.product.bagWeightKg)} kg Bag</span>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="p-3 text-right">
+                        {item.totalCbm ? (
+                          <>
+                            <div className="font-black text-navy text-sm">{Number(item.totalCbm).toFixed(3)} CBM</div>
+                            <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(item.quantity)} Blocks</div>
+                          </>
+                        ) : (
+                          <div className="font-black text-navy text-sm">{formatNumber(item.quantity)} Bags</div>
+                        )}
+                      </td>
+                      <td className="p-3 text-right text-slate-600 font-mono">
+                        {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} CBM` : "-"}
+                      </td>
+                      <td className="p-3 text-right font-black text-[#13789B] font-mono text-sm">
+                        {item.totalCbm ? `${Number(item.totalCbm).toFixed(3)} CBM` : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold">
+                    <td colSpan={2} className="p-3 text-slate-700 text-sm">Combined Totals:</td>
+                    <td className="p-3 text-right">
+                      <div className="font-black text-navy text-sm">{order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}</div>
+                      <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(order.quantity)} Blocks</div>
+                    </td>
+                    <td></td>
+                    <td className="p-3 text-right font-black text-[#13789B] font-mono text-sm">
+                      {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3.5 flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-[#13789B] text-sm">Block Jointing Morter</span>
+                <span className="block text-[11px] text-slate-500">40 KG Bag Packaging Only</span>
+              </div>
+              <span className="font-mono font-black text-navy text-base">
+                {order.adhesiveBags ?? 0} Bags
+              </span>
+            </div>
+          </div>
+        ) : order.product ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-xs min-w-0">
+            <div className="min-w-0">
+              <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Block Size</span>
+              <p className="mt-1 font-black text-sm text-navy truncate">{formatBlockSizeName(order.product.sizeLabel)}</p>
+              <p className="text-[11px] text-slate-500 truncate">{order.product.dimensions}</p>
+            </div>
+
+            <div className="min-w-0">
+              <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Unit Volume</span>
+              <p className="mt-1 font-black text-sm text-navy truncate">{Number(order.product.cbmPerBlock).toFixed(4)} m³</p>
+              <p className="text-[11px] text-slate-500 truncate">Per block</p>
+            </div>
+
+            <div className="min-w-0">
+              <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Stacking Ratio</span>
+              <p className="mt-1 font-black text-sm text-[#13789B] truncate">{Number(order.product.blocksPerCbm).toFixed(1)} blk/m³</p>
+              <p className="text-[11px] text-slate-500 truncate">Yard stacking</p>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* =========================================================================
+          MAIN 2-COLUMN LAYOUT: CUSTOMER PROFILE & OPERATIONAL WORKFLOWS
+      ========================================================================= */}
       <div className="grid gap-6 lg:grid-cols-2 min-w-0">
-        {/* Left Column: Customer, Product Spec & Audit Timeline */}
+        {/* Left Column: Customer, GST Invoicing & Audit Timeline */}
         <div className="space-y-4 sm:space-y-6 min-w-0">
           {/* Customer & Construction Site Details */}
           <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 min-w-0">
@@ -447,118 +567,6 @@ export default async function AdminOrderDetailPage({
             )}
           </div>
 
-          {/* Product Specifications & CBM Calculations */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs space-y-3 sm:space-y-4 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                  <Layers className="h-4 w-4" />
-                </span>
-                <h2 className="text-sm sm:text-base font-black text-navy truncate">Order Items & Volume Breakdown</h2>
-              </div>
-              {order.totalCbm ? (
-                <span className="rounded-xl bg-[#13789B]/10 border border-[#13789B]/30 px-3 py-1 text-xs font-black text-[#13789B]">
-                  Total Volume: {Number(order.totalCbm).toFixed(3)} m³ CBM
-                </span>
-              ) : null}
-            </div>
-
-            {order.items && order.items.length > 0 ? (
-              <div className="space-y-3">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
-                        <th className="p-2.5">Item Description</th>
-                        <th className="p-2.5 text-center">Unit Specs</th>
-                        <th className="p-2.5 text-right">Volume & Quantity</th>
-                        <th className="p-2.5 text-right">Unit CBM</th>
-                        <th className="p-2.5 text-right">Total CBM</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {order.items.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/50">
-                          <td className="p-2.5">
-                            <p className="font-bold text-navy">{item.product?.name || "Product"}</p>
-                            <span className="text-[10px] text-slate-400 capitalize">{item.product?.category?.replace("_", " ") || "Material"}</span>
-                          </td>
-                          <td className="p-2.5 text-center">
-                            {item.product?.sizeLabel ? (
-                              <span className="font-mono text-slate-700">{formatBlockSizeName(item.product.sizeLabel)} ({item.product.dimensions})</span>
-                            ) : item.product?.bagWeightKg ? (
-                              <span className="text-slate-700">{Number(item.product.bagWeightKg)} kg Bag</span>
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td className="p-2.5 text-right">
-                            {item.totalCbm ? (
-                              <>
-                                <div className="font-black text-navy">{Number(item.totalCbm).toFixed(3)} CBM</div>
-                                <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(item.quantity)} Blocks</div>
-                              </>
-                            ) : (
-                              <div className="font-black text-navy">{formatNumber(item.quantity)} Bags</div>
-                            )}
-                          </td>
-                          <td className="p-2.5 text-right text-slate-600 font-mono">
-                            {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} CBM` : "-"}
-                          </td>
-                          <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
-                            {item.totalCbm ? `${Number(item.totalCbm).toFixed(3)} CBM` : "-"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold">
-                        <td colSpan={2} className="p-2.5 text-slate-700">Combined Totals:</td>
-                        <td className="p-2.5 text-right">
-                          <div className="font-black text-navy">{order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}</div>
-                          <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(order.quantity)} Blocks</div>
-                        </td>
-                        <td></td>
-                        <td className="p-2.5 text-right font-black text-[#13789B] font-mono">
-                          {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-[#13789B]">Block Jointing Morter</span>
-                    <span className="block text-[11px] text-slate-500">40 KG Bag Packaging Only</span>
-                  </div>
-                  <span className="font-mono font-black text-navy text-sm">
-                    {order.adhesiveBags ?? 0} Bags
-                  </span>
-                </div>
-              </div>
-            ) : order.product ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 rounded-2xl bg-slate-50 p-3 sm:p-4 text-xs min-w-0">
-                <div className="min-w-0">
-                  <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Block Size</span>
-                  <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{formatBlockSizeName(order.product.sizeLabel)}</p>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">{order.product.dimensions}</p>
-                </div>
-
-                <div className="min-w-0">
-                  <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Unit Volume</span>
-                  <p className="mt-1 font-black text-xs sm:text-sm text-navy truncate">{Number(order.product.cbmPerBlock).toFixed(4)} m³</p>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Per block</p>
-                </div>
-
-                <div className="min-w-0">
-                  <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Stacking Ratio</span>
-                  <p className="mt-1 font-black text-xs sm:text-sm text-[#13789B] truncate">{Number(order.product.blocksPerCbm).toFixed(1)} blk/m³</p>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Yard stacking</p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
           {/* Order Lifecycle Activity Audit Log */}
           <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs min-w-0">
             <div className="flex items-center gap-2 mb-4">
@@ -595,59 +603,6 @@ export default async function AdminOrderDetailPage({
               })}
             </div>
           </div>
-
-          {/* Weighbridge Slip, Vehicle Details & Driver WhatsApp Panel */}
-          <StaffWeighbridgeVehiclePanel order={order} />
-
-          {/* Order Modification Audit History (if customer or staff edited before dispatch) */}
-          {order.editHistory && order.editHistory.length > 0 && (
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs min-w-0">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-                  <History className="h-4 w-4" />
-                </span>
-                <div>
-                  <h2 className="text-base font-black text-navy">Order Change History (Audit)</h2>
-                  <p className="text-xs text-slate-500">Immutable record of modifications made before dispatch</p>
-                </div>
-              </div>
-
-              <div className="space-y-2.5 text-xs">
-                {order.editHistory.map((hist) => (
-                  <div key={hist.id} className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 space-y-1.5">
-                    <div className="flex flex-wrap items-center justify-between gap-1">
-                      <span className="font-bold text-navy">
-                        Version {hist.orderVersion} — Modified by {hist.changedByName || hist.userRole}
-                      </span>
-                      <span className="text-slate-400 text-[11px] font-mono">{formatDateTime(hist.createdAt)}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-[11px] text-slate-500 font-semibold">Modified Fields:</span>
-                      {hist.changedFields.map((f) => (
-                        <span key={f} className="rounded-md bg-teal-100 text-teal-800 text-[10px] font-bold px-2 py-0.5">
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
-                      <div className="rounded-xl bg-white p-2 border border-slate-200/60">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Previous Values</span>
-                        <pre className="text-slate-600 font-mono text-[10px] whitespace-pre-wrap mt-0.5">
-                          {JSON.stringify(hist.previousValues, null, 2)}
-                        </pre>
-                      </div>
-                      <div className="rounded-xl bg-emerald-50/60 p-2 border border-emerald-200/60">
-                        <span className="text-[10px] font-bold text-emerald-700 uppercase block">Updated Values</span>
-                        <pre className="text-emerald-900 font-mono text-[10px] whitespace-pre-wrap mt-0.5">
-                          {JSON.stringify(hist.newValues, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right Column: Workflow Actions, Dispatch & Payments */}
@@ -737,6 +692,64 @@ export default async function AdminOrderDetailPage({
           <DeliveryChallanPanel order={order as any} userRole="ADMIN" />
         </div>
       </div>
+
+      {/* =========================================================================
+          100% FULL-WIDTH: WEIGHBRIDGE SLIP, VEHICLE DETAILS & DRIVER WHATSAPP
+      ========================================================================= */}
+      <StaffWeighbridgeVehiclePanel order={order} />
+
+      {/* =========================================================================
+          100% FULL-WIDTH: ORDER CHANGE HISTORY (AUDIT)
+      ========================================================================= */}
+      {order.editHistory && order.editHistory.length > 0 && (
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-xs min-w-0">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+              <History className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-base font-black text-navy">Order Change History (Audit)</h2>
+              <p className="text-xs text-slate-500">Immutable record of modifications made before dispatch</p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 text-xs">
+            {order.editHistory.map((hist) => (
+              <div key={hist.id} className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 sm:p-4 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <span className="font-bold text-navy text-sm">
+                    Version {hist.orderVersion} — Modified by {hist.changedByName || hist.userRole}
+                  </span>
+                  <span className="text-slate-400 text-xs font-mono">{formatDateTime(hist.createdAt)}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-slate-500 font-semibold">Modified Fields:</span>
+                  {hist.changedFields.map((f) => (
+                    <span key={f} className="rounded-md bg-teal-100 text-teal-800 text-[11px] font-bold px-2 py-0.5">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                  <div className="rounded-xl bg-white p-3 border border-slate-200/60">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Previous Values</span>
+                    <pre className="text-slate-600 font-mono text-[11px] whitespace-pre-wrap mt-1 leading-relaxed">
+                      {JSON.stringify(hist.previousValues, null, 2)}
+                    </pre>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50/60 p-3 border border-emerald-200/60">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase block tracking-wider">Updated Values</span>
+                    <pre className="text-emerald-900 font-mono text-[11px] whitespace-pre-wrap mt-1 leading-relaxed">
+                      {JSON.stringify(hist.newValues, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
