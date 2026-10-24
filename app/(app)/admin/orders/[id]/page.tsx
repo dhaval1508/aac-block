@@ -284,8 +284,8 @@ export default async function AdminOrderDetailPage({
           hasEnoughStock ? "border-slate-200 border-l-emerald-600" : "border-rose-300 border-l-rose-600"
         }`}>
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate block">Factory Yard Stock</span>
-          <div className={`mt-1 text-xl sm:text-2xl font-black truncate ${hasEnoughStock ? "text-navy" : "text-rose-600"}`}>
-            {currentCbm.toFixed(3)} CBM
+          <div className={`mt-1 text-xl sm:text-2xl font-black truncate whitespace-nowrap ${hasEnoughStock ? "text-navy" : "text-rose-600"}`}>
+            {currentCbm.toFixed(1)} CBM
           </div>
           <p className="mt-0.5 text-xs text-slate-500 italic truncate">
             ≈ {formatNumber(currentStock)} Blocks

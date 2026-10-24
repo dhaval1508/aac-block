@@ -306,8 +306,8 @@ export default async function StaffDashboardPage({
                 <span className="text-[10px] font-bold text-slate-500 uppercase block truncate">
                   {formatBlockSizeName(p.sizeLabel)}
                 </span>
-                <div className="font-black text-navy text-sm font-mono truncate">
-                  {cbmQty.toFixed(3)} CBM
+                <div className="font-black text-navy text-sm font-mono truncate whitespace-nowrap">
+                  {cbmQty.toFixed(1)} CBM
                 </div>
                 <div className="text-[10px] text-slate-400 italic truncate">
                   ≈ {formatNumber(blockQty)} Blocks

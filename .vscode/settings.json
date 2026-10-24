@@ -2,6 +2,9 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "html-css-class-completion.enableValidation": false,
+  "html-css.validate": false,
   "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
   "typescript.preferences.includePackageJsonAutoImports": "auto"
 }

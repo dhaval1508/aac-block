@@ -204,8 +204,8 @@ export function ProductsManager({
 
         <div className="card p-3 sm:p-4 border-l-4 border-l-amber-500 min-w-0">
           <span className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 truncate block">Total Yard Stock</span>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-slate-900 truncate">
-            {items.reduce((sum, p) => sum + (p.currentCbm || (p.currentStock * Number(p.cbmPerBlock))), 0).toFixed(3)} CBM
+          <p className="mt-1 text-xl sm:text-2xl font-black text-slate-900 truncate whitespace-nowrap">
+            {items.reduce((sum, p) => sum + (p.currentCbm || (p.currentStock * Number(p.cbmPerBlock))), 0).toFixed(1)} CBM
           </p>
           <span className="text-[10px] sm:text-[11px] text-slate-500 truncate block italic">
             ≈ {formatNumber(totalStock)} Blocks
@@ -323,27 +323,27 @@ export function ProductsManager({
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-3 min-w-0">
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
                       Yard Stock
                     </span>
-                    <p className="text-base font-black text-slate-900">
-                      {(p.currentCbm !== undefined ? p.currentCbm : (p.currentStock * cbmVal)).toFixed(3)} CBM
+                    <p className="text-base sm:text-lg font-black text-slate-900 whitespace-nowrap">
+                      {(p.currentCbm !== undefined ? p.currentCbm : (p.currentStock * cbmVal)).toFixed(1)} CBM
                     </p>
-                    <p className="text-[11px] text-slate-400 italic">
+                    <p className="text-[11px] text-slate-500 italic mt-0.5 whitespace-nowrap">
                       ≈ {formatNumber(p.currentStock)} Blocks
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto shrink-0">
                     {isAdmin && (
                       <>
                         <form action={toggleProductActiveAction}>
                           <input type="hidden" name="id" value={p.id} />
                           <button
                             type="submit"
-                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+                            className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs min-h-[34px]"
                           >
                             {p.active ? "Deactivate" : "Activate"}
                           </button>
@@ -352,7 +352,7 @@ export function ProductsManager({
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(p)}
-                          className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer shadow-2xs"
+                          className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer shadow-2xs min-h-[34px]"
                           title="Delete specification"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -362,8 +362,9 @@ export function ProductsManager({
                     )}
 
                     <button
+                      type="button"
                       onClick={() => handleOpenEdit(p)}
-                      className="flex items-center gap-1 rounded-lg bg-[#13789B]/10 px-2.5 py-1.5 text-xs font-bold text-[#13789B] hover:bg-[#13789B] hover:text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1 rounded-xl bg-[#13789B]/10 border border-[#13789B]/20 px-2.5 py-1.5 text-xs font-bold text-[#13789B] hover:bg-[#13789B] hover:text-white transition-colors cursor-pointer shadow-2xs min-h-[34px]"
                     >
                       <Pencil className="h-3 w-3" />
                       <span>Edit</span>
@@ -406,8 +407,8 @@ export function ProductsManager({
                     {Number(p.blocksPerCbm).toFixed(2)}
                   </td>
                   <td className="py-3 px-4">
-                    <p className="font-black text-slate-900">
-                      {(p.currentCbm !== undefined ? p.currentCbm : (p.currentStock * Number(p.cbmPerBlock))).toFixed(3)} CBM
+                    <p className="font-black text-slate-900 whitespace-nowrap">
+                      {(p.currentCbm !== undefined ? p.currentCbm : (p.currentStock * Number(p.cbmPerBlock))).toFixed(1)} CBM
                     </p>
                     <p className="text-[11px] text-slate-400 italic">
                       ≈ {formatNumber(p.currentStock)} Blocks

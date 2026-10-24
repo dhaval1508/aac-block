@@ -155,115 +155,194 @@ export function SalesmanOrdersView({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[800px]">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Order ID & Date</th>
-                  <th className="py-3.5 px-4">Customer</th>
-                  <th className="py-3.5 px-4">Block Size</th>
-                  <th className="py-3.5 px-4 text-right">Volume (CBM)</th>
-                  <th className="py-3.5 px-4 text-center">Block Jointing Morter</th>
-                  <th className="py-3.5 px-4">Delivery Site</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
-                  <th className="py-3.5 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredOrders.map((o) => (
-                  <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <Link
-                        href={`/salesman/orders/${o.id}`}
-                        className="font-black text-[#13789B] hover:underline font-mono block text-sm"
-                      >
-                        {o.orderNo}
-                      </Link>
-                      <span className="text-[11px] text-slate-400 block mt-0.5">
-                        {formatDate(o.createdAt)}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-navy block">{o.customerName}</span>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                        <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
-                          <Phone className="h-3 w-3 text-slate-400" />
-                          {o.customerMobile}
+          <>
+            {/* Desktop / Tablet Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[800px]">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Order ID & Date</th>
+                    <th className="py-3.5 px-4">Customer</th>
+                    <th className="py-3.5 px-4">Block Size</th>
+                    <th className="py-3.5 px-4 text-right">Volume (CBM)</th>
+                    <th className="py-3.5 px-4 text-center">Block Jointing Morter</th>
+                    <th className="py-3.5 px-4">Delivery Site</th>
+                    <th className="py-3.5 px-4 text-center">Status</th>
+                    <th className="py-3.5 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredOrders.map((o) => (
+                    <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <Link
+                          href={`/salesman/orders/${o.id}`}
+                          className="font-black text-[#13789B] hover:underline font-mono block text-sm"
+                        >
+                          {o.orderNo}
+                        </Link>
+                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                          {formatDate(o.createdAt)}
                         </span>
-                        {o.createdByRole === "SALESMAN" ? (
-                          <span className="rounded bg-purple-50 border border-purple-200 px-1.5 py-0.2 text-[9px] font-bold text-purple-700">
-                            Created by You
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-navy block">{o.customerName}</span>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-slate-400" />
+                            {o.customerMobile}
                           </span>
-                        ) : (
-                          <span className="rounded bg-teal-50 border border-teal-200 px-1.5 py-0.2 text-[9px] font-bold text-[#13789B]">
-                            Customer Order
+                          {o.createdByRole === "SALESMAN" ? (
+                            <span className="rounded bg-purple-50 border border-purple-200 px-1.5 py-0.2 text-[9px] font-bold text-purple-700">
+                              Created by You
+                            </span>
+                          ) : (
+                            <span className="rounded bg-teal-50 border border-teal-200 px-1.5 py-0.2 text-[9px] font-bold text-[#13789B]">
+                              Customer Order
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-slate-800 block">
+                          {o.sizeLabel ? formatBlockSizeName(o.sizeLabel) : "Standard"}
+                        </span>
+                        {o.dimensions && (
+                          <span className="text-[11px] text-slate-400 font-mono block">
+                            {o.dimensions}
                           </span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-slate-800 block">
-                        {o.sizeLabel ? formatBlockSizeName(o.sizeLabel) : "Standard"}
-                      </span>
-                      {o.dimensions && (
-                        <span className="text-[11px] text-slate-400 font-mono block">
-                          {o.dimensions}
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="font-black text-navy text-sm font-mono block">
+                          {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : "-"}
                         </span>
-                      )}
-                    </td>
+                        <span className="text-[11px] text-slate-400 font-semibold block">
+                          ≈ {formatNumber(o.quantity)} Blocks
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right">
-                      <span className="font-black text-navy text-sm font-mono block">
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-block rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1 text-xs font-mono font-bold text-navy">
+                          {o.adhesiveBags ?? 0} Bags
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 max-w-[220px]">
+                        <p className="text-[11px] text-slate-600 truncate mb-1" title={o.deliveryAddress}>
+                          📍 {o.deliveryAddress}
+                        </p>
+                        <OpenLocationButton
+                          address={o.deliveryAddress}
+                          googleMapsUrl={o.googleMapsUrl}
+                          variant="badge"
+                        />
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                            (ORDER_STATUS_CLASS as Record<string, string>)[o.status] || "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {(ORDER_STATUS_LABEL as Record<string, string>)[o.status] || o.status}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <Link
+                          href={`/salesman/orders/${o.id}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-3 py-1.5 text-xs font-bold text-slate-700 transition"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Details</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Responsive Cards View */}
+            <div className="md:hidden divide-y divide-slate-100 min-w-0">
+              {filteredOrders.map((o) => (
+                <div key={o.id} className="p-3.5 sm:p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Link
+                          href={`/salesman/orders/${o.id}`}
+                          className="font-black text-sm text-[#13789B] font-mono hover:underline"
+                        >
+                          {o.orderNo}
+                        </Link>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            (ORDER_STATUS_CLASS as Record<string, string>)[o.status] || "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {(ORDER_STATUS_LABEL as Record<string, string>)[o.status] || o.status}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        {formatDate(o.createdAt)}
+                      </span>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="font-black text-sm text-navy font-mono block">
                         {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : "-"}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-semibold block">
+                      <span className="text-[10px] text-slate-400 italic block">
                         ≈ {formatNumber(o.quantity)} Blocks
                       </span>
-                    </td>
+                    </div>
+                  </div>
 
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-block rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1 text-xs font-mono font-bold text-navy">
-                        {o.adhesiveBags ?? 0} Bags
-                      </span>
-                    </td>
+                  <div className="rounded-xl bg-slate-50 p-2.5 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-navy text-xs truncate">{o.customerName}</span>
+                      <a
+                        href={`tel:${o.customerMobile}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-mono text-[#13789B] font-bold"
+                      >
+                        <Phone className="h-3 w-3" />
+                        <span>{o.customerMobile}</span>
+                      </a>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                      <span>{o.sizeLabel ? formatBlockSizeName(o.sizeLabel) : "Standard"}</span>
+                      {o.adhesiveBags && o.adhesiveBags > 0 ? (
+                        <span className="font-semibold text-sky-800">+{o.adhesiveBags} Bags Mortar</span>
+                      ) : null}
+                    </div>
+                  </div>
 
-                    <td className="py-3.5 px-4 max-w-[220px]">
-                      <p className="text-[11px] text-slate-600 truncate mb-1" title={o.deliveryAddress}>
-                        📍 {o.deliveryAddress}
-                      </p>
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <div className="flex items-center gap-1 min-w-0 flex-1 text-[11px] text-slate-600">
+                      <span className="truncate">📍 {o.deliveryAddress}</span>
                       <OpenLocationButton
                         address={o.deliveryAddress}
                         googleMapsUrl={o.googleMapsUrl}
                         variant="badge"
                       />
-                    </td>
-
-                    <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                          (ORDER_STATUS_CLASS as Record<string, string>)[o.status] || "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {(ORDER_STATUS_LABEL as Record<string, string>)[o.status] || o.status}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/salesman/orders/${o.id}`}
-                        className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-3 py-1.5 text-xs font-bold text-slate-700 transition"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Details</span>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                    <Link
+                      href={`/salesman/orders/${o.id}`}
+                      className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#13789B] text-white px-3 py-2 text-xs font-bold shadow-2xs hover:bg-[#0F627F] transition min-h-[38px] shrink-0"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Details</span>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -318,8 +318,8 @@ export default async function AdminDashboardPage({
               </span>
               <Boxes className="h-4 w-4 text-emerald-600 shrink-0" />
             </div>
-            <div className="mt-1.5 text-xl sm:text-2xl font-black text-navy tracking-tight truncate">
-              {stockSummary.currentCbm.toFixed(3)} <span className="text-xs font-semibold text-slate-400">CBM</span>
+            <div className="mt-1.5 text-xl sm:text-2xl font-black text-navy tracking-tight truncate whitespace-nowrap">
+              {stockSummary.currentCbm.toFixed(1)} CBM
             </div>
             <p className="mt-0.5 text-xs text-slate-500 italic truncate">
               ≈ {formatNumber(stockSummary.current)} Blocks
@@ -440,7 +440,7 @@ export default async function AdminDashboardPage({
               <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 truncate block">Available Yard Stock</span>
               <Boxes className="h-4 w-4 text-teal-600 shrink-0" />
             </div>
-            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate">{stockSummary.currentCbm.toFixed(3)} CBM</div>
+            <div className="mt-1 text-lg sm:text-xl font-black text-navy truncate whitespace-nowrap">{stockSummary.currentCbm.toFixed(1)} CBM</div>
             <span className="text-[11px] text-teal-700 italic font-medium truncate block">≈ {formatNumber(stockSummary.current)} Blocks</span>
           </div>
 
@@ -596,8 +596,8 @@ export default async function AdminDashboardPage({
                   <div className="mt-3 flex items-baseline justify-between gap-1">
                     <div className="min-w-0">
                       <span className="text-[10px] text-slate-400 block truncate">Available Yard Stock</span>
-                      <span className="text-base sm:text-lg font-black text-navy truncate block">
-                        {p.currentCbm.toFixed(3)} CBM
+                      <span className="text-base sm:text-lg font-black text-navy truncate block whitespace-nowrap">
+                        {p.currentCbm.toFixed(1)} CBM
                       </span>
                       <span className="text-[11px] text-slate-500 italic block">
                         ≈ {formatNumber(p.currentStock)} Blocks

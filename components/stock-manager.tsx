@@ -466,7 +466,7 @@ export function StockManager({
             <span className="text-[11px] font-bold uppercase text-slate-500">Available Yard Stock</span>
             <Boxes className="h-4 w-4 text-[#13789B]" />
           </div>
-          <p className="mt-1.5 text-2xl font-black text-navy">{totalYardCbm.toFixed(3)} <span className="text-xs font-semibold text-slate-400">CBM</span></p>
+          <p className="mt-1.5 text-2xl font-black text-navy whitespace-nowrap">{totalYardCbm.toFixed(1)} CBM</p>
           <span className="text-[11px] text-slate-500 italic block mt-0.5">≈ {formatNumber(totalYardStock)} Blocks</span>
         </div>
 
@@ -501,7 +501,7 @@ export function StockManager({
             <span className="text-[11px] font-bold uppercase text-slate-500">Stock In ({periodLabel})</span>
             <ArrowDownRight className="h-4 w-4 text-emerald-600" />
           </div>
-          <p className="mt-1.5 text-2xl font-black text-emerald-700">+{periodInCbm.toFixed(3)} <span className="text-xs font-semibold text-emerald-600">CBM</span></p>
+          <p className="mt-1.5 text-2xl font-black text-emerald-700 whitespace-nowrap">+{periodInCbm.toFixed(1)} CBM</p>
           <span className="text-[11px] text-slate-500 italic block mt-0.5">≈ +{formatNumber(periodIn)} Blocks</span>
         </div>
 
@@ -511,7 +511,7 @@ export function StockManager({
             <span className="text-[11px] font-bold uppercase text-slate-500">Stock Out ({periodLabel})</span>
             <ArrowUpRight className="h-4 w-4 text-rose-600" />
           </div>
-          <p className="mt-1.5 text-2xl font-black text-rose-700">-{periodOutCbm.toFixed(3)} <span className="text-xs font-semibold text-rose-600">CBM</span></p>
+          <p className="mt-1.5 text-2xl font-black text-rose-700 whitespace-nowrap">-{periodOutCbm.toFixed(1)} CBM</p>
           <span className="text-[11px] text-slate-500 italic block mt-0.5">≈ -{formatNumber(periodOut)} Blocks</span>
         </div>
       </div>
@@ -724,7 +724,7 @@ export function StockManager({
                       const cbm = p.currentCbm != null ? p.currentCbm : p.currentStock * Number(p.cbmPerBlock || 0.018);
                       return (
                         <option key={p.id} value={p.id}>
-                          {p.sizeLabel} ({p.dimensions}) · Available: {cbm.toFixed(3)} CBM (≈ {formatNumber(p.currentStock)} blk)
+                          {p.sizeLabel} ({p.dimensions}) · Available: {cbm.toFixed(1)} CBM (≈ {formatNumber(p.currentStock)} blk)
                         </option>
                       );
                     })}
@@ -736,8 +736,8 @@ export function StockManager({
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs flex items-center justify-between">
                     <span className="text-slate-500 font-medium">Available in Yard:</span>
                     <div className="text-right">
-                      <span className="font-black text-navy text-sm block">
-                        {(selectedProduct.currentCbm != null ? selectedProduct.currentCbm : selectedProduct.currentStock * Number(selectedProduct.cbmPerBlock || 0.018)).toFixed(3)} CBM
+                      <span className="font-black text-navy text-sm block whitespace-nowrap">
+                        {(selectedProduct.currentCbm != null ? selectedProduct.currentCbm : selectedProduct.currentStock * Number(selectedProduct.cbmPerBlock || 0.018)).toFixed(1)} CBM
                       </span>
                       <span className="text-[11px] text-slate-500 italic block">
                         ≈ {formatNumber(selectedProduct.currentStock)} Blocks
@@ -790,7 +790,7 @@ export function StockManager({
                     <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-rose-600">
                       <AlertTriangle className="h-3.5 w-3.5" />
                       <span>
-                        Quantity exceeds available stock ({(selectedProduct?.currentCbm != null ? selectedProduct.currentCbm : (selectedProduct?.currentStock || 0) * Number(selectedProduct?.cbmPerBlock || 0.018)).toFixed(3)} CBM)
+                        Quantity exceeds available stock ({(selectedProduct?.currentCbm != null ? selectedProduct.currentCbm : (selectedProduct?.currentStock || 0) * Number(selectedProduct?.cbmPerBlock || 0.018)).toFixed(1)} CBM)
                       </span>
                     </p>
                   )}
@@ -1044,11 +1044,11 @@ export function StockManager({
                       const cbm = p.currentCbm != null ? p.currentCbm : p.currentStock * Number(p.cbmPerBlock || 0.018);
                       return (
                         <>
-                          <div className="mt-3">
-                            <p className="text-2xl font-black text-navy tracking-tight font-mono">
-                              {cbm.toFixed(3)} CBM
+                          <div className="mt-3 min-w-0">
+                            <p className="text-xl sm:text-2xl font-black text-navy tracking-tight font-mono whitespace-nowrap">
+                              {cbm.toFixed(1)} CBM
                             </p>
-                            <p className="text-xs text-slate-500 italic mt-0.5">
+                            <p className="text-xs text-slate-500 italic mt-0.5 whitespace-nowrap">
                               ≈ {formatNumber(p.currentStock)} Blocks
                             </p>
                           </div>

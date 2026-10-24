@@ -112,8 +112,8 @@ export function LogisticsDispatchChecklist({
       label: "Factory Yard Stock Available",
       passed: hasEnoughStock,
       detail: hasEnoughStock
-        ? `Available in yard: ${currentCbm.toFixed(3)} CBM (Sufficient)`
-        : `Yard stock (${currentCbm.toFixed(3)} CBM) insufficient for required volume`,
+        ? `Available in yard: ${currentCbm.toFixed(1)} CBM (Sufficient)`
+        : `Yard stock (${currentCbm.toFixed(1)} CBM) insufficient for required volume`,
     },
     {
       id: "loading",
