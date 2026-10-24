@@ -176,11 +176,15 @@ export default async function CustomerOrderDetailPage({
       {/* Visual Order Progress Stepper */}
       {!isRejected ? (
         <OrderLifecycleTracker
+          orderId={order.id}
+          orderNo={order.orderNo}
           status={order.status}
           confirmedAt={order.confirmedAt}
           dispatchedAt={order.dispatchedAt}
           deliveredAt={order.deliveredAt}
           createdAt={order.createdAt}
+          userRole="CUSTOMER"
+          allowActions={false}
         />
       ) : (
         <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-rose-900 shadow-xs">

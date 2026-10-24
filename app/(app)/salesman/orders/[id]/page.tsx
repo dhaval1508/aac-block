@@ -161,11 +161,15 @@ export default async function SalesmanOrderDetailPage({
 
       {/* 4-STAGE ORDER LIFECYCLE PROGRESSION */}
       <OrderLifecycleTracker
+        orderId={order.id}
+        orderNo={order.orderNo}
         status={order.status}
         confirmedAt={order.confirmedAt}
         dispatchedAt={order.dispatchedAt}
         deliveredAt={order.deliveredAt}
         createdAt={order.createdAt}
+        userRole="SALESMAN"
+        allowActions={false}
       />
 
       {/* GST Billing Details Card */}

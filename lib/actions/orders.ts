@@ -13,20 +13,97 @@ import { formatNumber, formatBlockSizeName, isGoogleMapsUrl } from "@/lib/utils"
 import { getNextDeliveryChallanNumber } from "@/lib/delivery-challan";
 import { verifyGstNumber } from "@/lib/gst";
 
-async function nextOrderNo() {
-  const year = new Date().getFullYear();
-  const count = await prisma.order.count();
-  const nextNum = 1001 + count;
-  return `SWA-${year}-${String(nextNum).padStart(4, "0")}`;
+function isRedirectError(error: any): boolean {
+  if (!error || typeof error !== "object") return false;
+  return (
+    error.message === "NEXT_REDIRECT" ||
+    (typeof error.digest === "string" && error.digest.startsWith("NEXT_REDIRECT"))
+  );
 }
 
-export async function nextInvoiceNo() {
+export async function nextOrderNo(tx?: any): Promise<string> {
+  const db = tx ?? prisma;
+  const year = new Date().getFullYear();
+  const prefix = `SWA-${year}-`;
+
+  // Fetch all existing orders for the current year prefix
+  const orders = await db.order.findMany({
+    where: {
+      orderNo: { startsWith: prefix },
+    },
+    select: { orderNo: true },
+  });
+
+  let maxNum = 1000;
+  for (const o of orders) {
+    const suffix = o.orderNo.replace(prefix, "").trim();
+    const num = parseInt(suffix, 10);
+    if (!isNaN(num) && num > maxNum) {
+      maxNum = num;
+    }
+  }
+
+  let nextNum = maxNum + 1;
+  let candidate = `${prefix}${String(nextNum).padStart(4, "0")}`;
+
+  // Verify candidate uniqueness in database
+  let exists = await db.order.findUnique({
+    where: { orderNo: candidate },
+    select: { id: true },
+  });
+
+  while (exists) {
+    nextNum++;
+    candidate = `${prefix}${String(nextNum).padStart(4, "0")}`;
+    exists = await db.order.findUnique({
+      where: { orderNo: candidate },
+      select: { id: true },
+    });
+  }
+
+  return candidate;
+}
+
+export async function nextInvoiceNo(tx?: any): Promise<string> {
+  const db = tx ?? prisma;
   const year = new Date().getFullYear();
   const prefix = `INV-${year}-`;
-  const count = await prisma.order.count({
-    where: { invoiceNo: { not: null } },
+
+  const invoices = await db.order.findMany({
+    where: {
+      invoiceNo: { startsWith: prefix },
+    },
+    select: { invoiceNo: true },
   });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+
+  let maxNum = 0;
+  for (const inv of invoices) {
+    if (!inv.invoiceNo) continue;
+    const suffix = inv.invoiceNo.replace(prefix, "").trim();
+    const num = parseInt(suffix, 10);
+    if (!isNaN(num) && num > maxNum) {
+      maxNum = num;
+    }
+  }
+
+  let nextNum = maxNum + 1;
+  let candidate = `${prefix}${String(nextNum).padStart(4, "0")}`;
+
+  let exists = await db.order.findFirst({
+    where: { invoiceNo: candidate },
+    select: { id: true },
+  });
+
+  while (exists) {
+    nextNum++;
+    candidate = `${prefix}${String(nextNum).padStart(4, "0")}`;
+    exists = await db.order.findFirst({
+      where: { invoiceNo: candidate },
+      select: { id: true },
+    });
+  }
+
+  return candidate;
 }
 
 export interface OrderItemInput {
@@ -44,526 +121,555 @@ export async function placeCustomerOrderAction(formData: FormData) {
 
   const errorBase = session.role === "SALESMAN" ? "/salesman/orders/new" : "/customer/new-order";
 
-  let deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
-  const city = String(formData.get("city") ?? "").trim();
-  const pincode = String(formData.get("pincode") ?? "").trim();
-  const requestedDateRaw = String(formData.get("requestedDate") ?? "").trim();
-  const notes = String(formData.get("notes") ?? "").trim() || null;
-  const itemsJson = String(formData.get("itemsJson") ?? "").trim();
-  const rawAdhesiveBags = formData.get("adhesiveBags");
-  const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
+  try {
+    let deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
+    const city = String(formData.get("city") ?? "").trim();
+    const pincode = String(formData.get("pincode") ?? "").trim();
+    const requestedDateRaw = String(formData.get("requestedDate") ?? "").trim();
+    const notes = String(formData.get("notes") ?? "").trim() || null;
+    const itemsJson = String(formData.get("itemsJson") ?? "").trim();
+    const rawAdhesiveBags = formData.get("adhesiveBags");
+    const adhesiveBags = rawAdhesiveBags !== null ? Math.max(0, Math.floor(Number(rawAdhesiveBags) || 0)) : 0;
 
-  // Google Maps & Custom Location Details
-  let googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
-  if (!googleMapsUrl && isGoogleMapsUrl(deliveryAddress)) {
-    googleMapsUrl = deliveryAddress;
-  }
-  const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
-  const latitudeRaw = formData.get("latitude");
-  const longitudeRaw = formData.get("longitude");
-  const latitude = latitudeRaw && !isNaN(Number(latitudeRaw)) ? Number(latitudeRaw) : null;
-  const longitude = longitudeRaw && !isNaN(Number(longitudeRaw)) ? Number(longitudeRaw) : null;
-  const customSiteName = String(formData.get("customSiteName") ?? "").trim() || null;
-  const villageArea = String(formData.get("villageArea") ?? "").trim() || null;
-  const district = String(formData.get("district") ?? "").trim() || null;
-  const state = String(formData.get("state") ?? "").trim() || "Gujarat";
-  const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
-  const locationSource = String(formData.get("locationSource") ?? (googleMapsUrl ? "GOOGLE_MAPS_LINK" : googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
-
-  // GST Billing Option Fields
-  const gstBillingRaw = String(formData.get("gstBilling") ?? formData.get("gstBillingSelected") ?? "no").toLowerCase();
-  const gstBillingSelected = gstBillingRaw === "yes" || gstBillingRaw === "true";
-  let gstNumber: string | null = null;
-  let gstRegisteredName: string | null = null;
-  let gstTradeName: string | null = null;
-  let gstStatus: string | null = null;
-  let gstState: string | null = null;
-
-  if (gstBillingSelected) {
-    const rawGst = String(formData.get("gstNumber") ?? "").trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
-    if (!rawGst) {
-      redirect(`${errorBase}?error=GST%20Number%20is%20required%20when%20GST%20Billing%20is%20selected`);
+    // Google Maps & Custom Location Details
+    let googleMapsUrl = String(formData.get("googleMapsUrl") ?? "").trim() || null;
+    if (!googleMapsUrl && isGoogleMapsUrl(deliveryAddress)) {
+      googleMapsUrl = deliveryAddress;
     }
-    const gstResult = await verifyGstNumber(rawGst);
-    if (!gstResult.valid) {
-      redirect(`${errorBase}?error=${encodeURIComponent(gstResult.error || "Invalid GST Number format")}`);
-    }
-    gstNumber = gstResult.gstin;
-    gstRegisteredName = gstResult.registeredName || gstResult.legalName || null;
-    gstTradeName = gstResult.tradeName || null;
-    gstStatus = gstResult.gstStatus || "Active";
-    gstState = gstResult.state || null;
-  }
+    const googlePlaceId = String(formData.get("googlePlaceId") ?? "").trim() || null;
+    const latitudeRaw = formData.get("latitude");
+    const longitudeRaw = formData.get("longitude");
+    const latitude = latitudeRaw && !isNaN(Number(latitudeRaw)) ? Number(latitudeRaw) : null;
+    const longitude = longitudeRaw && !isNaN(Number(longitudeRaw)) ? Number(longitudeRaw) : null;
+    const customSiteName = String(formData.get("customSiteName") ?? "").trim() || null;
+    const villageArea = String(formData.get("villageArea") ?? "").trim() || null;
+    const district = String(formData.get("district") ?? "").trim() || null;
+    const state = String(formData.get("state") ?? "").trim() || "Gujarat";
+    const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
+    const locationSource = String(formData.get("locationSource") ?? (googleMapsUrl ? "GOOGLE_MAPS_LINK" : googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
 
-  // Determine Customer and Salesman attribution
-  let targetCustomerId = session.id;
-  let targetSalesmanId: string | null = null;
-  let targetSalesmanNameSnapshot: string | null = null;
+    // GST Billing Option Fields
+    const gstBillingRaw = String(formData.get("gstBilling") ?? formData.get("gstBillingSelected") ?? "no").toLowerCase();
+    const gstBillingSelected = gstBillingRaw === "yes" || gstBillingRaw === "true";
+    let gstNumber: string | null = null;
+    let gstRegisteredName: string | null = null;
+    let gstTradeName: string | null = null;
+    let gstStatus: string | null = null;
+    let gstState: string | null = null;
 
-  if (session.role === "SALESMAN") {
-    const isNewCustomer = formData.get("isNewCustomer") === "true";
-    if (isNewCustomer) {
-      const newName = String(formData.get("newCustomerName") ?? "").trim();
-      const newMobile = String(formData.get("newCustomerMobile") ?? "").trim().replace(/\D/g, "");
-      const newEmail = String(formData.get("newCustomerEmail") ?? "").trim() || null;
-      const newCompany = String(formData.get("newCustomerCompanyName") ?? "").trim() || null;
-      const newAddress = String(formData.get("newCustomerAddress") ?? formData.get("deliveryAddress") ?? "").trim();
-      const newCity = String(formData.get("newCustomerCity") ?? formData.get("city") ?? "").trim() || "Ahmedabad";
-      const newState = String(formData.get("newCustomerState") ?? formData.get("state") ?? "").trim() || "Gujarat";
-      const newPincode = String(formData.get("newCustomerPincode") ?? formData.get("pincode") ?? "").trim() || null;
-
-      if (!newName || !newMobile || newMobile.length !== 10) {
-        redirect("/salesman/orders/new?error=Please%20enter%20valid%20customer%20name%20and%2010-digit%20mobile%20number");
+    if (gstBillingSelected) {
+      const rawGst = String(formData.get("gstNumber") ?? "").trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
+      if (!rawGst) {
+        redirect(`${errorBase}?error=GST%20Number%20is%20required%20when%20GST%20Billing%20is%20selected`);
       }
+      const gstResult = await verifyGstNumber(rawGst);
+      if (!gstResult.valid) {
+        redirect(`${errorBase}?error=${encodeURIComponent(gstResult.error || "Invalid GST Number format")}`);
+      }
+      gstNumber = gstResult.gstin;
+      gstRegisteredName = gstResult.registeredName || gstResult.legalName || null;
+      gstTradeName = gstResult.tradeName || null;
+      gstStatus = gstResult.gstStatus || "Active";
+      gstState = gstResult.state || null;
+    }
 
-      // Check if user already exists
-      const existingCustomer = await prisma.user.findFirst({
-        where: { mobile: newMobile },
-      });
+    // Determine Customer and Salesman attribution
+    let targetCustomerId = session.id;
+    let targetSalesmanId: string | null = null;
+    let targetSalesmanNameSnapshot: string | null = null;
 
-      if (existingCustomer) {
-        if (existingCustomer.salesmanId === session.id) {
-          // Already belongs to this salesman - reuse customer
-          targetCustomerId = existingCustomer.id;
-        } else if (existingCustomer.salesmanId && existingCustomer.salesmanId !== session.id) {
-          // Belongs to another salesman! Block unauthorized reassignment
-          redirect(
-            "/salesman/orders/new?error=A%20customer%20with%20this%20mobile%20number%20already%20belongs%20to%20another%20Salesman.%20Only%20Super%20Admin%20can%20resolve%20customer%20ownership%20conflicts."
-          );
+    if (session.role === "SALESMAN") {
+      const isNewCustomer = formData.get("isNewCustomer") === "true";
+      if (isNewCustomer) {
+        const newName = String(formData.get("newCustomerName") ?? "").trim();
+        const newMobile = String(formData.get("newCustomerMobile") ?? "").trim().replace(/\D/g, "");
+        const newEmail = String(formData.get("newCustomerEmail") ?? "").trim() || null;
+        const newCompany = String(formData.get("newCustomerCompanyName") ?? "").trim() || null;
+        const newAddress = String(formData.get("newCustomerAddress") ?? formData.get("deliveryAddress") ?? "").trim();
+        const newCity = String(formData.get("newCustomerCity") ?? formData.get("city") ?? "").trim() || "Ahmedabad";
+        const newState = String(formData.get("newCustomerState") ?? formData.get("state") ?? "").trim() || "Gujarat";
+        const newPincode = String(formData.get("newCustomerPincode") ?? formData.get("pincode") ?? "").trim() || null;
+
+        if (!newName || !newMobile || newMobile.length !== 10) {
+          redirect("/salesman/orders/new?error=Please%20enter%20valid%20customer%20name%20and%2010-digit%20mobile%20number");
+        }
+
+        // Check if user already exists
+        const existingCustomer = await prisma.user.findFirst({
+          where: { mobile: newMobile },
+        });
+
+        if (existingCustomer) {
+          if (existingCustomer.salesmanId === session.id) {
+            // Already belongs to this salesman - reuse customer
+            targetCustomerId = existingCustomer.id;
+          } else if (existingCustomer.salesmanId && existingCustomer.salesmanId !== session.id) {
+            // Belongs to another salesman! Block unauthorized reassignment
+            redirect(
+              "/salesman/orders/new?error=A%20customer%20with%20this%20mobile%20number%20already%20belongs%20to%20another%20Salesman.%20Only%20Super%20Admin%20can%20resolve%20customer%20ownership%20conflicts."
+            );
+          } else {
+            // Unassigned customer: assign to current salesman
+            await prisma.user.update({
+              where: { id: existingCustomer.id },
+              data: {
+                salesmanId: session.id,
+                assignedAt: new Date(),
+              },
+            });
+            await prisma.customerAssignmentHistory.create({
+              data: {
+                customerId: existingCustomer.id,
+                fromSalesmanId: existingCustomer.salesmanId || null,
+                toSalesmanId: session.id,
+                assignedById: session.id,
+                reason: `Assigned during order creation by Salesman ${session.name}`,
+              },
+            });
+            targetCustomerId = existingCustomer.id;
+          }
         } else {
-          // Unassigned customer: assign to current salesman
-          await prisma.user.update({
-            where: { id: existingCustomer.id },
+          // Create new customer account
+          const tempPassword = crypto.randomBytes(12).toString("hex");
+          const passwordHash = await bcrypt.hash(tempPassword, 10);
+          const email = newEmail || `${newMobile}@swarnim.customer`;
+
+          const newCustomer = await prisma.user.create({
             data: {
+              name: newName,
+              mobile: newMobile,
+              email,
+              passwordHash,
+              role: "CUSTOMER",
+              companyName: newCompany,
+              deliveryAddress: newAddress,
+              billingAddress: newAddress,
+              city: newCity,
+              state: newState,
+              pincode: newPincode,
               salesmanId: session.id,
               assignedAt: new Date(),
+              remarks: `Added by Salesman ${session.name} during order creation`,
+              active: true,
             },
           });
+
           await prisma.customerAssignmentHistory.create({
             data: {
-              customerId: existingCustomer.id,
-              fromSalesmanId: existingCustomer.salesmanId || null,
+              customerId: newCustomer.id,
+              fromSalesmanId: null,
               toSalesmanId: session.id,
               assignedById: session.id,
-              reason: `Assigned during order creation by Salesman ${session.name}`,
+              reason: `Created and assigned during order creation by Salesman ${session.name}`,
             },
           });
-          targetCustomerId = existingCustomer.id;
+
+          targetCustomerId = newCustomer.id;
         }
+        targetSalesmanId = session.id;
+        targetSalesmanNameSnapshot = session.name;
       } else {
-        // Create new customer account
-        const tempPassword = crypto.randomBytes(12).toString("hex");
-        const passwordHash = await bcrypt.hash(tempPassword, 10);
-        const email = newEmail || `${newMobile}@swarnim.customer`;
-
-        const newCustomer = await prisma.user.create({
-          data: {
-            name: newName,
-            mobile: newMobile,
-            email,
-            passwordHash,
-            role: "CUSTOMER",
-            companyName: newCompany,
-            deliveryAddress: newAddress,
-            billingAddress: newAddress,
-            city: newCity,
-            state: newState,
-            pincode: newPincode,
-            salesmanId: session.id,
-            assignedAt: new Date(),
-            remarks: `Added by Salesman ${session.name} during order creation`,
-            active: true,
-          },
+        const rawCustomerId = String(formData.get("customerId") ?? "").trim();
+        if (!rawCustomerId) {
+          redirect("/salesman/orders/new?error=Please%20select%20an%20assigned%20customer");
+        }
+        const assignedCust = await prisma.user.findFirst({
+          where: { id: rawCustomerId, salesmanId: session.id },
+          select: { id: true, name: true, companyName: true },
         });
-
-        await prisma.customerAssignmentHistory.create({
-          data: {
-            customerId: newCustomer.id,
-            fromSalesmanId: null,
-            toSalesmanId: session.id,
-            assignedById: session.id,
-            reason: `Created and assigned during order creation by Salesman ${session.name}`,
-          },
-        });
-
-        targetCustomerId = newCustomer.id;
+        if (!assignedCust) {
+          redirect("/salesman/orders/new?error=Customer%20is%20not%20assigned%20to%20you");
+        }
+        targetCustomerId = assignedCust.id;
+        targetSalesmanId = session.id;
+        targetSalesmanNameSnapshot = session.name;
       }
-      targetSalesmanId = session.id;
-      targetSalesmanNameSnapshot = session.name;
-    } else {
-      const rawCustomerId = String(formData.get("customerId") ?? "").trim();
-      if (!rawCustomerId) {
-        redirect("/salesman/orders/new?error=Please%20select%20an%20assigned%20customer");
-      }
-      const assignedCust = await prisma.user.findFirst({
-        where: { id: rawCustomerId, salesmanId: session.id },
-        select: { id: true, name: true, companyName: true },
-      });
-      if (!assignedCust) {
-        redirect("/salesman/orders/new?error=Customer%20is%20not%20assigned%20to%20you");
-      }
-      targetCustomerId = assignedCust.id;
-      targetSalesmanId = session.id;
-      targetSalesmanNameSnapshot = session.name;
-    }
-  } else if (session.role === "CUSTOMER") {
-    targetCustomerId = session.id;
-    const cust = await prisma.user.findUnique({
-      where: { id: session.id },
-      select: { salesmanId: true, salesman: { select: { id: true, name: true } } },
-    });
-    if (cust?.salesmanId) {
-      targetSalesmanId = cust.salesmanId;
-      targetSalesmanNameSnapshot = cust.salesman?.name ?? null;
-    }
-  } else if (session.role === "ADMIN") {
-    const rawCustomerId = String(formData.get("customerId") ?? "").trim();
-    if (rawCustomerId) {
-      targetCustomerId = rawCustomerId;
+    } else if (session.role === "CUSTOMER") {
+      targetCustomerId = session.id;
       const cust = await prisma.user.findUnique({
-        where: { id: rawCustomerId },
+        where: { id: session.id },
         select: { salesmanId: true, salesman: { select: { id: true, name: true } } },
       });
       if (cust?.salesmanId) {
         targetSalesmanId = cust.salesmanId;
         targetSalesmanNameSnapshot = cust.salesman?.name ?? null;
       }
-    }
-  }
-
-  // Append city and pincode to address if not already present and not a raw URL
-  if (!isGoogleMapsUrl(deliveryAddress)) {
-    if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
-      deliveryAddress = `${deliveryAddress}, ${city}`;
-    }
-    if (pincode && !deliveryAddress.includes(pincode)) {
-      deliveryAddress = `${deliveryAddress} - ${pincode}`;
-    }
-  }
-
-  if (!deliveryAddress) {
-    redirect(`${errorBase}?error=Delivery%20site%20address%20is%20required`);
-  }
-
-  const orderItemsToProcess: OrderItemInput[] = [];
-
-  if (itemsJson) {
-    try {
-      const parsed = JSON.parse(itemsJson) as OrderItemInput[];
-      if (Array.isArray(parsed)) {
-        for (const it of parsed) {
-          const qty = it.quantity ? Math.floor(it.quantity) : 0;
-          const cbm = it.cbm ? Number(it.cbm) : 0;
-          if (it.productId && (qty > 0 || cbm > 0)) {
-            orderItemsToProcess.push({
-              productId: it.productId,
-              quantity: qty,
-              cbm: cbm > 0 ? cbm : undefined,
-            });
-          }
+    } else if (session.role === "ADMIN") {
+      const rawCustomerId = String(formData.get("customerId") ?? "").trim();
+      if (rawCustomerId) {
+        targetCustomerId = rawCustomerId;
+        const cust = await prisma.user.findUnique({
+          where: { id: rawCustomerId },
+          select: { salesmanId: true, salesman: { select: { id: true, name: true } } },
+        });
+        if (cust?.salesmanId) {
+          targetSalesmanId = cust.salesmanId;
+          targetSalesmanNameSnapshot = cust.salesman?.name ?? null;
         }
       }
-    } catch {
-      // Fallback
     }
-  }
 
-  // Fallback to legacy fields if JSON not present
-  if (orderItemsToProcess.length === 0) {
-    const primaryProductId = String(formData.get("productId") ?? "").trim();
-    const primaryCbm = Number(formData.get("cbm") ?? 0);
-    const primaryQuantity = Math.floor(Number(formData.get("quantity") ?? 0));
-    if (primaryProductId && (primaryCbm > 0 || primaryQuantity > 0)) {
-      orderItemsToProcess.push({
-        productId: primaryProductId,
-        quantity: primaryQuantity,
-        cbm: primaryCbm > 0 ? primaryCbm : undefined,
-      });
-    }
-  }
-
-  // Ensure mortar / adhesive is added to items if adhesiveBags > 0
-  const activeAdhesiveProduct = await prisma.product.findFirst({
-    where: {
-      category: { in: ["MORTAR", "ADHESIVE", "BLOCK_JOINTING_MORTAR"] },
-      active: true,
-      deletedAt: null,
-    },
-  });
-
-  if (activeAdhesiveProduct && adhesiveBags > 0) {
-    const alreadyHasAdhesive = orderItemsToProcess.some((it) => it.productId === activeAdhesiveProduct.id);
-    if (!alreadyHasAdhesive) {
-      orderItemsToProcess.push({
-        productId: activeAdhesiveProduct.id,
-        quantity: adhesiveBags,
-      });
-    }
-  }
-
-  if (orderItemsToProcess.length === 0) {
-    redirect(`${errorBase}?error=Please%20select%20at%20least%20one%20product%20with%20valid%20quantity`);
-  }
-
-  // Fetch all selected products
-  const productIds = orderItemsToProcess.map((it) => it.productId);
-  const dbProducts = await prisma.product.findMany({
-    where: { id: { in: productIds }, active: true },
-  });
-
-  const productMap = new Map(dbProducts.map((p) => [p.id, p]));
-
-  let combinedCbm = 0;
-  let combinedSqft = 0;
-  let totalBlocks = 0;
-  let hasAdhesive = adhesiveBags > 0;
-
-  const resolvedItems: Array<{
-    productId: string;
-    productType: string;
-    productName: string;
-    sizeLabel: string;
-    dimensions: string;
-    quantity: number;
-    cbmPerUnit: number;
-    totalCbm: number;
-    sqftPerUnit: number;
-    totalSqft: number;
-    rate: number;
-    gstRate: number;
-    subtotal: number;
-    gstAmount: number;
-    totalAmount: number;
-  }> = [];
-
-  for (const it of orderItemsToProcess) {
-    const prod = productMap.get(it.productId);
-    if (!prod) continue;
-
-    let cbmPerUnit = 0;
-    let totalCbm = 0;
-    let sqftPerUnit = 0;
-    let totalSqft = 0;
-
-    let itemQty = it.quantity ?? 0;
-
-    if (prod.category === "AAC_BLOCK") {
-      cbmPerUnit = Number(prod.cbmPerBlock) || 0;
-      if (it.cbm && it.cbm > 0 && cbmPerUnit > 0) {
-        totalCbm = Number(it.cbm.toFixed(4));
-        itemQty = Math.round(totalCbm / cbmPerUnit);
-      } else {
-        totalCbm = Number((itemQty * cbmPerUnit).toFixed(4));
+    // Append city and pincode to address if not already present and not a raw URL
+    if (!isGoogleMapsUrl(deliveryAddress)) {
+      if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
+        deliveryAddress = `${deliveryAddress}, ${city}`;
       }
-      it.quantity = itemQty;
-      // Formula: Blocks * (Length * Height / 1,000,000) * 10.7639104167 = Qty * 1.29166925
-      sqftPerUnit = 1.29;
-      totalSqft = Number((itemQty * 1.29166925).toFixed(2));
-      combinedCbm += totalCbm;
-      combinedSqft += totalSqft;
-      totalBlocks += itemQty;
-    } else if (prod.category === "ADHESIVE" || prod.category === "MORTAR" || prod.category === "BLOCK_JOINTING_MORTAR") {
-      hasAdhesive = true;
+      if (pincode && !deliveryAddress.includes(pincode)) {
+        deliveryAddress = `${deliveryAddress} - ${pincode}`;
+      }
     }
 
-    resolvedItems.push({
-      productId: prod.id,
-      productType: prod.category,
-      productName: prod.name,
-      sizeLabel: prod.sizeLabel,
-      dimensions: prod.dimensions,
-      quantity: itemQty,
-      cbmPerUnit,
-      totalCbm,
-      sqftPerUnit,
-      totalSqft,
-      rate: 0,
-      gstRate: 0,
-      subtotal: 0,
-      gstAmount: 0,
-      totalAmount: 0,
+    if (!deliveryAddress) {
+      redirect(`${errorBase}?error=Delivery%20site%20address%20is%20required`);
+    }
+
+    const orderItemsToProcess: OrderItemInput[] = [];
+
+    if (itemsJson) {
+      try {
+        const parsed = JSON.parse(itemsJson) as OrderItemInput[];
+        if (Array.isArray(parsed)) {
+          for (const it of parsed) {
+            const qty = it.quantity ? Math.floor(it.quantity) : 0;
+            const cbm = it.cbm ? Number(it.cbm) : 0;
+            if (it.productId && (qty > 0 || cbm > 0)) {
+              orderItemsToProcess.push({
+                productId: it.productId,
+                quantity: qty,
+                cbm: cbm > 0 ? cbm : undefined,
+              });
+            }
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    // Fallback to legacy fields if JSON not present
+    if (orderItemsToProcess.length === 0) {
+      const primaryProductId = String(formData.get("productId") ?? "").trim();
+      const primaryCbm = Number(formData.get("cbm") ?? 0);
+      const primaryQuantity = Math.floor(Number(formData.get("quantity") ?? 0));
+      if (primaryProductId && (primaryCbm > 0 || primaryQuantity > 0)) {
+        orderItemsToProcess.push({
+          productId: primaryProductId,
+          quantity: primaryQuantity,
+          cbm: primaryCbm > 0 ? primaryCbm : undefined,
+        });
+      }
+    }
+
+    // Ensure mortar / adhesive is added to items if adhesiveBags > 0
+    const activeAdhesiveProduct = await prisma.product.findFirst({
+      where: {
+        category: { in: ["MORTAR", "ADHESIVE", "BLOCK_JOINTING_MORTAR"] },
+        active: true,
+        deletedAt: null,
+      },
     });
-  }
 
-  if (resolvedItems.length === 0) {
-    redirect("/customer/new-order?error=Selected%20products%20are%20not%20available");
-  }
+    if (activeAdhesiveProduct && adhesiveBags > 0) {
+      const alreadyHasAdhesive = orderItemsToProcess.some((it) => it.productId === activeAdhesiveProduct.id);
+      if (!alreadyHasAdhesive) {
+        orderItemsToProcess.push({
+          productId: activeAdhesiveProduct.id,
+          quantity: adhesiveBags,
+        });
+      }
+    }
 
-  const orderNo = await nextOrderNo();
-  const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
-  const aacBlockItems = resolvedItems.filter((it) => it.productType === "AAC_BLOCK");
-  const blockSizesSummary = aacBlockItems.map((it) => formatBlockSizeName(it.sizeLabel)).join(", ") || formatBlockSizeName(primaryItem.sizeLabel);
+    if (orderItemsToProcess.length === 0) {
+      redirect(`${errorBase}?error=Please%20select%20at%20least%20one%20product%20with%20valid%20quantity`);
+    }
 
-  const order = await prisma.$transaction(async (tx) => {
-    const ord = await tx.order.create({
-      data: {
-        orderNo,
-        customerId: targetCustomerId,
-        salesmanId: targetSalesmanId,
-        salesmanNameSnapshot: targetSalesmanNameSnapshot,
-        createdById: session.id,
-        createdByRole: session.role,
-        createdByNameSnapshot: session.name,
-        googleMapsUrl,
-        productId: primaryItem.productId,
-        quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
+    // Fetch all selected products
+    const productIds = orderItemsToProcess.map((it) => it.productId);
+    const dbProducts = await prisma.product.findMany({
+      where: { id: { in: productIds }, active: true },
+    });
+
+    const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+    let combinedCbm = 0;
+    let combinedSqft = 0;
+    let totalBlocks = 0;
+    let hasAdhesive = adhesiveBags > 0;
+
+    const resolvedItems: Array<{
+      productId: string;
+      productType: string;
+      productName: string;
+      sizeLabel: string;
+      dimensions: string;
+      quantity: number;
+      cbmPerUnit: number;
+      totalCbm: number;
+      sqftPerUnit: number;
+      totalSqft: number;
+      rate: number;
+      gstRate: number;
+      subtotal: number;
+      gstAmount: number;
+      totalAmount: number;
+    }> = [];
+
+    for (const it of orderItemsToProcess) {
+      const prod = productMap.get(it.productId);
+      if (!prod) continue;
+
+      let cbmPerUnit = 0;
+      let totalCbm = 0;
+      let sqftPerUnit = 0;
+      let totalSqft = 0;
+
+      let itemQty = it.quantity ?? 0;
+
+      if (prod.category === "AAC_BLOCK") {
+        cbmPerUnit = Number(prod.cbmPerBlock) || 0;
+        if (it.cbm && it.cbm > 0 && cbmPerUnit > 0) {
+          totalCbm = Number(it.cbm.toFixed(4));
+          itemQty = Math.round(totalCbm / cbmPerUnit);
+        } else {
+          totalCbm = Number((itemQty * cbmPerUnit).toFixed(4));
+        }
+        it.quantity = itemQty;
+        // Formula: Blocks * (Length * Height / 1,000,000) * 10.7639104167 = Qty * 1.29166925
+        sqftPerUnit = 1.29;
+        totalSqft = Number((itemQty * 1.29166925).toFixed(2));
+        combinedCbm += totalCbm;
+        combinedSqft += totalSqft;
+        totalBlocks += itemQty;
+      } else if (prod.category === "ADHESIVE" || prod.category === "MORTAR" || prod.category === "BLOCK_JOINTING_MORTAR") {
+        hasAdhesive = true;
+      }
+
+      resolvedItems.push({
+        productId: prod.id,
+        productType: prod.category,
+        productName: prod.name,
+        sizeLabel: prod.sizeLabel,
+        dimensions: prod.dimensions,
+        quantity: itemQty,
+        cbmPerUnit,
+        totalCbm,
+        sqftPerUnit,
+        totalSqft,
         rate: 0,
         gstRate: 0,
         subtotal: 0,
         gstAmount: 0,
         totalAmount: 0,
-        totalCbm: combinedCbm > 0 ? Number(combinedCbm.toFixed(4)) : null,
-        totalSqft: combinedSqft > 0 ? Number(combinedSqft.toFixed(2)) : null,
-        hasMortar: adhesiveBags > 0,
-        hasAdhesive,
-        adhesiveBags,
-        deliveryAddress,
-        requestedDate: requestedDateRaw ? new Date(requestedDateRaw) : null,
-        notes,
-        status: OrderStatus.PENDING,
-        version: 1,
-        // GST Billing Details
-        gstBillingSelected,
-        gstNumber,
-        gstRegisteredName,
-        gstTradeName,
-        gstStatus,
-        gstState,
-        googlePlaceId,
-        latitude,
-        longitude,
-        formattedAddress: deliveryAddress,
-        customSiteName,
-        villageArea,
-        city: city || null,
-        district,
-        state,
-        pincode: pincode || null,
-        nearbyLandmark,
-        locationSource,
-        items: {
-          create: resolvedItems.map((it) => ({
-            productId: it.productId,
-            productType: it.productType,
-            productName: it.productName,
-            sizeLabel: it.sizeLabel,
-            dimensions: it.dimensions,
-            quantity: it.quantity,
-            cbmPerUnit: it.cbmPerUnit,
-            totalCbm: it.totalCbm,
-            sqftPerUnit: it.sqftPerUnit,
-            totalSqft: it.totalSqft,
-            rate: 0,
-            gstRate: 0,
-            subtotal: 0,
-            gstAmount: 0,
-            totalAmount: 0,
-          })),
-        },
-        events: {
-          create: {
-            status: OrderStatus.PENDING,
-            title: session.role === "SALESMAN" ? "New Order Created by Salesman" : "Order Placed",
-            note:
-              session.role === "SALESMAN"
-                ? `Order created by Salesman ${session.name}: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Morter (40 KG)`
-                : `Order booked: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)${
-                    targetSalesmanNameSnapshot ? ` • Assigned Salesman: ${targetSalesmanNameSnapshot}` : ""
-                  }`,
-            createdById: session.id,
-          },
-        },
-      },
+      });
+    }
+
+    if (resolvedItems.length === 0) {
+      redirect("/customer/new-order?error=Selected%20products%20are%20not%20available");
+    }
+
+    const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
+    const aacBlockItems = resolvedItems.filter((it) => it.productType === "AAC_BLOCK");
+    const blockSizesSummary = aacBlockItems.map((it) => formatBlockSizeName(it.sizeLabel)).join(", ") || formatBlockSizeName(primaryItem.sizeLabel);
+
+    let order: any = null;
+    let attempts = 0;
+    while (!order && attempts < 5) {
+      const orderNo = await nextOrderNo();
+      try {
+        order = await prisma.$transaction(async (tx) => {
+          const ord = await tx.order.create({
+            data: {
+              orderNo,
+              customerId: targetCustomerId,
+              salesmanId: targetSalesmanId,
+              salesmanNameSnapshot: targetSalesmanNameSnapshot,
+              createdById: session.id,
+              createdByRole: session.role,
+              createdByNameSnapshot: session.name,
+              googleMapsUrl,
+              productId: primaryItem.productId,
+              quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
+              rate: 0,
+              gstRate: 0,
+              subtotal: 0,
+              gstAmount: 0,
+              totalAmount: 0,
+              totalCbm: combinedCbm > 0 ? Number(combinedCbm.toFixed(4)) : null,
+              totalSqft: combinedSqft > 0 ? Number(combinedSqft.toFixed(2)) : null,
+              hasMortar: adhesiveBags > 0,
+              hasAdhesive,
+              adhesiveBags,
+              deliveryAddress,
+              requestedDate: requestedDateRaw ? new Date(requestedDateRaw) : null,
+              notes,
+              status: OrderStatus.PENDING,
+              version: 1,
+              // GST Billing Details
+              gstBillingSelected,
+              gstNumber,
+              gstRegisteredName,
+              gstTradeName,
+              gstStatus,
+              gstState,
+              googlePlaceId,
+              latitude,
+              longitude,
+              formattedAddress: deliveryAddress,
+              customSiteName,
+              villageArea,
+              city: city || null,
+              district,
+              state,
+              pincode: pincode || null,
+              nearbyLandmark,
+              locationSource,
+              items: {
+                create: resolvedItems.map((it) => ({
+                  productId: it.productId,
+                  productType: it.productType,
+                  productName: it.productName,
+                  sizeLabel: it.sizeLabel,
+                  dimensions: it.dimensions,
+                  quantity: it.quantity,
+                  cbmPerUnit: it.cbmPerUnit,
+                  totalCbm: it.totalCbm,
+                  sqftPerUnit: it.sqftPerUnit,
+                  totalSqft: it.totalSqft,
+                  rate: 0,
+                  gstRate: 0,
+                  subtotal: 0,
+                  gstAmount: 0,
+                  totalAmount: 0,
+                })),
+              },
+              events: {
+                create: {
+                  status: OrderStatus.PENDING,
+                  title: session.role === "SALESMAN" ? "New Order Created by Salesman" : "Order Placed",
+                  note:
+                    session.role === "SALESMAN"
+                      ? `Order created by Salesman ${session.name}: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Morter (40 KG)`
+                      : `Order booked: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Block Jointing Morter (40 KG)${
+                          targetSalesmanNameSnapshot ? ` • Assigned Salesman: ${targetSalesmanNameSnapshot}` : ""
+                        }`,
+                  createdById: session.id,
+                },
+              },
+            },
+          });
+
+          return ord;
+        });
+      } catch (txErr: any) {
+        if (txErr?.code === "P2002" && txErr?.meta?.target?.includes("orderNo")) {
+          attempts++;
+          continue;
+        }
+        throw txErr;
+      }
+    }
+
+    if (!order) {
+      redirect(`${errorBase}?error=Could%20not%20generate%20a%20unique%20order%20number.%20Please%20try%20again.`);
+    }
+
+    // Real-Time Notifications
+    const customer = await prisma.user.findUnique({
+      where: { id: targetCustomerId },
+      select: { name: true, companyName: true },
     });
+    const customerName = customer?.companyName || customer?.name || "Customer";
 
-    return ord;
-  });
-
-  // Real-Time Notifications
-  const customer = await prisma.user.findUnique({
-    where: { id: targetCustomerId },
-    select: { name: true, companyName: true },
-  });
-  const customerName = customer?.companyName || customer?.name || "Customer";
-
-  if (session.role === "SALESMAN") {
-    // 1. Super Admin Notification
-    await dispatchNotification({
-      role: "ADMIN",
-      title: "New Order Created by Salesman",
-      message: `Salesman: ${session.name}\nCustomer: ${customerName}\nOrder ID: ${order.orderNo}\nTotal CBM: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)`,
-      link: `/admin/orders/${order.id}`,
-      orderId: order.id,
-      type: "NEW_ORDER",
-    });
-
-    // 2. Salesman Notification
-    await dispatchNotification({
-      userId: session.id,
-      title: "Customer Order Placed Successfully",
-      message: `Customer: ${customerName}\nOrder ID: ${order.orderNo}\nStatus: New Order\nTotal CBM: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)`,
-      link: `/salesman/orders/${order.id}`,
-      orderId: order.id,
-      type: "NEW_ORDER",
-    });
-
-    // 3. Customer Notification
-    await dispatchNotification({
-      userId: targetCustomerId,
-      title: "Order Placed by Your Assigned Salesman",
-      message: `Your assigned Salesman ${session.name} has placed an order (${order.orderNo}) on your behalf: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Morter.`,
-      link: `/customer/orders/${order.id}`,
-      orderId: order.id,
-      type: "NEW_ORDER",
-    });
-  } else {
-    // Customer-Placed Order Notifications
-    await dispatchNotification({
-      role: "ADMIN",
-      title: "New AAC Block Order Received",
-      message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}${
-        targetSalesmanNameSnapshot ? `\nSalesman: ${targetSalesmanNameSnapshot}` : ""
-      }`,
-      link: `/admin/orders/${order.id}`,
-      orderId: order.id,
-      type: "NEW_ORDER",
-    });
-
-    // Notify the assigned Salesman if present
-    if (targetSalesmanId) {
+    if (session.role === "SALESMAN") {
+      // 1. Super Admin Notification
       await dispatchNotification({
-        userId: targetSalesmanId,
-        title: "New Order From Your Customer",
-        message: `Order ID: ${order.orderNo}\nCustomer: ${customerName}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nMorter: ${adhesiveBags} Bags`,
+        role: "ADMIN",
+        title: "New Order Created by Salesman",
+        message: `Salesman: ${session.name}\nCustomer: ${customerName}\nOrder ID: ${order.orderNo}\nTotal CBM: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)`,
+        link: `/admin/orders/${order.id}`,
+        orderId: order.id,
+        type: "NEW_ORDER",
+      });
+
+      // 2. Salesman Notification
+      await dispatchNotification({
+        userId: session.id,
+        title: "Customer Order Placed Successfully",
+        message: `Customer: ${customerName}\nOrder ID: ${order.orderNo}\nStatus: New Order\nTotal CBM: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)`,
         link: `/salesman/orders/${order.id}`,
         orderId: order.id,
         type: "NEW_ORDER",
       });
+
+      // 3. Customer Notification
+      await dispatchNotification({
+        userId: targetCustomerId,
+        title: "Order Placed by Your Assigned Salesman",
+        message: `Your assigned Salesman ${session.name} has placed an order (${order.orderNo}) on your behalf: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) + ${adhesiveBags} Bags Morter.`,
+        link: `/customer/orders/${order.id}`,
+        orderId: order.id,
+        type: "NEW_ORDER",
+      });
+    } else {
+      // Customer-Placed Order Notifications
+      await dispatchNotification({
+        role: "ADMIN",
+        title: "New AAC Block Order Received",
+        message: `Order ID: ${order.orderNo}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nBlock Jointing Morter: ${adhesiveBags} Bags (40 KG)\nStatus: New Order\nCustomer: ${customerName}${
+          targetSalesmanNameSnapshot ? `\nSalesman: ${targetSalesmanNameSnapshot}` : ""
+        }`,
+        link: `/admin/orders/${order.id}`,
+        orderId: order.id,
+        type: "NEW_ORDER",
+      });
+
+      // Notify the assigned Salesman if present
+      if (targetSalesmanId) {
+        await dispatchNotification({
+          userId: targetSalesmanId,
+          title: "New Order From Your Customer",
+          message: `Order ID: ${order.orderNo}\nCustomer: ${customerName}\nBlock Size: ${blockSizesSummary}\nVolume: ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks)\nMorter: ${adhesiveBags} Bags`,
+          link: `/salesman/orders/${order.id}`,
+          orderId: order.id,
+          type: "NEW_ORDER",
+        });
+      }
+
+      // Notify the placing customer
+      await dispatchNotification({
+        userId: targetCustomerId,
+        title: "Order Placed Successfully",
+        message: `Your order ${order.orderNo} for ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
+        link: `/customer/orders/${order.id}`,
+        orderId: order.id,
+        type: "STATUS_CHANGE",
+      });
     }
 
-    // Notify the placing customer
-    await dispatchNotification({
-      userId: targetCustomerId,
-      title: "Order Placed Successfully",
-      message: `Your order ${order.orderNo} for ${combinedCbm.toFixed(3)} CBM (≈ ${totalBlocks.toLocaleString()} Blocks) has been placed. Block Jointing Morter: ${adhesiveBags} Bags (40 KG).`,
-      link: `/customer/orders/${order.id}`,
-      orderId: order.id,
-      type: "STATUS_CHANGE",
-    });
-  }
+    revalidatePath("/customer/dashboard");
+    revalidatePath("/customer/orders");
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/admin/orders");
+    revalidatePath("/salesman/dashboard");
+    revalidatePath("/salesman/orders");
+    revalidatePath("/staff/dashboard");
+    revalidatePath("/staff/orders");
+    revalidatePath("/stocker/dashboard");
+    revalidatePath("/stocker/orders");
 
-  revalidatePath("/customer/dashboard");
-  revalidatePath("/customer/orders");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/admin/orders");
-  revalidatePath("/salesman/dashboard");
-  revalidatePath("/salesman/orders");
-
-  if (session.role === "SALESMAN") {
-    redirect(`/salesman/orders/${order.id}?success=Order%20placed%20successfully`);
+    if (session.role === "SALESMAN") {
+      redirect(`/salesman/orders/${order.id}?success=Order%20placed%20successfully`);
+    }
+    redirect(`/customer/orders/${order.id}?success=1`);
+  } catch (err: any) {
+    if (isRedirectError(err)) {
+      throw err;
+    }
+    console.error("Critical error placing order:", err);
+    redirect(`${errorBase}?error=${encodeURIComponent(err?.message || "Failed to place order. Please try again.")}`);
   }
-  redirect(`/customer/orders/${order.id}?success=1`);
 }
+
 
 // 2. Admin & Loading Staff confirms order
 export async function confirmOrderAction(formData: FormData) {
