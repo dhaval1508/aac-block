@@ -151,6 +151,8 @@ model Order {
   deliveryAddress String
   requestedDate   DateTime?
   notes           String?
+  pricePerCbm     Decimal?        @db.Decimal(12, 2)
+  pricingRemarks  String?
   status          OrderStatus     @default(PENDING)
   invoiceNo       String?         @unique // e.g. "INV-2026-0001"
   dcNumber        String?         @unique // Delivery Challan series e.g. "SAB/DC/0001"
@@ -158,6 +160,7 @@ model Order {
   shareToken      String?         @unique // Secure public token for WhatsApp
   paymentStatus   PaymentStatus   @default(PENDING)
   paidAmount      Decimal         @default(0) @db.Decimal(14, 2)
+  deletedAt       DateTime?
   
   // Google Maps & Custom Delivery Location fields
   googlePlaceId   String?

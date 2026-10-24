@@ -4,6 +4,7 @@ import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { CustomerOrderForm, ProductItem, BlockOrderItem } from "@/components/customer-order-form";
+import { canViewOrderPricing } from "@/lib/utils";
 import { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ export default async function CustomerEditOrderPage({
   if (!order || (session.role === "CUSTOMER" && order.customerId !== session.id)) {
     notFound();
   }
+
+  const canViewPricing = canViewOrderPricing(session, order);
 
   // Strict Dispatch Lockout Check
   const lockedStatuses: OrderStatus[] = [
@@ -207,6 +210,8 @@ export default async function CustomerEditOrderPage({
         initialGstNumber={order.gstNumber ?? undefined}
         initialGstRegisteredName={order.gstRegisteredName ?? undefined}
         initialGstStatus={order.gstStatus ?? undefined}
+        initialPricePerCbm={canViewPricing && order.pricePerCbm ? Number(order.pricePerCbm) : undefined}
+        initialPricingRemarks={canViewPricing ? order.pricingRemarks || undefined : undefined}
         error={error}
       />
     </div>

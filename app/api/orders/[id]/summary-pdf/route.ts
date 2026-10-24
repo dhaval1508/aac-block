@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { formatNumber, formatBlockSizeName } from "@/lib/utils";
+import { formatNumber, formatBlockSizeName, canViewOrderPricing } from "@/lib/utils";
 import { getCompanyProfile } from "@/lib/company-profile";
 
 export async function GET(
@@ -44,6 +44,8 @@ export async function GET(
   if (session.role === "SALESMAN" && order.salesmanId !== session.id && order.customer?.salesmanId !== session.id) {
     return new NextResponse("Forbidden", { status: 403 });
   }
+
+  const canViewPricing = canViewOrderPricing(session, order);
 
   const items = order.items.length > 0
     ? order.items
@@ -467,6 +469,34 @@ export async function GET(
       </div>
       <div class="adhesive-qty">${adhesiveBags} Bags ${adhesiveBags > 0 ? `(${adhesiveBags * 40} KG)` : "(0 Bags)"}</div>
     </div>
+
+    ${canViewPricing ? `
+      <!-- Private Commercial Pricing Summary (Authorized Super Admin & Creator Only) -->
+      <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:24px;">
+        <div style="font-weight:800; font-size:13px; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:12px;">
+          Order Price & Commercial Details
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; font-size:12px;">
+          <div>
+            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">Price Per CBM</span>
+            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${order.pricePerCbm ? `₹${Number(order.pricePerCbm).toLocaleString('en-IN')}` : "Price Not Added"}</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">Material Subtotal</span>
+            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${order.subtotal && Number(order.subtotal) > 0 ? `₹${Number(order.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : order.pricePerCbm ? `₹${(Number(order.pricePerCbm) * totalCbm).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">GST Billing</span>
+            <strong style="font-size:13px; font-family:monospace; color:#065f46;">${order.gstBillingSelected ? `18% (₹${Number(order.gstAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })})` : "Without GST"}</strong>
+          </div>
+          <div>
+            <span style="font-size:10px; font-weight:bold; color:#0369a1; text-transform:uppercase; display:block;">Total Amount</span>
+            <strong style="font-size:15px; font-family:monospace; color:#13789b;">${order.totalAmount && Number(order.totalAmount) > 0 ? `₹${Number(order.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : order.pricePerCbm ? `₹${(Number(order.pricePerCbm) * totalCbm).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
+          </div>
+        </div>
+        ${order.pricingRemarks ? `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:11px; color:#475569;"><strong>Notes / Remarks:</strong> <em>${order.pricingRemarks}</em></div>` : ""}
+      </div>
+    ` : ""}
 
     <div class="footer-note">
       This is an official computer-generated Order Placement Summary issued by Swarnim AAC Block Pvt. Ltd.<br>

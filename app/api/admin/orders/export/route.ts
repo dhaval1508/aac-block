@@ -46,6 +46,12 @@ export async function GET(req: Request) {
     "Block Quantity",
     "Total CBM",
     "Block Jointing Morter (40 KG Bags)",
+    "Price Per CBM",
+    "Material Subtotal",
+    "GST Rate",
+    "GST Amount",
+    "Total Amount",
+    "Pricing Remarks",
     "Truck Number",
     "Driver Name",
     "Driver Mobile",
@@ -76,6 +82,12 @@ export async function GET(req: Request) {
     totalCbm?: unknown;
     totalSqft?: unknown;
     adhesiveBags?: number | null;
+    pricePerCbm?: unknown;
+    pricingRemarks?: string | null;
+    subtotal?: unknown;
+    gstRate?: unknown;
+    gstAmount?: unknown;
+    totalAmount?: unknown;
     transport?: {
       truckNumber?: string | null;
       driverName?: string | null;
@@ -122,6 +134,12 @@ export async function GET(req: Request) {
       escapeCsv(o.quantity),
       escapeCsv(cbm),
       escapeCsv(mortarBags),
+      escapeCsv(o.pricePerCbm ? String(o.pricePerCbm) : "Price Not Added"),
+      escapeCsv(o.subtotal ? String(o.subtotal) : ""),
+      escapeCsv(o.gstRate ? `${o.gstRate}%` : ""),
+      escapeCsv(o.gstAmount ? String(o.gstAmount) : ""),
+      escapeCsv(o.totalAmount ? String(o.totalAmount) : ""),
+      escapeCsv(o.pricingRemarks || ""),
       escapeCsv(o.transport?.truckNumber || ""),
       escapeCsv(o.transport?.driverName || ""),
       escapeCsv(o.transport?.driverMobile || ""),

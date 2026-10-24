@@ -78,6 +78,7 @@ export interface BlockOrderItem {
   productId: string;
   cbm: number | "";
   quantity: number | "";
+  pricePerCbm?: number | "";
 }
 
 export function CustomerOrderForm({
@@ -102,6 +103,8 @@ export function CustomerOrderForm({
   initialGstNumber,
   initialGstRegisteredName,
   initialGstStatus,
+  initialPricePerCbm,
+  initialPricingRemarks,
 }: {
   aacProducts: ProductItem[];
   adhesiveProduct?: ProductItem | null;
@@ -124,6 +127,8 @@ export function CustomerOrderForm({
   initialGstNumber?: string;
   initialGstRegisteredName?: string;
   initialGstStatus?: string;
+  initialPricePerCbm?: number | string | null;
+  initialPricingRemarks?: string | null;
 }) {
   const initialAacId =
     defaultProductId && aacProducts.some((p) => p.id === defaultProductId)
@@ -206,6 +211,16 @@ export function CustomerOrderForm({
       pincode: isSalesmanMode && initialAssigned ? initialAssigned.pincode || "" : customerDefaults.pincode || "",
       state: isSalesmanMode && initialAssigned ? initialAssigned.state || "Gujarat" : "Gujarat",
     }
+  );
+
+  // Section: Order Price & Remarks State
+  const [pricePerCbm, setPricePerCbm] = useState<number | "">(
+    initialPricePerCbm !== undefined && initialPricePerCbm !== null && initialPricePerCbm !== ""
+      ? Number(initialPricePerCbm)
+      : ""
+  );
+  const [pricingRemarks, setPricingRemarks] = useState<string>(
+    initialPricingRemarks || ""
   );
 
   // Section: GST Billing Option State - Default to Without-GST commercial bill so orders are never blocked
@@ -415,15 +430,58 @@ export function CustomerOrderForm({
   const numAdhesiveBags =
     typeof adhesiveBags === "number" ? Math.max(0, Math.floor(adhesiveBags)) : 0;
 
+  // Material and Pricing Calculations
+  const pricingCalculations = useMemo(() => {
+    const fallbackRate = typeof pricePerCbm === "number" ? Math.max(0, pricePerCbm) : 0;
+    let materialSubtotal = 0;
+    const lines = rowCalculations.map((r) => {
+      const lineRate =
+        typeof r.pricePerCbm === "number" && r.pricePerCbm > 0
+          ? r.pricePerCbm
+          : fallbackRate;
+      const lineAmount =
+        r.totalCbm > 0 && lineRate > 0
+          ? Number((r.totalCbm * lineRate).toFixed(2))
+          : 0;
+      materialSubtotal += lineAmount;
+      return {
+        ...r,
+        lineRate,
+        lineAmount,
+      };
+    });
+
+    const isPriceAdded = fallbackRate > 0 || materialSubtotal > 0;
+    const gstRate = gstBillingSelected ? 18 : 0;
+    const gstAmount =
+      isPriceAdded && gstBillingSelected
+        ? Number(((materialSubtotal * 18) / 100).toFixed(2))
+        : 0;
+    const finalTotalAmount = isPriceAdded
+      ? Number((materialSubtotal + gstAmount).toFixed(2))
+      : 0;
+
+    return {
+      lines,
+      fallbackRate,
+      isPriceAdded,
+      materialSubtotal: Number(materialSubtotal.toFixed(2)),
+      gstRate,
+      gstAmount,
+      finalTotalAmount,
+    };
+  }, [rowCalculations, pricePerCbm, gstBillingSelected]);
+
   // JSON Items for submission
   const itemsJson = useMemo(() => {
-    const list: Array<{ productId: string; quantity: number; cbm?: number }> = [];
-    for (const r of rowCalculations) {
+    const list: Array<{ productId: string; quantity: number; cbm?: number; pricePerCbm?: number }> = [];
+    for (const r of pricingCalculations.lines) {
       if (r.productId && (r.numericQty > 0 || r.totalCbm > 0)) {
         list.push({
           productId: r.productId,
           quantity: r.numericQty,
           cbm: r.totalCbm > 0 ? r.totalCbm : undefined,
+          pricePerCbm: r.lineRate > 0 ? r.lineRate : undefined,
         });
       }
     }
@@ -431,7 +489,7 @@ export function CustomerOrderForm({
       list.push({ productId: adhesiveProduct.id, quantity: numAdhesiveBags });
     }
     return JSON.stringify(list);
-  }, [rowCalculations, adhesiveProduct, numAdhesiveBags]);
+  }, [pricingCalculations.lines, adhesiveProduct, numAdhesiveBags]);
 
   return (
     <form
@@ -442,6 +500,8 @@ export function CustomerOrderForm({
       {/* Hidden Fields for Action Processing */}
       {isEditing && <input type="hidden" name="orderId" value={orderId || ""} />}
       <input type="hidden" name="itemsJson" value={itemsJson} />
+      <input type="hidden" name="pricePerCbm" value={pricePerCbm !== "" ? pricePerCbm : ""} />
+      <input type="hidden" name="pricingRemarks" value={pricingRemarks} />
       <input type="hidden" name="adhesiveBags" value={numAdhesiveBags} />
       <input type="hidden" name="customerName" value={customerName} />
       <input type="hidden" name="customerMobile" value={customerMobile} />
@@ -1221,6 +1281,152 @@ export function CustomerOrderForm({
       </div>
 
       {/* =========================================================================
+          SECTION: ORDER PRICE & REMARKS (Immediately above GST Billing)
+      ========================================================================= */}
+      <div id="order-price-remarks-section" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4 scroll-mt-24">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+                ₹
+              </span>
+              <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+                Order Price & Remarks
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Enter price per CBM and optional notes. Visible only to Super Admin and you (the order creator).
+            </p>
+          </div>
+          <span className="self-start sm:self-auto rounded-full px-3 py-1 text-[11px] font-bold border bg-teal-50 text-[#13789B] border-teal-200">
+            {pricingCalculations.isPriceAdded
+              ? `Subtotal: ₹${pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+              : "Price Not Added"}
+          </span>
+        </div>
+
+        {/* Desktop: Side-by-side inputs (Price Per CBM and Notes/Remarks) | Mobile: Stacked vertically */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Left: Price Per CBM (₹) */}
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-navy uppercase tracking-wider">
+              Price Per CBM (₹)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                ₹
+              </span>
+              <input
+                type="number"
+                name="pricePerCbmInput"
+                step="0.01"
+                min="0"
+                value={pricePerCbm}
+                onChange={(e) => setPricePerCbm(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="Enter price for 1 CBM"
+                className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-8 pr-4 font-mono text-sm sm:text-base font-bold text-navy shadow-2xs outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Formula: Material Amount = Order CBM ({combinedCbm.toFixed(3)} m³) × Price Per CBM.
+            </p>
+
+            {/* If multiple block sizes, allow separate rate per product line */}
+            {blockItems.length > 1 && (
+              <div className="mt-3 space-y-2 pt-2 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-600 block">
+                  Product-Specific Rates (Optional):
+                </span>
+                <div className="space-y-1.5">
+                  {blockItems.map((item, idx) => {
+                    const prod = aacProducts.find((p) => p.id === item.productId);
+                    const calc = rowCalculations[idx];
+                    return (
+                      <div key={item.id} className="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-xl text-xs">
+                        <span className="font-bold text-navy truncate max-w-[170px]">
+                          {formatBlockSizeName(prod?.sizeLabel || `Size ${idx + 1}`)}
+                          <span className="text-slate-400 font-normal ml-1">({calc?.totalCbm?.toFixed(3)} CBM)</span>
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 font-mono text-xs">₹</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder={pricePerCbm ? String(pricePerCbm) : "Rate"}
+                            value={item.pricePerCbm ?? ""}
+                            onChange={(e) =>
+                              updateBlockSizeRow(item.id, {
+                                pricePerCbm: e.target.value === "" ? "" : Number(e.target.value),
+                              })
+                            }
+                            className="w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-mono font-bold text-navy outline-none focus:border-[#13789B]"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Notes / Remarks */}
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-navy uppercase tracking-wider">
+              Notes / Remarks
+            </label>
+            <textarea
+              name="pricingRemarksInput"
+              rows={3}
+              value={pricingRemarks}
+              onChange={(e) => setPricingRemarks(e.target.value)}
+              placeholder="Enter additional notes regarding pricing terms, payment schedule, or private commercial conditions..."
+              className="w-full rounded-2xl border border-slate-300 bg-white p-3.5 text-xs sm:text-sm text-navy shadow-2xs outline-none focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20 transition-all resize-none"
+            />
+            <p className="text-[11px] text-slate-500">
+              Keep these private pricing remarks separate from staff operational or delivery instructions.
+            </p>
+          </div>
+        </div>
+
+        {/* Live Calculation Preview Banner */}
+        {pricingCalculations.isPriceAdded && (
+          <div className="rounded-2xl bg-teal-50/70 border border-teal-200/90 p-3.5 text-xs text-navy flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="font-bold text-[#13789B] uppercase tracking-wider text-[10px] block">
+                Material Amount
+              </span>
+              <span className="font-black text-sm sm:text-base font-mono text-navy">
+                ₹{pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-[11px] text-slate-500 ml-1.5">
+                ({combinedCbm.toFixed(3)} CBM × ₹{pricingCalculations.fallbackRate.toLocaleString("en-IN")}/CBM)
+              </span>
+            </div>
+            {gstBillingSelected && (
+              <div className="text-right">
+                <span className="font-bold text-emerald-700 uppercase tracking-wider text-[10px] block">
+                  + 18% GST Amount
+                </span>
+                <span className="font-black text-xs sm:text-sm font-mono text-emerald-800">
+                  + ₹{pricingCalculations.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+            <div className="text-right border-l border-teal-200/80 pl-3">
+              <span className="font-bold text-navy uppercase tracking-wider text-[10px] block">
+                Estimated Total
+              </span>
+              <span className="font-black text-sm sm:text-lg font-mono text-[#13789B]">
+                ₹{pricingCalculations.finalTotalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* =========================================================================
           SECTION D: GST BILLING OPTION
       ========================================================================= */}
       <div id="gst-billing-section" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4 scroll-mt-24">
@@ -1636,6 +1842,67 @@ export function CustomerOrderForm({
                     {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG` : "0 Bags"}
                   </span>
                 </div>
+              </div>
+
+              {/* Order Price & Remarks in Order Preview */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                  <span className="font-black text-navy uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#13789B] text-white text-[10px] font-black">₹</span>
+                    <span>Order Price & Remarks</span>
+                  </span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                    pricingCalculations.isPriceAdded ? "bg-teal-100 text-[#13789B] border border-teal-200" : "bg-slate-200 text-slate-700"
+                  }`}>
+                    {pricingCalculations.isPriceAdded ? "Price Added" : "Price Not Added"}
+                  </span>
+                </div>
+
+                {pricingCalculations.isPriceAdded ? (
+                  <div className="space-y-2 pt-1 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-bold">Price Per CBM</span>
+                        <strong className="text-navy font-mono">
+                          {pricingCalculations.fallbackRate > 0 ? `₹${pricingCalculations.fallbackRate.toLocaleString("en-IN")}` : "Per Size Rates"}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] uppercase font-bold">Material Subtotal</span>
+                        <strong className="text-navy font-mono">
+                          ₹{pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {gstBillingSelected && (
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-emerald-800">
+                        <span className="text-[11px] font-bold">Applicable GST (18%):</span>
+                        <span className="font-mono font-black">
+                          + ₹{pricingCalculations.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-300 font-bold text-navy">
+                      <span className="text-xs font-black uppercase">Final Order Amount:</span>
+                      <span className="font-mono text-sm sm:text-base font-black text-[#13789B]">
+                        ₹{pricingCalculations.finalTotalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {pricingRemarks && (
+                      <div className="pt-2 border-t border-slate-200/60 text-[11px]">
+                        <span className="text-slate-500 uppercase font-bold block text-[10px]">Private Pricing Remarks</span>
+                        <span className="text-slate-700 italic">{pricingRemarks}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-slate-600 text-xs italic pt-1">
+                    Price Not Added. Standard volume-based booking.
+                  </div>
+                )}
               </div>
 
               {/* GST Billing Option in Order Preview */}

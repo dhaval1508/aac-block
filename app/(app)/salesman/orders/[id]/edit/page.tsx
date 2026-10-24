@@ -5,6 +5,7 @@ import { Role, OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { CustomerOrderForm, ProductItem, BlockOrderItem } from "@/components/customer-order-form";
+import { canViewOrderPricing } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,8 @@ export default async function SalesmanEditOrderPage({
   if (session.role === Role.SALESMAN && order.salesmanId !== session.id) {
     redirect("/salesman/orders?error=Unauthorized%20access%20to%20order");
   }
+
+  const canViewPricing = canViewOrderPricing(session, order);
 
   // Strict Dispatch Lockout Check
   const lockedStatuses: OrderStatus[] = [
@@ -214,6 +217,8 @@ export default async function SalesmanEditOrderPage({
         initialGstNumber={order.gstNumber ?? undefined}
         initialGstRegisteredName={order.gstRegisteredName ?? undefined}
         initialGstStatus={order.gstStatus ?? undefined}
+        initialPricePerCbm={canViewPricing && order.pricePerCbm ? Number(order.pricePerCbm) : undefined}
+        initialPricingRemarks={canViewPricing ? order.pricingRemarks || undefined : undefined}
         defaultAdhesiveBags={order.adhesiveBags ?? 0}
         error={error}
       />

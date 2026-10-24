@@ -391,6 +391,13 @@ export async function placeCustomerOrderAction(formData: FormData) {
 
     const productMap = new Map(dbProducts.map((p) => [p.id, p]));
 
+    const rawPricePerCbm = formData.get("pricePerCbm");
+    const pricePerCbm =
+      rawPricePerCbm !== null && rawPricePerCbm !== "" && !isNaN(Number(rawPricePerCbm))
+        ? Math.max(0, Number(rawPricePerCbm))
+        : null;
+    const pricingRemarks = String(formData.get("pricingRemarks") ?? "").trim() || null;
+
     let combinedCbm = 0;
     let combinedSqft = 0;
     let totalBlocks = 0;
@@ -424,6 +431,11 @@ export async function placeCustomerOrderAction(formData: FormData) {
       let totalSqft = 0;
 
       let itemQty = it.quantity ?? 0;
+      let lineRate = 0;
+      let lineSubtotal = 0;
+      let lineGstRate = 0;
+      let lineGstAmount = 0;
+      let lineTotalAmount = 0;
 
       if (prod.category === "AAC_BLOCK") {
         cbmPerUnit = Number(prod.cbmPerBlock) || 0;
@@ -440,6 +452,19 @@ export async function placeCustomerOrderAction(formData: FormData) {
         combinedCbm += totalCbm;
         combinedSqft += totalSqft;
         totalBlocks += itemQty;
+
+        const itemPricePerCbm =
+          (it as any).pricePerCbm !== undefined && (it as any).pricePerCbm !== null && !isNaN(Number((it as any).pricePerCbm))
+            ? Number((it as any).pricePerCbm)
+            : pricePerCbm;
+
+        if (itemPricePerCbm && itemPricePerCbm > 0) {
+          lineRate = itemPricePerCbm;
+          lineSubtotal = Number((totalCbm * lineRate).toFixed(2));
+          lineGstRate = gstBillingSelected ? 18 : 0;
+          lineGstAmount = gstBillingSelected ? Number(((lineSubtotal * 18) / 100).toFixed(2)) : 0;
+          lineTotalAmount = Number((lineSubtotal + lineGstAmount).toFixed(2));
+        }
       } else if (prod.category === "ADHESIVE" || prod.category === "MORTAR" || prod.category === "BLOCK_JOINTING_MORTAR") {
         hasAdhesive = true;
       }
@@ -455,17 +480,25 @@ export async function placeCustomerOrderAction(formData: FormData) {
         totalCbm,
         sqftPerUnit,
         totalSqft,
-        rate: 0,
-        gstRate: 0,
-        subtotal: 0,
-        gstAmount: 0,
-        totalAmount: 0,
+        rate: lineRate,
+        gstRate: lineGstRate,
+        subtotal: lineSubtotal,
+        gstAmount: lineGstAmount,
+        totalAmount: lineTotalAmount,
       });
     }
 
     if (resolvedItems.length === 0) {
       redirect("/customer/new-order?error=Selected%20products%20are%20not%20available");
     }
+
+    const totalMaterialSubtotal = Number(
+      resolvedItems.reduce((sum, it) => sum + (it.subtotal || 0), 0).toFixed(2)
+    );
+    const totalGstAmount = Number(
+      resolvedItems.reduce((sum, it) => sum + (it.gstAmount || 0), 0).toFixed(2)
+    );
+    const grandTotalAmount = Number((totalMaterialSubtotal + totalGstAmount).toFixed(2));
 
     const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
     const aacBlockItems = resolvedItems.filter((it) => it.productType === "AAC_BLOCK");
@@ -489,11 +522,13 @@ export async function placeCustomerOrderAction(formData: FormData) {
               googleMapsUrl,
               productId: primaryItem.productId,
               quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
-              rate: 0,
-              gstRate: 0,
-              subtotal: 0,
-              gstAmount: 0,
-              totalAmount: 0,
+              pricePerCbm: pricePerCbm !== null ? pricePerCbm : null,
+              pricingRemarks: pricingRemarks,
+              rate: pricePerCbm !== null ? pricePerCbm : 0,
+              gstRate: gstBillingSelected ? 18 : 0,
+              subtotal: totalMaterialSubtotal,
+              gstAmount: totalGstAmount,
+              totalAmount: grandTotalAmount,
               totalCbm: combinedCbm > 0 ? Number(combinedCbm.toFixed(4)) : null,
               totalSqft: combinedSqft > 0 ? Number(combinedSqft.toFixed(2)) : null,
               hasMortar: adhesiveBags > 0,
@@ -533,13 +568,11 @@ export async function placeCustomerOrderAction(formData: FormData) {
                   quantity: it.quantity,
                   cbmPerUnit: it.cbmPerUnit,
                   totalCbm: it.totalCbm,
-                  sqftPerUnit: it.sqftPerUnit,
-                  totalSqft: it.totalSqft,
-                  rate: 0,
-                  gstRate: 0,
-                  subtotal: 0,
-                  gstAmount: 0,
-                  totalAmount: 0,
+                  rate: it.rate,
+                  gstRate: it.gstRate,
+                  subtotal: it.subtotal,
+                  gstAmount: it.gstAmount,
+                  totalAmount: it.totalAmount,
                 })),
               },
               events: {
@@ -1553,7 +1586,7 @@ export async function markOrderDoneAction(formData: FormData) {
   redirect(`${returnPath}?success=Order%20marked%20Done%20and%20Delivered%20successfully`);
 }
 
-// Safe Super Admin Delete / Archive functionality
+// Safe Super Admin Delete / Archive functionality with DELETED challenge and stock reconciliation
 export async function deleteOrderAction(formData: FormData) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") {
@@ -1561,29 +1594,137 @@ export async function deleteOrderAction(formData: FormData) {
   }
 
   const orderId = String(formData.get("orderId") ?? "").trim();
+  const confirmationText = String(formData.get("confirmationText") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim() || "Deleted by Super Admin";
+  const returnStock = formData.get("returnStock") === "true";
+  const returnPath = String(formData.get("returnPath") ?? "/admin/orders").trim() || "/admin/orders";
+
+  if (confirmationText !== "DELETED") {
+    redirect(`${returnPath}?error=Confirmation%20failed:%20You%20must%20type%20DELETED%20exactly.`);
+  }
+
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { movements: true },
+    include: {
+      movements: true,
+      items: { include: { product: true } },
+      customer: true,
+      transport: true,
+      weighbridgeSlip: true,
+      payments: true,
+    },
   });
 
   if (!order) {
-    redirect("/admin/orders?error=Order%20not%20found");
+    redirect(`${returnPath}?error=Order%20not%20found`);
   }
 
-  // Legal retention safeguard: Cannot permanently delete dispatched or delivered orders with stock movements
-  if (order.status === OrderStatus.DISPATCHED || order.status === OrderStatus.DELIVERED || order.movements.length > 0) {
-    redirect("/admin/orders?error=Cannot%20delete%20dispatched%20or%20delivered%20orders%20with%20inventory%20movements.%20Use%20Archive%20instead.");
-  }
+  // Stock Reconciliation Logic:
+  // 1. Find all OUT movements (goods deducted on dispatch)
+  const outMovements = order.movements.filter((m) => m.type === StockType.OUT);
+  // 2. Find any already processed return movements (to prevent duplicate reversal!)
+  const existingReturnMovements = order.movements.filter(
+    (m) =>
+      m.type === StockType.IN &&
+      (m.note?.includes("return") ||
+        m.note?.includes("restoration") ||
+        m.note?.includes("reversal") ||
+        m.note?.includes("Restoration"))
+  );
 
-  await prisma.order.delete({
-    where: { id: orderId },
+  let restoredSummary = "";
+
+  await prisma.$transaction(async (tx) => {
+    // Scenario C: Order Dispatched and Stock Deducted
+    if (outMovements.length > 0 && returnStock && existingReturnMovements.length === 0) {
+      // Goods are physically returned: restore exact quantities deducted per product variant
+      let restoredCbm = 0;
+      let restoredBlocks = 0;
+      let restoredMortarBags = 0;
+
+      for (const m of outMovements) {
+        const qtyToRestore = Math.abs(m.quantityDelta);
+        const cbmToRestore = m.cbmDelta ? Math.abs(Number(m.cbmDelta)) : null;
+
+        await tx.stockMovement.create({
+          data: {
+            productId: m.productId,
+            orderId: order.id,
+            type: StockType.IN,
+            quantityDelta: qtyToRestore,
+            cbmDelta: cbmToRestore,
+            referenceNo: order.orderNo,
+            note: `Stock return & restoration on deletion of ${order.orderNo}: ${reason}`,
+            createdById: session.id,
+          },
+        });
+
+        if (cbmToRestore && cbmToRestore > 0) {
+          restoredCbm += cbmToRestore;
+          restoredBlocks += qtyToRestore;
+        } else {
+          restoredMortarBags += qtyToRestore;
+        }
+      }
+
+      restoredSummary = ` Restored +${restoredCbm.toFixed(3)} CBM (${restoredBlocks} blocks) and +${restoredMortarBags} mortar bags to yard inventory.`;
+    }
+
+    // Scenario D & Document Protection:
+    // If order is DELIVERED or has legal documents (tax invoice, delivery challan, payments):
+    // Use the soft-delete & archive workflow to preserve tax & audit compliance!
+    const isDelivered = order.status === OrderStatus.DELIVERED;
+    const hasLegalDocs = Boolean(order.invoiceNo || order.dcNumber || (order.payments && order.payments.length > 0));
+
+    if (isDelivered || hasLegalDocs) {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+          deletedAt: new Date(),
+          events: {
+            create: {
+              status: OrderStatus.CANCELLED,
+              title: "Order Archived & Cancelled by Super Admin",
+              note: `Reason: ${reason}.${restoredSummary} Legal records retained.`,
+              createdById: session.id,
+            },
+          },
+        },
+      });
+    } else {
+      // Scenario A & B: Un-dispatched order with no legal documents
+      // Soft-delete to keep audit trail while removing from active counts
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+          deletedAt: new Date(),
+          events: {
+            create: {
+              status: OrderStatus.CANCELLED,
+              title: "Order Deleted by Super Admin",
+              note: `Reason: ${reason}. (No inventory was deducted, zero stock added).`,
+              createdById: session.id,
+            },
+          },
+        },
+      });
+    }
   });
 
   revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/stock");
+  revalidatePath("/stocker/stock");
   revalidatePath("/staff/dashboard");
   revalidatePath("/salesman/orders");
-  redirect("/admin/orders?success=Order%20deleted%20successfully");
+  revalidatePath("/customer/orders");
+
+  redirect(
+    `/admin/orders?success=Order%20${encodeURIComponent(order.orderNo)}%20deleted/archived%20successfully.${encodeURIComponent(restoredSummary)}`
+  );
 }
 
 export async function archiveOrderAction(formData: FormData) {
@@ -1604,6 +1745,7 @@ export async function archiveOrderAction(formData: FormData) {
     where: { id: orderId },
     data: {
       status: OrderStatus.CANCELLED,
+      deletedAt: new Date(),
       events: {
         create: {
           status: OrderStatus.CANCELLED,
@@ -1830,6 +1972,19 @@ export async function editCustomerOrderAction(formData: FormData) {
     redirect(`/customer/orders/${orderId}/edit?error=Please%20select%20at%20least%20one%20product%20with%20valid%20quantity`);
   }
 
+  const canUpdatePricing = session.role === "ADMIN" || existingOrder.createdById === session.id;
+  const rawPricePerCbm = formData.get("pricePerCbm");
+  const pricePerCbm = canUpdatePricing
+    ? (rawPricePerCbm !== null && rawPricePerCbm !== "" && !isNaN(Number(rawPricePerCbm))
+        ? Math.max(0, Number(rawPricePerCbm))
+        : null)
+    : (existingOrder.pricePerCbm ? Number(existingOrder.pricePerCbm) : null);
+  const pricingRemarks = canUpdatePricing
+    ? (formData.has("pricingRemarks")
+        ? (String(formData.get("pricingRemarks") ?? "").trim() || null)
+        : existingOrder.pricingRemarks)
+    : existingOrder.pricingRemarks;
+
   // Resolve products and recalculate
   let combinedCbm = 0;
   let totalBlocks = 0;
@@ -1844,6 +1999,11 @@ export async function editCustomerOrderAction(formData: FormData) {
     const cbmPerBlock = Number(product.cbmPerBlock || 0.018);
     let itemQty = it.quantity ?? 0;
     let itemCbm = it.cbm ?? 0;
+    let lineRate = 0;
+    let lineSubtotal = 0;
+    let lineGstRate = 0;
+    let lineGstAmount = 0;
+    let lineTotalAmount = 0;
 
     if (isAacBlock) {
       if (itemCbm > 0 && itemQty <= 0 && cbmPerBlock > 0) {
@@ -1856,6 +2016,19 @@ export async function editCustomerOrderAction(formData: FormData) {
       }
       totalBlocks += itemQty;
       combinedCbm += itemCbm;
+
+      const itemPricePerCbm =
+        (it as any).pricePerCbm !== undefined && (it as any).pricePerCbm !== null && !isNaN(Number((it as any).pricePerCbm))
+          ? Number((it as any).pricePerCbm)
+          : pricePerCbm;
+
+      if (itemPricePerCbm && itemPricePerCbm > 0) {
+        lineRate = itemPricePerCbm;
+        lineSubtotal = Number((itemCbm * lineRate).toFixed(2));
+        lineGstRate = gstBillingSelected ? 18 : 0;
+        lineGstAmount = gstBillingSelected ? Number(((lineSubtotal * 18) / 100).toFixed(2)) : 0;
+        lineTotalAmount = Number((lineSubtotal + lineGstAmount).toFixed(2));
+      }
     } else {
       hasAdhesive = true;
     }
@@ -1869,13 +2042,21 @@ export async function editCustomerOrderAction(formData: FormData) {
       quantity: itemQty,
       cbmPerUnit: isAacBlock && cbmPerBlock > 0 ? cbmPerBlock : null,
       totalCbm: isAacBlock && itemCbm > 0 ? Number(itemCbm.toFixed(4)) : null,
-      rate: 0,
-      gstRate: 0,
-      subtotal: 0,
-      gstAmount: 0,
-      totalAmount: 0,
+      rate: lineRate,
+      gstRate: lineGstRate,
+      subtotal: lineSubtotal,
+      gstAmount: lineGstAmount,
+      totalAmount: lineTotalAmount,
     });
   }
+
+  const totalMaterialSubtotal = Number(
+    resolvedItems.reduce((sum, it) => sum + (it.subtotal || 0), 0).toFixed(2)
+  );
+  const totalGstAmount = Number(
+    resolvedItems.reduce((sum, it) => sum + (it.gstAmount || 0), 0).toFixed(2)
+  );
+  const grandTotalAmount = Number((totalMaterialSubtotal + totalGstAmount).toFixed(2));
 
   const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
 
@@ -1935,11 +2116,11 @@ export async function editCustomerOrderAction(formData: FormData) {
         quantity: it.quantity,
         cbmPerUnit: it.cbmPerUnit,
         totalCbm: it.totalCbm,
-        rate: 0,
-        gstRate: 0,
-        subtotal: 0,
-        gstAmount: 0,
-        totalAmount: 0,
+        rate: it.rate,
+        gstRate: it.gstRate,
+        subtotal: it.subtotal,
+        gstAmount: it.gstAmount,
+        totalAmount: it.totalAmount,
       })),
     });
 
@@ -1950,6 +2131,13 @@ export async function editCustomerOrderAction(formData: FormData) {
         productId: primaryItem.productId,
         quantity: totalBlocks > 0 ? totalBlocks : primaryItem.quantity,
         totalCbm: combinedCbm > 0 ? Number(combinedCbm.toFixed(4)) : null,
+        pricePerCbm: pricePerCbm !== null ? pricePerCbm : null,
+        pricingRemarks: pricingRemarks,
+        rate: pricePerCbm !== null ? pricePerCbm : 0,
+        gstRate: gstBillingSelected ? 18 : 0,
+        subtotal: totalMaterialSubtotal,
+        gstAmount: totalGstAmount,
+        totalAmount: grandTotalAmount,
         hasMortar: adhesiveBags > 0,
         hasAdhesive,
         adhesiveBags,
@@ -2085,6 +2273,9 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
   const vehicleNumber = String(formData.get("vehicleNumber") ?? "").trim().toUpperCase();
   const driverName = String(formData.get("driverName") ?? "").trim();
   const driverMobile = String(formData.get("driverMobile") ?? "").trim();
+  const transporterName = String(formData.get("transporterName") ?? "").trim() || null;
+  const loadingStartTime = String(formData.get("loadingStartTime") ?? "").trim() || null;
+  const loadingEndTime = String(formData.get("loadingEndTime") ?? "").trim() || null;
   const netWeightKg = Number(formData.get("netWeightKg") || formData.get("netWeight") || 0);
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
   const slipUrl = String(formData.get("slipUrl") ?? "").trim() || null;
@@ -2177,16 +2368,18 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
           truckNumber: vehicleNumber,
           driverName: driverName || "Assigned Driver",
           driverMobile: driverMobile || "9879500000",
+          transporterName: transporterName || null,
         },
         update: {
           truckNumber: vehicleNumber,
           ...(driverName ? { driverName } : {}),
           ...(driverMobile ? { driverMobile } : {}),
+          ...(transporterName ? { transporterName } : {}),
         },
       });
     }
 
-    // Sync Net Weight to LoadingRecord if present
+    // Sync Net Weight & Logistics to LoadingRecord
     await tx.loadingRecord.upsert({
       where: { orderId },
       create: {
@@ -2194,8 +2387,12 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
         driverName: driverName || "Assigned Driver",
         driverMobile: driverMobile || "9879500000",
         vehicleNumber,
+        transporterName: transporterName || null,
         rstNumber,
         netWeight: netWeightKg,
+        remarks,
+        loadingStartTime: loadingStartTime || null,
+        loadingEndTime: loadingEndTime || null,
         createdById: session.id,
       },
       update: {
@@ -2203,6 +2400,10 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
         netWeight: netWeightKg,
         ...(driverName ? { driverName } : {}),
         ...(driverMobile ? { driverMobile } : {}),
+        ...(transporterName ? { transporterName } : {}),
+        ...(remarks ? { remarks } : {}),
+        ...(loadingStartTime ? { loadingStartTime } : {}),
+        ...(loadingEndTime ? { loadingEndTime } : {}),
         vehicleNumber,
       },
     });
@@ -2269,7 +2470,7 @@ export async function saveWeighbridgeSlipAction(formData: FormData) {
   revalidatePath(`/stocker/orders/${orderId}`);
   revalidatePath("/stocker/orders");
   revalidatePath(`/customer/orders/${orderId}`);
-  redirect(`${redirectBase}?success=Weighbridge%20Net%20Weight%20saved%20successfully`);
+  redirect(`${redirectBase}?success=Driver,%20Vehicle%20&%20Weighbridge%20details%20saved%20successfully`);
 }
 
 // ============================================================================

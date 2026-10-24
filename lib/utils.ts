@@ -197,6 +197,21 @@ export function canLoading(role: Role) {
   return role === "ADMIN" || role === "STAFF" || role === "STOCKER";
 }
 
+/**
+ * Strict Price Privacy Rule:
+ * Price Per CBM, material amounts, private pricing remarks, and tax breakdowns
+ * are visible ONLY to Super Admin and the exact user who created the order.
+ */
+export function canViewOrderPricing(
+  user?: { id?: string | null; role?: string | null } | null,
+  order?: { createdById?: string | null } | null
+): boolean {
+  if (!user || !user.role) return false;
+  if (user.role === "ADMIN") return true;
+  if (order?.createdById && user.id && user.id === order.createdById) return true;
+  return false;
+}
+
 export function avatarTone(name: string) {
   const tones = [
     "bg-rose-100 text-rose-700",

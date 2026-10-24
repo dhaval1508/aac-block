@@ -37,6 +37,7 @@ import {
 } from "@/lib/utils";
 import { OpenLocationButton } from "@/components/open-location-button";
 import { deleteOrderAction, archiveOrderAction } from "@/lib/actions/orders";
+import { DeleteOrderModal } from "@/components/delete-order-modal";
 
 function getStatusIcon(status: OrderStatus) {
   switch (status) {
@@ -383,63 +384,26 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
         </tr>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal with DELETED challenge and stock reconciliation */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-rose-600">
-                <AlertTriangle className="h-5 w-5" />
-                <h3 className="font-black text-navy text-base">Delete Order {order.orderNo}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to permanently delete order <strong>{order.orderNo}</strong>? This action will remove all line items and staging history.
-            </p>
-
-            <form action={deleteOrderAction} className="space-y-3">
-              <input type="hidden" name="orderId" value={order.id} />
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                  Reason for Deletion (Audit Trail)
-                </label>
-                <input
-                  type="text"
-                  name="reason"
-                  required
-                  placeholder="e.g. Duplicate booking, customer requested cancellation before confirmation"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-navy focus:border-rose-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteModal(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 transition cursor-pointer"
-                >
-                  Confirm Delete
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <DeleteOrderModal
+          order={{
+            id: order.id,
+            orderNo: order.orderNo,
+            status: order.status,
+            totalCbm: order.totalCbm,
+            quantity: order.quantity,
+            adhesiveBags: order.adhesiveBags,
+            customerName: order.customer.name,
+            companyName: order.customer.companyName,
+            dcNumber: order.dcNumber,
+            invoiceNo: order.invoiceNo,
+            hasDispatchedStock: order.status === "DISPATCHED",
+            hasDelivered: order.status === "DELIVERED",
+          }}
+          onClose={() => setShowDeleteModal(false)}
+          returnPath="/admin/orders"
+        />
       )}
 
       {/* Archive Modal */}
