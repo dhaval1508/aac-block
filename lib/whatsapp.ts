@@ -123,11 +123,28 @@ ${salesmanName}
 Swarnim AAC Block Private Limited`;
 }
 
+export interface DriverWhatsAppMaterialItem {
+  productName?: string | null;
+  sizeLabel?: string | null;
+  dimensions?: string | null;
+  quantity?: number | string | null;
+  cbm?: number | string | null;
+  totalCbm?: number | string | null;
+  productType?: string | null;
+}
+
 export function buildDriverDeliveryWhatsAppMessage(params: {
   driverName: string;
-  orderNo: string;
-  dcNumber?: string | null;
+  driverMobile?: string | null;
   vehicleNumber: string;
+  orderNo: string;
+  customerName?: string | null;
+  customerMobile?: string | null;
+  deliveryAddress: string;
+  googleMapsLocation?: string | null;
+  googleMapsUrl?: string | null;
+  materialItems?: DriverWhatsAppMaterialItem[];
+  items?: DriverWhatsAppMaterialItem[];
   orderedCbm?: string | number | null;
   loadedCbm?: string | number | null;
   totalMaterialCbm?: string | number;
@@ -135,34 +152,57 @@ export function buildDriverDeliveryWhatsAppMessage(params: {
   approxBlocks?: string | number | null;
   mortarBags?: string | number | null;
   netWeightKg?: string | number | null;
-  deliveryAddress: string;
-  googleMapsLocation?: string | null;
-  googleMapsUrl?: string | null;
+  dcNumber?: string | null;
 }): string {
+  const driverName = params.driverName?.trim() || "Driver";
+  const customerName = params.customerName?.trim() || "Valued Customer";
+  const customerContact = params.customerMobile?.trim() || "Not Provided";
   const cbmValue = params.loadedCbm ?? params.orderedCbm ?? params.totalMaterialCbm ?? params.totalCbm ?? "";
-  const cbmLabel = params.loadedCbm ? "Loaded CBM" : "Ordered / Total CBM";
   const mapsUrl = params.googleMapsLocation || params.googleMapsUrl || mapsHref(params.deliveryAddress);
 
   const lines: string[] = [
-    `Hello ${params.driverName || "Driver"},`,
+    `Hello ${driverName},`,
     "",
-    "Swarnim AAC Block Delivery Details:",
-    "",
+    "SWARNIM AAC BLOCK - DELIVERY DETAILS",
     `Order ID: ${params.orderNo}`,
+    `Customer Name: ${customerName}`,
+    `Customer Contact: ${customerContact}`,
+    `Delivery Address: ${params.deliveryAddress}`,
   ];
 
-  if (params.dcNumber) {
-    lines.push(`Delivery Challan: ${params.dcNumber}`);
+  if (mapsUrl) {
+    lines.push(`Google Maps: ${mapsUrl}`);
   }
 
   lines.push(`Vehicle Number: ${params.vehicleNumber}`);
 
-  if (cbmValue) {
-    lines.push(`${cbmLabel}: ${cbmValue} CBM`);
+  // Material breakdown items
+  const items = params.materialItems || params.items || [];
+  const blockItems = items.filter((it) => it.productType !== "ADHESIVE" && it.productType !== "MORTAR");
+
+  lines.push("");
+  lines.push("Material Details:");
+
+  if (blockItems.length > 0) {
+    blockItems.forEach((it) => {
+      const label = it.sizeLabel || it.productName || "AAC Block";
+      const dim = it.dimensions ? ` (${it.dimensions})` : "";
+      const itemCbm = it.totalCbm ?? it.cbm;
+      const cbmStr = itemCbm ? `${Number(itemCbm).toFixed(3)} CBM` : "";
+      const blocksStr = it.quantity ? `≈ ${formatNumber(Number(it.quantity))} Blocks` : "";
+      const detailParts = [cbmStr, blocksStr].filter(Boolean).join(" · ");
+      lines.push(`• ${label}${dim}: ${detailParts || "Loaded"}`);
+    });
+  } else if (cbmValue) {
+    lines.push(`• AAC Blocks: ${cbmValue} CBM`);
   }
 
   if (params.approxBlocks) {
-    lines.push(`Approximate Blocks: ${Number(params.approxBlocks).toLocaleString()} Blocks`);
+    lines.push(`Total AAC Blocks: ${formatNumber(Number(params.approxBlocks))} Nos`);
+  }
+
+  if (cbmValue) {
+    lines.push(`Total CBM: ${cbmValue} CBM`);
   }
 
   if (params.mortarBags !== undefined && params.mortarBags !== null) {
@@ -173,22 +213,17 @@ export function buildDriverDeliveryWhatsAppMessage(params: {
     lines.push(`Net Weight: ${Number(params.netWeightKg).toLocaleString()} KG`);
   }
 
-  lines.push("");
-  lines.push("Delivery Address:");
-  lines.push(params.deliveryAddress);
-
-  if (mapsUrl) {
-    lines.push("");
-    lines.push("Google Maps Location Link:");
-    lines.push(mapsUrl);
+  if (params.dcNumber) {
+    lines.push(`Delivery Challan: ${params.dcNumber}`);
   }
 
   lines.push("");
-  lines.push("Please deliver the material to this location.");
+  lines.push("Please contact the customer before reaching the delivery location when required.");
   lines.push("");
   lines.push("Thank you,");
   lines.push("Swarnim AAC Block Private Limited");
 
   return lines.join("\n");
 }
+
 

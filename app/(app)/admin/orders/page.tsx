@@ -25,6 +25,7 @@ import {
   XCircle,
   AlertCircle,
   MapPin,
+  IndianRupee,
 } from "lucide-react";
 import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -79,6 +80,7 @@ const STATUS_TABS: Array<{ key: string; label: string; status?: OrderStatus }> =
   { key: "dispatched", label: "Dispatched", status: OrderStatus.DISPATCHED },
   { key: "delivered", label: "Delivered", status: OrderStatus.DELIVERED },
   { key: "rejected", label: "Rejected", status: OrderStatus.REJECTED },
+  { key: "cancelled", label: "Cancelled", status: OrderStatus.CANCELLED },
 ];
 
 export default async function AdminOrdersPage({
@@ -120,6 +122,11 @@ export default async function AdminOrdersPage({
   const whereClause: any = {};
   if (currentTab.status) {
     whereClause.status = currentTab.status;
+  }
+
+  // Active Orders Rule: exclude deleted/cancelled orders from active tabs so they are removed upon deletion
+  if (currentTab.key !== "cancelled") {
+    whereClause.deletedAt = null;
   }
 
   if (creator === "SALESMAN") {
@@ -165,7 +172,7 @@ export default async function AdminOrdersPage({
       skip,
       take: pageSize,
       include: {
-        customer: { select: { name: true, companyName: true, mobile: true } },
+        customer: { select: { name: true, companyName: true, mobile: true, email: true } },
         product: { select: { sizeLabel: true, dimensions: true, cbmPerBlock: true } },
         transport: true,
         assignedStaff: { select: { name: true } },
@@ -179,11 +186,17 @@ export default async function AdminOrdersPage({
     prisma.order.count({ where: whereClause }),
     prisma.order.groupBy({
       by: ["status"],
-      where: dateFilter ? { createdAt: dateFilter } : {},
+      where: {
+        deletedAt: null,
+        ...(dateFilter ? { createdAt: dateFilter } : {}),
+      },
       _count: { id: true },
     }),
     prisma.order.aggregate({
-      where: dateFilter ? { createdAt: dateFilter } : {},
+      where: {
+        deletedAt: null,
+        ...(dateFilter ? { createdAt: dateFilter } : {}),
+      },
       _count: { id: true },
     }),
     prisma.user.findMany({
@@ -387,26 +400,26 @@ export default async function AdminOrdersPage({
                 </th>
                 <th className="py-3.5 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Customer & Site</span>
+                    <User className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Customer Name</span>
+                  </div>
+                </th>
+                <th className="py-3.5 px-3.5 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Delivery Address</span>
                   </div>
                 </th>
                 <th className="py-3.5 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Boxes className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Materials & Specs</span>
-                  </div>
-                </th>
-                <th className="py-3.5 px-3.5 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Volume & Mortar</span>
+                    <span>Block Size & Order Quantity</span>
                   </div>
                 </th>
                 <th className="py-3.5 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <Truck className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Transport</span>
+                    <IndianRupee className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Order Price</span>
                   </div>
                 </th>
                 <th className="py-3.5 px-3.5 text-center whitespace-nowrap">
@@ -433,83 +446,104 @@ export default async function AdminOrdersPage({
 
         {/* Mobile / Tablet Responsive Cards View */}
         <div className="lg:hidden divide-y divide-slate-100 min-w-0">
-          {orders.map((o) => (
-            <Link
-              key={o.id}
-              href={`/admin/orders/${o.id}`}
-              className="block p-3.5 sm:p-4 hover:bg-slate-50 transition-colors min-w-0"
-            >
-              <div className="flex items-start justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <span className="font-black text-sm text-[#13789B] font-mono">{o.orderNo}</span>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                        ORDER_STATUS_CLASS[o.status]
-                      }`}
-                    >
-                      {getStatusIcon(o.status)}
-                      <span>{ORDER_STATUS_LABEL[o.status]}</span>
+          {orders.map((o) => {
+            const isEmail = (s?: string | null) => Boolean(s && s.includes("@"));
+            const rawCustName = o.customer?.name?.trim();
+            const rawCompName = o.customer?.companyName?.trim();
+            const primaryName = (rawCustName && !isEmail(rawCustName))
+              ? rawCustName
+              : (o.createdByNameSnapshot && !isEmail(o.createdByNameSnapshot))
+              ? o.createdByNameSnapshot
+              : (rawCompName && !isEmail(rawCompName))
+              ? rawCompName
+              : rawCustName ? rawCustName.split("@")[0]
+              : rawCompName ? rawCompName.split("@")[0]
+              : "Valued Customer";
+
+            const orderPriceNum = Number(o.totalAmount || 0);
+
+            return (
+              <Link
+                key={o.id}
+                href={`/admin/orders/${o.id}`}
+                className="block p-3.5 sm:p-4 hover:bg-slate-50 transition-colors min-w-0"
+              >
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="font-black text-sm text-[#13789B] font-mono">{o.orderNo}</span>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                          ORDER_STATUS_CLASS[o.status]
+                        }`}
+                      >
+                        {getStatusIcon(o.status)}
+                        <span>{ORDER_STATUS_LABEL[o.status]}</span>
+                      </span>
+                      {o.gstBillingSelected === true ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          <ShieldCheck className="h-3 w-3" />
+                          <span>GST Bill</span>
+                        </span>
+                      ) : o.gstBillingSelected === false ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                          <FileText className="h-3 w-3" />
+                          <span>No GST</span>
+                        </span>
+                      ) : null}
+                      {o.createdByRole === "SALESMAN" ? (
+                        <span className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                          Sales: {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
+                          Customer Order
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 font-bold text-xs text-navy truncate" title={primaryName}>
+                      {primaryName}
+                    </p>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="font-black text-sm text-navy">
+                      {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
+                    </p>
+                    <span className="text-[10px] text-slate-400 italic block">
+                      ≈ {formatNumber(o.quantity)} Blocks
                     </span>
-                    {o.gstBillingSelected === true ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                        <ShieldCheck className="h-3 w-3" />
-                        <span>GST Bill</span>
-                      </span>
-                    ) : o.gstBillingSelected === false ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                        <FileText className="h-3 w-3" />
-                        <span>No GST</span>
-                      </span>
-                    ) : null}
-                    {o.createdByRole === "SALESMAN" ? (
-                      <span className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
-                        Salesman: {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
-                        Customer Order
+                    {orderPriceNum > 0 && (
+                      <span className="font-bold text-xs text-emerald-700 block font-mono mt-0.5">
+                        ₹{formatNumber(orderPriceNum)}
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 font-bold text-xs text-navy truncate">
-                    {o.customer.companyName || o.customer.name}
-                  </p>
                 </div>
 
-                <div className="text-right shrink-0">
-                  <p className="font-black text-sm text-navy">
-                    {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
-                  </p>
-                  <span className="text-[10px] text-slate-400 italic block">
-                    ≈ {formatNumber(o.quantity)} Blocks
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
-                <div className="min-w-0 col-span-2">
-                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Material Items</span>
-                  <p className="font-bold text-navy truncate">
-                    {o.items && o.items.length > 0
-                      ? o.items.map((it) => `${it.productName || it.product?.name} (${it.totalCbm ? `${Number(it.totalCbm).toFixed(2)} CBM` : `${it.quantity} Bags`})`).join(" · ")
-                      : (o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "AAC Blocks")}
-                  </p>
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Jointing Morter (40 KG)</span>
-                  <p className="font-bold text-navy truncate">{o.adhesiveBags ?? 0} Bags</p>
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Vehicle</span>
-                  <p className="font-bold text-navy truncate">
-                    {o.transport?.truckNumber || "Unassigned"}
-                  </p>
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Order Date</span>
-                  <p className="font-bold text-navy truncate">{formatDate(o.createdAt)}</p>
-                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
+                  <div className="min-w-0 col-span-2">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Material Items</span>
+                    <p className="font-bold text-navy truncate">
+                      {o.items && o.items.length > 0
+                        ? o.items.map((it) => `${it.productName || it.product?.name} (${it.totalCbm ? `${Number(it.totalCbm).toFixed(2)} CBM` : `${it.quantity} Bags`})`).join(" · ")
+                        : (o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "AAC Blocks")}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Jointing Morter (40 KG)</span>
+                    <p className="font-bold text-navy truncate">{o.adhesiveBags ?? 0} Bags</p>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Vehicle</span>
+                    <p className="font-bold text-navy truncate">
+                      {o.transport?.truckNumber || "Unassigned"}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Order Date</span>
+                    <p className="font-bold text-navy truncate">{formatDate(o.createdAt)}</p>
+                  </div>
               </div>
 
               <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 gap-2 min-w-0">
@@ -522,7 +556,8 @@ export default async function AdminOrdersPage({
                 </span>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
 
         {orders.length === 0 && (

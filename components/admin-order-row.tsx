@@ -17,15 +17,13 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
-  Archive,
   Layers,
-  AlertTriangle,
-  X,
   CheckCircle2,
   Loader2,
   PackageCheck,
   XCircle,
   AlertCircle,
+  IndianRupee,
 } from "lucide-react";
 import { OrderStatus } from "@prisma/client";
 import {
@@ -36,7 +34,6 @@ import {
   ORDER_STATUS_LABEL,
 } from "@/lib/utils";
 import { OpenLocationButton } from "@/components/open-location-button";
-import { deleteOrderAction, archiveOrderAction } from "@/lib/actions/orders";
 import { DeleteOrderModal } from "@/components/delete-order-modal";
 
 function getStatusIcon(status: OrderStatus) {
@@ -74,6 +71,9 @@ interface AdminOrderRowProps {
     quantity: number;
     adhesiveBags?: number | null;
     deliveryAddress: string;
+    googleMapsUrl?: string | null;
+    latitude?: any;
+    longitude?: any;
     gstBillingSelected?: boolean | null;
     gstRegisteredName?: string | null;
     gstNumber?: string | null;
@@ -82,10 +82,14 @@ interface AdminOrderRowProps {
     salesmanNameSnapshot?: string | null;
     invoiceNo?: string | null;
     dcNumber?: string | null;
+    totalAmount?: any;
+    pricePerCbm?: any;
+    rate?: any;
     customer: {
       name: string;
       companyName?: string | null;
       mobile: string;
+      email?: string | null;
     };
     product?: {
       sizeLabel?: string | null;
@@ -99,6 +103,7 @@ interface AdminOrderRowProps {
     transport?: {
       truckNumber?: string | null;
       driverName?: string | null;
+      driverMobile?: string | null;
     } | null;
     items?: Array<{
       id: string;
@@ -121,18 +126,44 @@ interface AdminOrderRowProps {
 export function AdminOrderRow({ order }: AdminOrderRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [reason, setReason] = useState("");
 
   const items = order.items && order.items.length > 0 ? order.items : [];
   const hasMultipleItems = items.length > 1;
 
-  // Cannot delete legal documents: if dispatched, delivered, or DC/Invoice issued
-  const isFinalized =
-    order.status === OrderStatus.DISPATCHED ||
-    order.status === OrderStatus.DELIVERED ||
-    !!order.invoiceNo ||
-    !!order.dcNumber;
+  // Customer Name Fix: Always prioritize real customer name, never show email as primary customer name
+  const isEmail = (s?: string | null) => Boolean(s && s.includes("@"));
+  const rawCustName = order.customer?.name?.trim();
+  const rawCompName = order.customer?.companyName?.trim();
+  const rawEmail = order.customer?.email?.trim();
+  const mobile = order.customer?.mobile?.trim();
+
+  let primaryCustomerName = "";
+  if (rawCustName && !isEmail(rawCustName)) {
+    primaryCustomerName = rawCustName;
+  } else if (order.createdByNameSnapshot && !isEmail(order.createdByNameSnapshot)) {
+    primaryCustomerName = order.createdByNameSnapshot;
+  } else if (rawCompName && !isEmail(rawCompName)) {
+    primaryCustomerName = rawCompName;
+  } else if (rawCustName) {
+    primaryCustomerName = rawCustName.split("@")[0];
+  } else if (rawCompName) {
+    primaryCustomerName = rawCompName.split("@")[0];
+  } else {
+    primaryCustomerName = "Valued Customer";
+  }
+
+  // Secondary contact / company info
+  let secondaryLabel = "";
+  if (rawCompName && rawCompName !== primaryCustomerName && !isEmail(rawCompName)) {
+    secondaryLabel = rawCompName;
+  } else if (mobile) {
+    secondaryLabel = `📱 ${mobile}`;
+  } else if (rawEmail) {
+    secondaryLabel = rawEmail;
+  }
+
+  const orderPriceNum = Number(order.totalAmount || 0);
+  const pricePerCbmNum = Number(order.pricePerCbm || 0);
 
   return (
     <>
@@ -167,13 +198,13 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
           </div>
         </td>
 
-        {/* 2. Customer, Creator & Destination */}
-        <td className="py-3.5 px-3.5 align-top min-w-[200px]">
+        {/* 2. Customer Name (Real Name Primary, Contact Secondary) */}
+        <td className="py-3.5 px-3.5 align-top min-w-[180px]">
           <p
-            className="font-extrabold text-navy text-sm truncate max-w-[210px]"
-            title={order.customer.companyName || order.customer.name}
+            className="font-extrabold text-navy text-sm truncate max-w-[200px]"
+            title={primaryCustomerName}
           >
-            {order.customer.companyName || order.customer.name}
+            {primaryCustomerName}
           </p>
 
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -190,19 +221,43 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
             )}
           </div>
 
-          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-            <MapPin className="h-3 w-3 text-rose-500 shrink-0" />
-            <span className="truncate max-w-[130px]" title={order.deliveryAddress}>
-              {order.deliveryAddress}
+          {secondaryLabel && (
+            <span
+              className="text-[11px] text-slate-500 font-mono mt-1 block truncate max-w-[190px]"
+              title={secondaryLabel}
+            >
+              {secondaryLabel}
             </span>
-            <OpenLocationButton address={order.deliveryAddress} variant="badge" />
+          )}
+        </td>
+
+        {/* 3. Delivery Address */}
+        <td className="py-3.5 px-3.5 align-top min-w-[190px]">
+          <div className="space-y-1.5">
+            <div className="flex items-start gap-1 text-[11px] text-slate-600">
+              <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
+              <span className="truncate max-w-[170px]" title={order.deliveryAddress}>
+                {order.deliveryAddress}
+              </span>
+            </div>
+            <OpenLocationButton
+              address={order.deliveryAddress}
+              googleMapsUrl={order.googleMapsUrl}
+              variant="badge"
+            />
+            {order.transport?.truckNumber && (
+              <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono pt-0.5">
+                <Truck className="h-3 w-3 text-slate-400 shrink-0" />
+                <span>{order.transport.truckNumber}</span>
+              </div>
+            )}
           </div>
         </td>
 
-        {/* 3. Block Specs & Materials */}
-        <td className="py-3.5 px-3.5 align-top min-w-[180px]">
+        {/* 4. Block Size & Order Quantity */}
+        <td className="py-3.5 px-3.5 align-top min-w-[200px]">
           {items.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {hasMultipleItems ? (
                 <div>
                   <button
@@ -219,7 +274,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
                     )}
                   </button>
 
-                  <span className="text-[11px] text-slate-500 block mt-1 truncate max-w-[180px] font-mono">
+                  <span className="text-[11px] text-slate-500 block mt-1 truncate max-w-[190px] font-mono">
                     {items.map((i) => i.productName || i.product?.name).join(" + ")}
                   </span>
                 </div>
@@ -233,6 +288,23 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
                   </span>
                 </div>
               )}
+
+              {/* Total volume & mortar */}
+              <div className="pt-1 border-t border-slate-100 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <strong className="font-black text-xs text-navy">
+                  {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : `${formatNumber(order.quantity)} units`}
+                </strong>
+                <span className="text-[11px] text-slate-400 italic">
+                  ≈ {formatNumber(order.quantity)} Blocks
+                </span>
+                {order.adhesiveBags && order.adhesiveBags > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded bg-sky-50 border border-sky-200 px-1.5 py-0.2 text-[10px] font-mono font-bold text-navy">
+                    +{order.adhesiveBags} Bags Morter
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400">No Morter</span>
+                )}
+              </div>
             </div>
           ) : (
             <div>
@@ -244,51 +316,41 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
               <span className="text-[11px] text-slate-400 block font-mono mt-0.5">
                 {order.product?.dimensions || "-"}
               </span>
+              <div className="pt-1 mt-1 border-t border-slate-100 flex items-center gap-2">
+                <strong className="font-black text-xs text-navy">
+                  {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : `${formatNumber(order.quantity)} units`}
+                </strong>
+                <span className="text-[11px] text-slate-400 italic">
+                  ≈ {formatNumber(order.quantity)} Blocks
+                </span>
+              </div>
             </div>
           )}
         </td>
 
-        {/* 4. Total Volume & Mortar */}
-        <td className="py-3.5 px-3.5 text-right align-top whitespace-nowrap min-w-[140px]">
-          <p className="font-black text-sm text-navy">
-            {order.totalCbm
-              ? `${Number(order.totalCbm).toFixed(3)} CBM`
-              : `${formatNumber(order.quantity)} units`}
-          </p>
-          <span className="text-[11px] text-slate-400 italic block mt-0.5">
-            ≈ {formatNumber(order.quantity)} Blocks
-          </span>
-          {order.adhesiveBags && order.adhesiveBags > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-200 px-2 py-0.5 text-[10px] font-mono font-bold text-navy mt-1">
-              <Package className="h-3 w-3 text-[#13789B] shrink-0" />
-              <span>+{order.adhesiveBags} Bags Mortar</span>
-            </span>
-          ) : (
-            <span className="text-[10px] text-slate-400 block mt-0.5">No Mortar</span>
-          )}
-        </td>
-
-        {/* 5. Transport */}
+        {/* 5. Order Price (Super Admin & Authorized Viewers) */}
         <td className="py-3.5 px-3.5 align-top whitespace-nowrap min-w-[130px]">
-          {order.transport ? (
-            <div>
-              <span className="font-bold text-navy block font-mono text-xs flex items-center gap-1">
-                <Truck className="h-3 w-3 text-[#13789B] shrink-0" />
-                <span>{order.transport.truckNumber}</span>
-              </span>
-              <span className="text-[11px] text-slate-500 block truncate max-w-[120px] mt-0.5">
-                {order.transport.driverName || "Driver"}
-              </span>
+          {orderPriceNum > 0 ? (
+            <div className="space-y-0.5">
+              <p className="font-black text-sm text-emerald-700">
+                ₹{formatNumber(orderPriceNum)}
+              </p>
+              {pricePerCbmNum > 0 && (
+                <span className="text-[10px] text-slate-400 block font-mono">
+                  ₹{formatNumber(pricePerCbmNum)} / CBM
+                </span>
+              )}
             </div>
+          ) : pricePerCbmNum > 0 ? (
+            <p className="font-black text-xs text-emerald-700 font-mono">
+              ₹{formatNumber(pricePerCbmNum)} / CBM
+            </p>
           ) : (
-            <span className="inline-flex items-center gap-1 text-slate-400 italic text-[11px] bg-slate-50 rounded-lg px-2 py-0.5 border border-slate-200">
-              <Clock className="h-3 w-3 text-slate-300 shrink-0" />
-              <span>Unassigned</span>
-            </span>
+            <span className="text-slate-400 text-xs italic">Price Not Added</span>
           )}
         </td>
 
-        {/* 6. Status */}
+        {/* 6. Order Status */}
         <td className="py-3.5 px-3.5 text-center align-top whitespace-nowrap min-w-[120px]">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold border shadow-2xs ${
@@ -300,7 +362,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
           </span>
         </td>
 
-        {/* 7. Actions (Sticky right so it is NEVER cut off) */}
+        {/* 7. Actions (Sticky right) */}
         <td className="py-3.5 px-3.5 text-right align-top whitespace-nowrap sticky right-0 bg-white/95 backdrop-blur-xs group-hover:bg-slate-50/95 transition-colors shadow-[-6px_0_12px_rgba(0,0,0,0.03)] min-w-[110px]">
           <div className="flex items-center justify-end gap-1.5">
             <Link
@@ -311,25 +373,14 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
               <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform shrink-0" />
             </Link>
 
-            {isFinalized ? (
-              <button
-                type="button"
-                onClick={() => setShowArchiveModal(true)}
-                title="Archive Order (Legal Retention Protected)"
-                className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
-              >
-                <Archive className="h-3.5 w-3.5 shrink-0" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(true)}
-                title="Safe Delete Order"
-                className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-              >
-                <Trash2 className="h-3.5 w-3.5 shrink-0" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              title="Delete or Archive Order"
+              className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 shrink-0" />
+            </button>
           </div>
         </td>
       </tr>
@@ -384,7 +435,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
         </tr>
       )}
 
-      {/* Delete Confirmation Modal with DELETED challenge and stock reconciliation */}
+      {/* Delete Confirmation Modal (Simple Yes / No confirmation) */}
       {showDeleteModal && (
         <DeleteOrderModal
           order={{
@@ -394,7 +445,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
             totalCbm: order.totalCbm,
             quantity: order.quantity,
             adhesiveBags: order.adhesiveBags,
-            customerName: order.customer.name,
+            customerName: primaryCustomerName,
             companyName: order.customer.companyName,
             dcNumber: order.dcNumber,
             invoiceNo: order.invoiceNo,
@@ -404,65 +455,6 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
           onClose={() => setShowDeleteModal(false)}
           returnPath="/admin/orders"
         />
-      )}
-
-      {/* Archive Modal */}
-      {showArchiveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-600">
-                <Archive className="h-5 w-5" />
-                <h3 className="font-black text-navy text-base">Archive Order {order.orderNo}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowArchiveModal(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Order <strong>{order.orderNo}</strong> is finalized or contains legal delivery documents. It cannot be permanently deleted due to legal retention policies. You can safely archive it.
-            </p>
-
-            <form action={archiveOrderAction} className="space-y-3">
-              <input type="hidden" name="orderId" value={order.id} />
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                  Archive Remarks
-                </label>
-                <input
-                  type="text"
-                  name="reason"
-                  required
-                  placeholder="e.g. Fulfilled and archived, dispute resolved"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-navy focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowArchiveModal(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition cursor-pointer"
-                >
-                  Confirm Archive
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </>
   );

@@ -108,11 +108,21 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
       });
     }
 
+    const isEmail = (s?: string | null) => Boolean(s && s.includes("@"));
+    const rawCustName = order.customer?.name?.trim();
+    const rawCompName = order.customer?.companyName?.trim();
+    const custDisplayName = (rawCustName && !isEmail(rawCustName))
+      ? rawCustName
+      : (rawCompName && !isEmail(rawCompName))
+      ? rawCompName
+      : rawCustName || "Client";
+
     const lines = [
       `*SWARNIM AAC BLOCK - MATERIAL DELIVERY CHALLAN*`,
       `Delivery Challan: ${challanNo || "Pending Generation"}`,
       `Order Ref: ${order.orderNo}`,
-      `Customer / Consignee: ${order.customer?.companyName || order.customer?.name || "Client"}`,
+      `Customer / Consignee: ${custDisplayName}`,
+      order.customer?.mobile ? `Customer Contact: ${order.customer.mobile}` : null,
       order.totalCbm ? `Total Volume: ${Number(order.totalCbm).toFixed(3)} CBM (≈ ${order.quantity.toLocaleString()} Blocks)` : null,
       order.adhesiveBags ? `Jointing Morter: ${order.adhesiveBags} Bags (40 KG)` : null,
       materialLines.length > 0 ? `\n*Material Breakdown:*\n${materialLines.join("\n")}` : null,

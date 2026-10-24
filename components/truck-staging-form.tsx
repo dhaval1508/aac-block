@@ -52,6 +52,13 @@ interface Props {
       netWeightKg?: any;
       remarks?: string | null;
     } | null;
+    customer?: {
+      name?: string | null;
+      companyName?: string | null;
+      mobile?: string | null;
+      email?: string | null;
+    } | null;
+    items?: any[];
   };
   staffList?: StaffOption[];
   userRole: "ADMIN" | "STAFF" | "STOCKER";
@@ -122,10 +129,18 @@ export function TruckStagingForm({
     const cleanPhone = normalizeWhatsAppPhone(driverMobile);
     if (!cleanPhone) return "";
 
+    const isEmail = (s?: string | null) => Boolean(s && s.includes("@"));
+    const rawName = order.customer?.name?.trim();
+    const rawComp = order.customer?.companyName?.trim();
+    const custName = (rawName && !isEmail(rawName)) ? rawName : (rawComp && !isEmail(rawComp)) ? rawComp : rawName || "Customer";
+    const custContact = order.customer?.mobile?.trim() || "";
+
     const mapsLink = mapsHref(order.deliveryAddress);
     const lines = [
       `*SWARNIM AAC BLOCK - VEHICLE STAGING DETAILS*`,
       `Order Ref: ${order.orderNo}`,
+      `Customer Name: ${custName}`,
+      custContact ? `Customer Contact: ${custContact}` : null,
       `Vehicle Number: ${truckNumber || "Pending"}`,
       `Driver Name: ${driverName || "Driver"}`,
       transporterName ? `Transporter: ${transporterName}` : null,

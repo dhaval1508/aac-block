@@ -14,6 +14,8 @@ import {
   Clock,
   FileText,
   ShieldCheck,
+  AlertTriangle,
+  Phone,
 } from "lucide-react";
 import { saveWeighbridgeSlipAction } from "@/lib/actions/orders";
 import { mapsHref, normalizeWhatsAppPhone } from "@/lib/utils";
@@ -37,6 +39,12 @@ interface Props {
     adhesiveBags?: number | null;
     product?: { sizeLabel?: string | null; dimensions?: string | null } | null;
     items?: any[];
+    customer?: {
+      name?: string | null;
+      companyName?: string | null;
+      mobile?: string | null;
+      email?: string | null;
+    } | null;
     transport?: {
       truckNumber?: string | null;
       driverName?: string | null;
@@ -177,6 +185,22 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
     }
   };
 
+  // Customer identity & verified mobile
+  const rawCustName = order.customer?.name?.trim();
+  const rawCompName = order.customer?.companyName?.trim();
+  const isEmail = (s?: string | null) => Boolean(s && s.includes("@"));
+  const customerName = (rawCustName && !isEmail(rawCustName))
+    ? rawCustName
+    : (rawCompName && !isEmail(rawCompName))
+    ? rawCompName
+    : rawCustName || "Valued Customer";
+
+  const initialCustomerMobile = order.customer?.mobile?.trim().replace(/\D/g, "") || "";
+  const [customerMobile, setCustomerMobile] = useState<string>(initialCustomerMobile);
+
+  const cleanCustomerMobile = customerMobile.replace(/\D/g, "");
+  const isCustomerMobileValid = cleanCustomerMobile.length === 10;
+
   // Google Maps URL
   const destinationAddress = order.formattedAddress || order.deliveryAddress;
   const mapsUrl =
@@ -190,7 +214,10 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
   // Generate WhatsApp Message Template (Driver Dispatch)
   const whatsappMessageText = buildDriverDeliveryWhatsAppMessage({
     driverName: driverName || "Driver",
+    driverMobile: driverMobile,
     orderNo: order.orderNo,
+    customerName,
+    customerMobile: isCustomerMobileValid ? cleanCustomerMobile : customerMobile,
     dcNumber: order.dcNumber || order.invoiceNo || null,
     vehicleNumber: vehicleNumber || "Assigned Vehicle",
     loadedCbm: order.totalCbm ? Number(order.totalCbm).toFixed(3) : null,
@@ -200,9 +227,10 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
     netWeightKg: netWeight !== "" ? netWeight : null,
     deliveryAddress: destinationAddress,
     googleMapsLocation: mapsUrl,
+    materialItems: order.items || [],
   });
 
-  const whatsappHref = driverMobile
+  const whatsappHref = driverMobile && isCustomerMobileValid
     ? `https://wa.me/${normalizeWhatsAppPhone(driverMobile)}?text=${encodeURIComponent(
         whatsappMessageText
       )}`
@@ -562,17 +590,17 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
       {/* TAB 2: WHATSAPP DRIVER INTEGRATION */}
       {activeTab === "WHATSAPP" && (
         <div className="space-y-4 text-xs">
-          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-black text-navy flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-emerald-600" />
                 <span>Send Delivery Details to Driver via WhatsApp</span>
               </h3>
               <p className="text-slate-500 mt-0.5">
-                Generate prefilled click-to-chat dispatch message with Google Maps navigation link.
+                Dispatch message contains complete loaded materials, Customer Contact, and Google Maps link.
               </p>
             </div>
-            {whatsappHref && (
+            {whatsappHref ? (
               <a
                 href={whatsappHref}
                 target="_blank"
@@ -582,13 +610,67 @@ export function StaffWeighbridgeVehiclePanel({ order }: Props) {
                 <MessageSquare className="h-4 w-4" />
                 <span>OPEN WHATSAPP MESSAGE</span>
               </a>
+            ) : !driverMobile ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 text-slate-500 px-3.5 py-2 text-xs font-bold">
+                Driver Mobile Required
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 px-3.5 py-2 text-xs font-bold">
+                Enter Valid Customer Mobile Below
+              </span>
             )}
           </div>
 
+          {/* Missing or Incomplete Customer Contact Warning Banner */}
+          {!isCustomerMobileValid ? (
+            <div className="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-xs text-amber-950 space-y-2">
+              <div className="flex items-center gap-2 font-black text-amber-900">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>Customer Mobile Number Missing or Incomplete</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-amber-900">
+                The driver must receive the customer&apos;s direct phone number to coordinate arrival and site unloading. Please specify the verified 10-digit customer mobile number before opening WhatsApp:
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1 max-w-sm">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Phone className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={customerMobile}
+                    onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="Enter 10-digit customer mobile"
+                    className="w-full h-9 rounded-xl border border-amber-300 bg-white pl-9 pr-3 font-mono font-bold text-navy text-xs outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-teal-50/70 border border-teal-200 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 text-teal-950 font-medium">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>
+                  Customer Contact for Driver: <strong className="font-mono text-navy font-black">{customerMobile}</strong> ({customerName})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={customerMobile}
+                  onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  title="Edit Customer Mobile"
+                  className="w-32 h-8 rounded-lg border border-teal-300 bg-white px-2 font-mono font-bold text-navy text-[11px] outline-none focus:border-[#13789B]"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200 space-y-3 font-mono">
-            <div className="flex items-center justify-between text-slate-500 text-[11px] pb-2 border-b border-slate-200 font-sans">
-              <span>Recipients: {driverName || "Driver"} ({driverMobile || "No Mobile Set"})</span>
-              <span>Vehicle: {vehicleNumber || "Not Set"}</span>
+            <div className="flex flex-wrap items-center justify-between text-slate-500 text-[11px] pb-2 border-b border-slate-200 font-sans gap-2">
+              <span>Driver: <strong className="text-navy">{driverName || "Driver"}</strong> ({driverMobile || "No Mobile Set"})</span>
+              <span>Vehicle: <strong className="text-navy">{vehicleNumber || "Not Set"}</strong></span>
+              <span>Customer: <strong className="text-navy">{customerName}</strong> ({customerMobile || "No Number"})</span>
             </div>
             <pre className="text-slate-800 text-xs whitespace-pre-wrap font-mono leading-relaxed bg-white p-3.5 rounded-xl border border-slate-200">
               {whatsappMessageText}

@@ -871,14 +871,180 @@ export function CustomerOrderForm({
       )}
 
       {/* =========================================================================
-          SECTION A: AAC BLOCK DETAILS
+          STEP 1: CUSTOMER DETAILS
+      ========================================================================= */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+            1
+          </span>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+              Customer Details
+            </h2>
+            <p className="text-xs text-slate-500">
+              Site contact and customer identity for vehicle logistics and invoicing.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          {/* Customer Name */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5 text-slate-400" />
+              <span>Customer Name / Company *</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Full name or company entity"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* Mobile Number */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5 text-slate-400" />
+              <span>Mobile Number *</span>
+            </label>
+            <input
+              type="tel"
+              required
+              value={customerMobile}
+              onChange={(e) => setCustomerMobile(e.target.value)}
+              placeholder="10-digit mobile number"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* Email */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5 text-slate-400" />
+              <span>Email Address</span>
+            </label>
+            <input
+              type="email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              placeholder="email@example.com"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* City */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700">City / District *</label>
+            <input
+              type="text"
+              required
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Ahmedabad, Kheda, Surat"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+
+          {/* Pincode */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700">Pincode *</label>
+            <input
+              type="text"
+              required
+              value={pincode}
+              onChange={(e) => {
+                setPincode(e.target.value);
+                setDeliveryLocation((prev) => ({ ...prev, pincode: e.target.value }));
+              }}
+              placeholder="6-digit pincode"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          STEP 2: DELIVERY ADDRESS
+      ========================================================================= */}
+      <div id="delivery-location-section" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4 scroll-mt-24">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
+            2
+          </span>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
+              Delivery Address
+            </h2>
+            <p className="text-xs text-slate-500">
+              Site unloading location and vehicle access details.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Delivery Site Address & Google Maps Location Picker */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-[#13789B]" />
+              <span>Delivery Site Location (Google Maps Search & Custom Entry) *</span>
+            </label>
+            <DeliveryLocationPicker
+              value={deliveryLocation}
+              onChange={(newLoc) => {
+                setDeliveryLocation(newLoc);
+                setDeliveryAddress(newLoc.address);
+                if (newLoc.city) setCity(newLoc.city);
+                if (newLoc.pincode) setPincode(newLoc.pincode);
+              }}
+              disabled={isSubmitting}
+            />
+            {/* Hidden form inputs for server action */}
+            <input type="hidden" name="deliveryAddress" value={deliveryAddress} />
+            <input type="hidden" name="city" value={city} />
+            <input type="hidden" name="pincode" value={pincode} />
+            <input type="hidden" name="googleMapsUrl" value={deliveryLocation.googleMapsUrl || ""} />
+            <input type="hidden" name="googlePlaceId" value={deliveryLocation.googlePlaceId || ""} />
+            <input type="hidden" name="latitude" value={deliveryLocation.latitude ?? ""} />
+            <input type="hidden" name="longitude" value={deliveryLocation.longitude ?? ""} />
+            <input type="hidden" name="customSiteName" value={deliveryLocation.customSiteName || ""} />
+            <input type="hidden" name="villageArea" value={deliveryLocation.villageArea || ""} />
+            <input type="hidden" name="district" value={deliveryLocation.district || ""} />
+            <input type="hidden" name="state" value={deliveryLocation.state || "Gujarat"} />
+            <input type="hidden" name="nearbyLandmark" value={deliveryLocation.nearbyLandmark || ""} />
+            <input type="hidden" name="locationSource" value={deliveryLocation.locationSource} />
+          </div>
+
+          {/* Additional Notes */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-slate-400" />
+              <span>Additional Notes / Unloading Instructions</span>
+            </label>
+            <input
+              type="text"
+              name="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Crane required / Evening delivery / Gate 2"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          STEP 3: AAC BLOCK SIZE & ORDER QUANTITY
       ========================================================================= */}
       <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
-                A
+                3
               </span>
               <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
                 AAC Block Details
@@ -1018,7 +1184,7 @@ export function CustomerOrderForm({
           <span>Add Another Block Size</span>
         </button>
 
-        {/* Section A Combined Summary Bar */}
+        {/* Section Combined Summary Bar */}
         <div className="rounded-2xl bg-gradient-to-r from-teal-900 via-slate-900 to-[#13789B] p-4 sm:p-5 text-white shadow-xs">
           <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
             <span className="text-xs font-black uppercase tracking-wider text-teal-300">
@@ -1056,14 +1222,14 @@ export function CustomerOrderForm({
       </div>
 
       {/* =========================================================================
-          SECTION B: BLOCK JOINTING MORTER (40 KG BAG ONLY)
+          BLOCK JOINTING MORTER (40 KG BAG ONLY - PART OF STEP 3)
       ========================================================================= */}
       <div className="rounded-3xl border border-sky-200 bg-sky-50/40 p-4 sm:p-7 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sky-100 pb-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
-                B
+                +
               </span>
               <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
                 Block Jointing Morter
@@ -1136,159 +1302,14 @@ export function CustomerOrderForm({
       </div>
 
       {/* =========================================================================
-          SECTION C: CUSTOMER & DELIVERY DETAILS
-      ========================================================================= */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
-            C
-          </span>
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
-              Customer Details
-            </h2>
-            <p className="text-xs text-slate-500">
-              Site contact and physical unloading location for vehicle logistics.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          {/* Customer Name */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5 text-slate-400" />
-              <span>Customer Name / Company *</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Full name or company entity"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-
-          {/* Mobile Number */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Phone className="h-3.5 w-3.5 text-slate-400" />
-              <span>Mobile Number *</span>
-            </label>
-            <input
-              type="tel"
-              required
-              value={customerMobile}
-              onChange={(e) => setCustomerMobile(e.target.value)}
-              placeholder="10-digit mobile number"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-
-          {/* Email */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5 text-slate-400" />
-              <span>Email Address</span>
-            </label>
-            <input
-              type="email"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              placeholder="email@example.com"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-
-          {/* City */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700">City / District *</label>
-            <input
-              type="text"
-              required
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Ahmedabad, Kheda, Surat"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-
-          {/* Pincode */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700">Pincode *</label>
-            <input
-              type="text"
-              required
-              value={pincode}
-              onChange={(e) => {
-                setPincode(e.target.value);
-                setDeliveryLocation((prev) => ({ ...prev, pincode: e.target.value }));
-              }}
-              placeholder="6-digit pincode"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-mono text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-
-          {/* Delivery Site Address & Google Maps Location Picker */}
-          <div id="delivery-location-section" className="sm:col-span-2 space-y-1.5 scroll-mt-24">
-            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-[#13789B]" />
-              <span>Delivery Site Location (Google Maps Search & Custom Entry) *</span>
-            </label>
-            <DeliveryLocationPicker
-              value={deliveryLocation}
-              onChange={(newLoc) => {
-                setDeliveryLocation(newLoc);
-                setDeliveryAddress(newLoc.address);
-                if (newLoc.city) setCity(newLoc.city);
-                if (newLoc.pincode) setPincode(newLoc.pincode);
-              }}
-              disabled={isSubmitting}
-            />
-            {/* Hidden form inputs for server action */}
-            <input type="hidden" name="deliveryAddress" value={deliveryAddress} />
-            <input type="hidden" name="city" value={city} />
-            <input type="hidden" name="pincode" value={pincode} />
-            <input type="hidden" name="googleMapsUrl" value={deliveryLocation.googleMapsUrl || ""} />
-            <input type="hidden" name="googlePlaceId" value={deliveryLocation.googlePlaceId || ""} />
-            <input type="hidden" name="latitude" value={deliveryLocation.latitude ?? ""} />
-            <input type="hidden" name="longitude" value={deliveryLocation.longitude ?? ""} />
-            <input type="hidden" name="customSiteName" value={deliveryLocation.customSiteName || ""} />
-            <input type="hidden" name="villageArea" value={deliveryLocation.villageArea || ""} />
-            <input type="hidden" name="district" value={deliveryLocation.district || ""} />
-            <input type="hidden" name="state" value={deliveryLocation.state || "Gujarat"} />
-            <input type="hidden" name="nearbyLandmark" value={deliveryLocation.nearbyLandmark || ""} />
-            <input type="hidden" name="locationSource" value={deliveryLocation.locationSource} />
-          </div>
-
-          {/* Additional Notes */}
-          <div className="sm:col-span-2 space-y-1.5">
-            <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5 text-slate-400" />
-              <span>Additional Notes / Unloading Instructions</span>
-            </label>
-            <input
-              type="text"
-              name="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Crane required / Evening delivery / Gate 2"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm text-navy shadow-2xs focus:border-[#13789B] focus:ring-2 focus:ring-[#13789B]/20"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          SECTION: ORDER PRICE & REMARKS (Immediately above GST Billing)
+          STEP 4: ORDER PRICE & REMARKS
       ========================================================================= */}
       <div id="order-price-remarks-section" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4 scroll-mt-24">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
-                ₹
+                4
               </span>
               <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
                 Order Price & Remarks
@@ -1427,14 +1448,14 @@ export function CustomerOrderForm({
       </div>
 
       {/* =========================================================================
-          SECTION D: GST BILLING OPTION
+          STEP 5: GST BILLING OPTION
       ========================================================================= */}
       <div id="gst-billing-section" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-7 shadow-xs space-y-4 scroll-mt-24">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
-                D
+                5
               </span>
               <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">
                 GST Billing Option
@@ -1628,12 +1649,12 @@ export function CustomerOrderForm({
       </div>
 
       {/* =========================================================================
-          SECTION E: ORDER SUMMARY & SUBMISSION
+          STEP 6: ORDER SUMMARY & SUBMISSION
       ========================================================================= */}
       <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7 shadow-xs space-y-5">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#13789B] text-white text-xs font-black">
-            E
+            6
           </span>
           <div>
             <h2 className="text-base sm:text-lg font-black text-navy tracking-tight">

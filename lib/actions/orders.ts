@@ -1586,7 +1586,7 @@ export async function markOrderDoneAction(formData: FormData) {
   redirect(`${returnPath}?success=Order%20marked%20Done%20and%20Delivered%20successfully`);
 }
 
-// Safe Super Admin Delete / Archive functionality with DELETED challenge and stock reconciliation
+// Safe Super Admin Delete / Archive functionality with simple Yes/No confirmation and stock reconciliation
 export async function deleteOrderAction(formData: FormData) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") {
@@ -1594,14 +1594,9 @@ export async function deleteOrderAction(formData: FormData) {
   }
 
   const orderId = String(formData.get("orderId") ?? "").trim();
-  const confirmationText = String(formData.get("confirmationText") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim() || "Deleted by Super Admin";
   const returnStock = formData.get("returnStock") === "true";
   const returnPath = String(formData.get("returnPath") ?? "/admin/orders").trim() || "/admin/orders";
-
-  if (confirmationText !== "DELETED") {
-    redirect(`${returnPath}?error=Confirmation%20failed:%20You%20must%20type%20DELETED%20exactly.`);
-  }
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -1617,6 +1612,13 @@ export async function deleteOrderAction(formData: FormData) {
 
   if (!order) {
     redirect(`${returnPath}?error=Order%20not%20found`);
+  }
+
+  // Idempotency: If already deleted/cancelled, prevent duplicate operations
+  if (order.deletedAt !== null && order.status === OrderStatus.CANCELLED) {
+    redirect(
+      `${returnPath}?success=Order%20${encodeURIComponent(order.orderNo)}%20is%20already%20deleted/cancelled.`
+    );
   }
 
   // Stock Reconciliation Logic:
@@ -1635,7 +1637,7 @@ export async function deleteOrderAction(formData: FormData) {
   let restoredSummary = "";
 
   await prisma.$transaction(async (tx) => {
-    // Scenario C: Order Dispatched and Stock Deducted
+    // Scenario C & D: Order Dispatched/Delivered and Stock was physically deducted
     if (outMovements.length > 0 && returnStock && existingReturnMovements.length === 0) {
       // Goods are physically returned: restore exact quantities deducted per product variant
       let restoredCbm = 0;
@@ -1667,50 +1669,34 @@ export async function deleteOrderAction(formData: FormData) {
         }
       }
 
-      restoredSummary = ` Restored +${restoredCbm.toFixed(3)} CBM (${restoredBlocks} blocks) and +${restoredMortarBags} mortar bags to yard inventory.`;
+      restoredSummary = ` Restored +${restoredCbm.toFixed(3)} CBM (${restoredBlocks} blocks) and +${restoredMortarBags} mortar bags to live yard inventory.`;
     }
 
-    // Scenario D & Document Protection:
-    // If order is DELIVERED or has legal documents (tax invoice, delivery challan, payments):
-    // Use the soft-delete & archive workflow to preserve tax & audit compliance!
+    // Soft-delete and archive: updates status to CANCELLED and sets deletedAt
     const isDelivered = order.status === OrderStatus.DELIVERED;
-    const hasLegalDocs = Boolean(order.invoiceNo || order.dcNumber || (order.payments && order.payments.length > 0));
+    const hasLegalDocs = Boolean(
+      order.invoiceNo || order.dcNumber || (order.payments && order.payments.length > 0)
+    );
 
-    if (isDelivered || hasLegalDocs) {
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: OrderStatus.CANCELLED,
-          deletedAt: new Date(),
-          events: {
-            create: {
-              status: OrderStatus.CANCELLED,
-              title: "Order Archived & Cancelled by Super Admin",
-              note: `Reason: ${reason}.${restoredSummary} Legal records retained.`,
-              createdById: session.id,
-            },
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        status: OrderStatus.CANCELLED,
+        deletedAt: new Date(),
+        events: {
+          create: {
+            status: OrderStatus.CANCELLED,
+            title: isDelivered || hasLegalDocs
+              ? "Order Archived & Cancelled by Super Admin"
+              : "Order Deleted by Super Admin",
+            note: `Reason: ${reason}.${restoredSummary}${
+              isDelivered || hasLegalDocs ? " Legal and financial audit records retained." : " (Zero physical stock was altered)."
+            }`,
+            createdById: session.id,
           },
         },
-      });
-    } else {
-      // Scenario A & B: Un-dispatched order with no legal documents
-      // Soft-delete to keep audit trail while removing from active counts
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: OrderStatus.CANCELLED,
-          deletedAt: new Date(),
-          events: {
-            create: {
-              status: OrderStatus.CANCELLED,
-              title: "Order Deleted by Super Admin",
-              note: `Reason: ${reason}. (No inventory was deducted, zero stock added).`,
-              createdById: session.id,
-            },
-          },
-        },
-      });
-    }
+      },
+    });
   });
 
   revalidatePath("/admin/orders");
@@ -1723,7 +1709,7 @@ export async function deleteOrderAction(formData: FormData) {
   revalidatePath("/customer/orders");
 
   redirect(
-    `/admin/orders?success=Order%20${encodeURIComponent(order.orderNo)}%20deleted/archived%20successfully.${encodeURIComponent(restoredSummary)}`
+    `${returnPath}?success=Order%20${encodeURIComponent(order.orderNo)}%20deleted%20successfully.${encodeURIComponent(restoredSummary)}`
   );
 }
 
