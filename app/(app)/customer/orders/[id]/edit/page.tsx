@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { getCompanyProfile } from "@/lib/company-profile";
 import { CustomerOrderForm, ProductItem, BlockOrderItem } from "@/components/customer-order-form";
 import { canViewOrderPricing } from "@/lib/utils";
 import { OrderStatus } from "@prisma/client";
@@ -22,14 +23,17 @@ export default async function CustomerEditOrderPage({
   const { id } = await params;
   const { error } = await searchParams;
 
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: {
-      items: { include: { product: true } },
-      customer: true,
-      product: true,
-    },
-  });
+  const [order, companyProfile] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: { include: { product: true } },
+        customer: true,
+        product: true,
+      },
+    }),
+    getCompanyProfile(),
+  ]);
 
   if (!order || (session.role === "CUSTOMER" && order.customerId !== session.id)) {
     notFound();
@@ -191,6 +195,7 @@ export default async function CustomerEditOrderPage({
       <CustomerOrderForm
         aacProducts={aacProducts}
         adhesiveProduct={adhesiveProduct}
+        companyProfile={companyProfile}
         customerDefaults={{
           name: order.customer.name,
           mobile: order.customer.mobile,

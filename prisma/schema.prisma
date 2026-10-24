@@ -478,6 +478,13 @@ model CompanyProfile {
   website            String?
   factoryAddress     String?
   factoryContact     String?
+  factoryName        String?   @default("Swarnim AAC Manufacturing Plant & Yard")
+  yardAddress        String?
+  factoryCity        String?
+  factoryDistrict    String?
+  factoryState       String?   @default("Gujarat")
+  factoryPincode     String?
+  factoryMapsUrl     String?
   officeAddress      String?
   signatoryName      String?
   logoUrl            String?

@@ -9,6 +9,7 @@ import {
 import { formatDate, formatNumber, whatsappHref } from "@/lib/utils";
 import { buildWhatsAppMessage, APP_NAME } from "@/lib/whatsapp";
 import { OpenLocationButton } from "@/components/open-location-button";
+import { CompanyProfileData } from "@/lib/company-profile";
 
 type InvoiceOrder = {
   id: string;
@@ -78,9 +79,11 @@ type InvoiceOrder = {
 
 export function TaxInvoiceView({
   order,
+  companyProfile,
   isPublic = false,
 }: {
   order: InvoiceOrder;
+  companyProfile?: CompanyProfileData | null;
   isPublic?: boolean;
 }) {
   const handlePrint = () => {
@@ -178,13 +181,21 @@ export function TaxInvoiceView({
                 alt="SWARNIM AAC BLOCK PRIVATE LIMITED"
                 className="h-10 w-auto object-contain mb-2"
               />
-              <p className="text-sm font-black text-[#13789B]">SWARNIM AAC BLOCK PRIVATE LIMITED</p>
+              <p className="text-sm font-black text-[#13789B]">{companyProfile?.legalName || "SWARNIM AAC BLOCK PRIVATE LIMITED"}</p>
               <p className="text-xs text-slate-500">Premium Autoclaved Aerated Concrete Blocks</p>
-              <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-                Registered Office: Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470
-                <br />
-                <strong>GSTIN: 24ABNCS5280K1ZU</strong> · State Code: 24 (Gujarat)
-              </p>
+              <div className="mt-2 text-xs text-slate-600 leading-relaxed space-y-0.5">
+                <p>
+                  <strong>Reg. Office:</strong> {companyProfile?.registeredAddress || "Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470"}
+                </p>
+                {companyProfile?.factoryAddress ? (
+                  <p>
+                    <strong>Factory / Yard:</strong> {companyProfile.factoryName ? `${companyProfile.factoryName} • ` : ""}{companyProfile.factoryAddress}{companyProfile.factoryCity ? `, ${companyProfile.factoryCity}` : ""}{companyProfile.factoryPincode ? ` - ${companyProfile.factoryPincode}` : ""}
+                  </p>
+                ) : null}
+                <p>
+                  <strong>GSTIN:</strong> {companyProfile?.gstin || "24ABNCS5280K1ZU"} · State Code: {companyProfile?.state || "Gujarat"} (24)
+                </p>
+              </div>
             </div>
 
             <div className="sm:text-right min-w-0">
@@ -195,7 +206,7 @@ export function TaxInvoiceView({
               <div className="text-xs text-slate-500 mt-1 space-y-0.5">
                 <p>Order Ref: <strong className="font-mono text-navy">{order.orderNo}</strong></p>
                 <p>Date: {formatDate(order.confirmedAt || order.createdAt)}</p>
-                <p>Plant: Swarnim AAC Block Plant</p>
+                <p>Plant: {companyProfile?.factoryName || "Swarnim AAC Block Plant"}</p>
               </div>
             </div>
           </div>

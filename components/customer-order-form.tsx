@@ -33,6 +33,7 @@ import {
   DeliveryLocationPicker,
   DeliveryLocationData,
 } from "@/components/delivery-location-picker";
+import { CompanyProfileData, DEFAULT_COMPANY_PROFILE } from "@/lib/company-profile";
 
 export type ProductItem = {
   id: string;
@@ -85,6 +86,7 @@ export function CustomerOrderForm({
   aacProducts,
   adhesiveProduct,
   customerDefaults,
+  companyProfile,
   defaultProductId,
   defaultQuantity,
   defaultAdhesiveBags = 0,
@@ -109,6 +111,7 @@ export function CustomerOrderForm({
   aacProducts: ProductItem[];
   adhesiveProduct?: ProductItem | null;
   customerDefaults: CustomerDefaults;
+  companyProfile?: CompanyProfileData | null;
   defaultProductId?: string;
   defaultQuantity?: number;
   defaultAdhesiveBags?: number;
@@ -130,6 +133,18 @@ export function CustomerOrderForm({
   initialPricePerCbm?: number | string | null;
   initialPricingRemarks?: string | null;
 }) {
+  const effectiveProfile = companyProfile || DEFAULT_COMPANY_PROFILE;
+  const isFactoryConfigured = Boolean(effectiveProfile.factoryAddress && effectiveProfile.factoryAddress.trim());
+  const factoryName = effectiveProfile.factoryName || "Swarnim AAC Block Manufacturing Plant & Yard";
+  const factoryAddressText = effectiveProfile.factoryAddress || "";
+  const factoryCityStatePin = [
+    effectiveProfile.factoryCity,
+    effectiveProfile.factoryDistrict,
+    effectiveProfile.factoryState,
+    effectiveProfile.factoryPincode ? `PIN: ${effectiveProfile.factoryPincode}` : ""
+  ].filter(Boolean).join(", ");
+  const factoryMapsLink = effectiveProfile.factoryMapsUrl || (isFactoryConfigured ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${factoryName}, ${factoryAddressText}`)}` : "");
+
   const initialAacId =
     defaultProductId && aacProducts.some((p) => p.id === defaultProductId)
       ? defaultProductId
@@ -1667,7 +1682,7 @@ export function CustomerOrderForm({
         </div>
 
         {/* Breakdown Items List */}
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 space-y-3 overflow-hidden">
           <div className="space-y-2">
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 block">
               AAC Block Consignment
@@ -1675,21 +1690,21 @@ export function CustomerOrderForm({
             {rowCalculations.map((r, idx) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between text-xs py-1 border-b border-slate-200/50 last:border-0"
+                className="flex items-center justify-between text-xs py-1.5 border-b border-slate-200/50 last:border-0 gap-2 min-w-0"
               >
-                <div>
-                  <strong className="text-navy">
+                <div className="min-w-0 flex-1 pr-2">
+                  <strong className="text-navy block truncate sm:whitespace-normal font-bold">
                     {formatBlockSizeName(r.product?.sizeLabel) || `Size #${idx + 1}`} AAC Block
                   </strong>
-                  <span className="text-slate-500 text-[11px] block font-mono">
+                  <span className="text-slate-500 text-[11px] block font-mono truncate sm:whitespace-normal">
                     {r.product?.dimensions} • {r.cbmPerBlock.toFixed(4)} CBM/block
                   </span>
                 </div>
-                <div className="text-right">
-                  <span className="font-mono font-black text-navy text-sm block">
+                <div className="shrink-0 text-right whitespace-nowrap pl-2">
+                  <span className="font-mono font-black text-navy text-xs sm:text-sm block whitespace-nowrap">
                     {r.totalCbm.toFixed(3)} CBM
                   </span>
-                  <span className="text-[11px] text-slate-500 italic block">
+                  <span className="text-[11px] text-slate-500 italic block whitespace-nowrap">
                     ≈ {formatNumber(r.numericQty)} Blocks
                   </span>
                 </div>
@@ -1697,36 +1712,114 @@ export function CustomerOrderForm({
             ))}
           </div>
 
-          <div className="border-t border-slate-200 pt-2 flex items-center justify-between text-xs">
-            <div>
-              <strong className="text-navy">
+          <div className="border-t border-slate-200 pt-2 flex items-center justify-between text-xs gap-2 min-w-0">
+            <div className="min-w-0 flex-1 pr-2">
+              <strong className="text-navy block truncate sm:whitespace-normal">
                 Block Jointing Morter
               </strong>
               <span className="text-slate-500 text-[11px] block">
                 Packaging: 40 KG Bag Only
               </span>
             </div>
-            <div className="text-right">
-              <span className="font-mono font-black text-navy text-sm block">
+            <div className="shrink-0 text-right whitespace-nowrap pl-2">
+              <span className="font-mono font-black text-navy text-xs sm:text-sm block whitespace-nowrap">
                 {numAdhesiveBags} Bags
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-slate-500 block whitespace-nowrap">
                 {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG Total` : "0 Bags"}
               </span>
             </div>
           </div>
 
-          {/* Delivery Details In Summary */}
-          <div className="border-t border-slate-200 pt-2 text-xs text-slate-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-              Delivery Destination
-            </span>
-            <p className="font-semibold text-navy mt-0.5">
-              {customerName ? `${customerName} • ` : ""}
-              {deliveryAddress || "Address provided"}
-              {city ? `, ${city}` : ""}
-              {pincode ? ` - ${pincode}` : ""}
-            </p>
+          {/* Address Information: Factory / Yard Address & Customer Delivery Destination */}
+          <div className="border-t border-slate-200 pt-3 space-y-3">
+            {/* FACTORY / YARD ADDRESS (PICKUP LOCATION) */}
+            <div className="rounded-2xl bg-teal-50/70 border border-teal-200/80 p-3 sm:p-3.5 space-y-1.5 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-teal-200/60 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#13789B] flex items-center gap-1.5">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-teal-200 text-[#13789B] text-[10px]">🏭</span>
+                  <span>FACTORY / YARD ADDRESS (PICKUP LOCATION)</span>
+                </span>
+                {factoryMapsLink && (
+                  <a
+                    href={factoryMapsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:text-[#0F627F] hover:underline self-start sm:self-auto"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span>View Factory Location</span>
+                  </a>
+                )}
+              </div>
+
+              {isFactoryConfigured ? (
+                <div className="space-y-0.5 text-slate-700 pt-0.5">
+                  <p className="font-black text-navy text-xs sm:text-sm">
+                    {factoryName}
+                  </p>
+                  <p className="text-xs leading-relaxed text-slate-600 break-words">
+                    {factoryAddressText}
+                  </p>
+                  {factoryCityStatePin && (
+                    <p className="text-[11px] font-semibold text-slate-500">
+                      {factoryCityStatePin}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-800 flex items-start gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Factory / Yard Address not yet configured.</strong> Please configure it in Super Admin → Company Profile.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* CUSTOMER DELIVERY DESTINATION (DROP LOCATION) */}
+            <div className="rounded-2xl bg-slate-100/70 border border-slate-200 p-3 sm:p-3.5 space-y-1 text-xs text-slate-600">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-200 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-slate-700 text-[10px]">📍</span>
+                  <span>CUSTOMER DELIVERY DESTINATION (DROP LOCATION)</span>
+                </span>
+                {deliveryAddress && (deliveryLocation.googleMapsUrl || (deliveryLocation.latitude && deliveryLocation.longitude)) && (
+                  <a
+                    href={
+                      deliveryLocation.googleMapsUrl ||
+                      `https://www.google.com/maps/search/?api=1&query=${deliveryLocation.latitude},${deliveryLocation.longitude}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline self-start sm:self-auto"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span>View Delivery Location</span>
+                  </a>
+                )}
+              </div>
+
+              <div className="space-y-0.5 pt-0.5">
+                <p className="font-bold text-navy text-xs sm:text-sm">
+                  {customerName || "Customer Delivery Site"}
+                  {customerMobile ? ` • ${customerMobile}` : ""}
+                </p>
+                <p className="text-xs leading-relaxed text-slate-600 break-words">
+                  {deliveryAddress || "Please enter delivery site address above."}
+                </p>
+                {(city || pincode) && (
+                  <p className="text-[11px] text-slate-500">
+                    {[city, pincode ? `PIN: ${pincode}` : ""].filter(Boolean).join(" - ")}
+                  </p>
+                )}
+                {deliveryLocation.nearbyLandmark && (
+                  <p className="text-[11px] text-slate-500 italic">
+                    Landmark: {deliveryLocation.nearbyLandmark}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1815,21 +1908,21 @@ export function CustomerOrderForm({
                   {rowCalculations.map((r, idx) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between py-1.5 border-b border-slate-200/60 last:border-0"
+                      className="flex items-center justify-between py-1.5 border-b border-slate-200/60 last:border-0 gap-2"
                     >
-                      <div>
-                        <strong className="text-navy text-sm font-black">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <strong className="text-navy text-sm font-black block truncate">
                           {formatBlockSizeName(r.product?.sizeLabel) || `Size #${idx + 1}`}
                         </strong>
-                        <span className="text-slate-500 text-[11px] block font-mono">
+                        <span className="text-slate-500 text-[11px] block font-mono truncate">
                           Dimensions: {r.product?.dimensions} • {r.cbmPerBlock.toFixed(4)} CBM/block
                         </span>
                       </div>
-                      <div className="text-right">
-                        <span className="font-mono font-black text-[#13789B] text-sm block">
+                      <div className="shrink-0 text-right whitespace-nowrap pl-2">
+                        <span className="font-mono font-black text-[#13789B] text-sm block whitespace-nowrap">
                           {r.totalCbm.toFixed(3)} CBM
                         </span>
-                        <span className="text-slate-500 text-[11px] italic block">
+                        <span className="text-slate-500 text-[11px] italic block whitespace-nowrap">
                           ≈ {formatNumber(r.numericQty)} Blocks
                         </span>
                       </div>
@@ -1837,29 +1930,29 @@ export function CustomerOrderForm({
                   ))}
                 </div>
 
-                <div className="border-t border-slate-200 pt-2.5 flex justify-between items-center text-xs font-bold text-navy">
-                  <span>Total AAC Block Volume:</span>
-                  <span className="font-black font-mono text-base text-[#13789B]">
+                <div className="border-t border-slate-200 pt-2.5 flex justify-between items-center text-xs font-bold text-navy gap-2">
+                  <span className="min-w-0 truncate">Total AAC Block Volume:</span>
+                  <span className="font-black font-mono text-sm sm:text-base text-[#13789B] shrink-0 whitespace-nowrap">
                     {combinedCbm.toFixed(3)} CBM (≈ {formatNumber(totalBlocks)} Blocks)
                   </span>
                 </div>
               </div>
 
               {/* Block Jointing Morter */}
-              <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 flex items-center justify-between">
-                <div>
-                  <strong className="text-navy text-sm font-black block">
+              <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1 pr-2">
+                  <strong className="text-navy text-sm font-black block truncate">
                     Block Jointing Morter
                   </strong>
-                  <span className="text-slate-500 text-[11px]">
+                  <span className="text-slate-500 text-[11px] block truncate">
                     Packaging: 40 KG Bag Only • High Polymer Masonry
                   </span>
                 </div>
-                <div className="text-right">
-                  <span className="font-mono font-black text-navy text-base block">
+                <div className="shrink-0 text-right whitespace-nowrap pl-2">
+                  <span className="font-mono font-black text-navy text-base block whitespace-nowrap">
                     {numAdhesiveBags} Bags
                   </span>
-                  <span className="text-[11px] text-slate-500 font-medium">
+                  <span className="text-[11px] text-slate-500 font-medium block whitespace-nowrap">
                     {numAdhesiveBags > 0 ? `${numAdhesiveBags * 40} KG` : "0 Bags"}
                   </span>
                 </div>
@@ -1970,12 +2063,54 @@ export function CustomerOrderForm({
                 </div>
               </div>
 
-              {/* Customer & Destination */}
+              {/* Factory / Yard Address (Pickup Location) */}
+              <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-4 space-y-2">
+                <div className="flex items-center justify-between border-b border-teal-200/80 pb-2">
+                  <span className="font-black text-[#13789B] uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4 text-[#13789B]" />
+                    <span>Factory / Yard Address (Pickup Location)</span>
+                  </span>
+                  {factoryMapsLink && (
+                    <a
+                      href={factoryMapsLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#13789B] hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      <span>View Factory Location</span>
+                    </a>
+                  )}
+                </div>
+
+                {!isFactoryConfigured ? (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>Factory address not yet configured in Super Admin → Company Information.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-bold text-navy">
+                      {factoryName}
+                    </p>
+                    <p className="leading-relaxed text-slate-600 break-words">
+                      {factoryAddressText}
+                    </p>
+                    {factoryCityStatePin && (
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        {factoryCityStatePin}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Customer & Delivery Destination (Drop Location) */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                   <span className="font-black text-navy uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                     <MapPin className="h-4 w-4 text-[#13789B]" />
-                    <span>Customer & Delivery Location</span>
+                    <span>Customer Delivery Destination (Drop Location)</span>
                   </span>
                   <button
                     type="button"

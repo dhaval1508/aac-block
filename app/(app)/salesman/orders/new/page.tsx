@@ -4,6 +4,7 @@ import { ArrowLeft, UserPlus, ShoppingCart } from "lucide-react";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { getCompanyProfile } from "@/lib/company-profile";
 import {
   CustomerOrderForm,
   type ProductItem,
@@ -31,32 +32,33 @@ export default async function SalesmanNewOrderPage({
 
   const { error, customer, productId, quantity, adhesiveBags } = await searchParams;
 
-  // 1. Fetch active products
-  const rawProducts = await prisma.product.findMany({
-    where: { active: true, deletedAt: null },
-    orderBy: { widthMm: "asc" },
-  });
-
-  // 2. Fetch all customers assigned to this logged-in Salesman
-  const rawAssignedCustomers = await prisma.user.findMany({
-    where: {
-      salesmanId: session.id,
-      role: Role.CUSTOMER,
-    },
-    select: {
-      id: true,
-      name: true,
-      companyName: true,
-      mobile: true,
-      email: true,
-      deliveryAddress: true,
-      city: true,
-      state: true,
-      pincode: true,
-      gstin: true,
-    },
-    orderBy: { name: "asc" },
-  });
+  // 1. Fetch active products, assigned customers and company profile in parallel
+  const [rawProducts, rawAssignedCustomers, companyProfile] = await Promise.all([
+    prisma.product.findMany({
+      where: { active: true, deletedAt: null },
+      orderBy: { widthMm: "asc" },
+    }),
+    prisma.user.findMany({
+      where: {
+        salesmanId: session.id,
+        role: Role.CUSTOMER,
+      },
+      select: {
+        id: true,
+        name: true,
+        companyName: true,
+        mobile: true,
+        email: true,
+        deliveryAddress: true,
+        city: true,
+        state: true,
+        pincode: true,
+        gstin: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+    getCompanyProfile(),
+  ]);
 
   const assignedCustomers: AssignedCustomerOption[] = rawAssignedCustomers.map((c) => ({
     id: c.id,
@@ -151,6 +153,7 @@ export default async function SalesmanNewOrderPage({
       <CustomerOrderForm
         aacProducts={aacProducts}
         adhesiveProduct={adhesiveProduct}
+        companyProfile={companyProfile}
         customerDefaults={{
           name: selectedCust ? selectedCust.companyName || selectedCust.name : "",
           mobile: selectedCust?.mobile || "",

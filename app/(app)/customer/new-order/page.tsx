@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { getCompanyProfile } from "@/lib/company-profile";
 import { CustomerOrderForm, type ProductItem } from "@/components/customer-order-form";
 import { BrochureDownloadButton } from "@/components/brochure-download-btn";
 import Link from "next/link";
@@ -23,7 +24,7 @@ export default async function CustomerNewOrderPage({
 
   const { error, productId, quantity, adhesiveBags } = await searchParams;
 
-  const [rawProducts, user] = await Promise.all([
+  const [rawProducts, user, companyProfile] = await Promise.all([
     prisma.product.findMany({
       where: { active: true, deletedAt: null },
       orderBy: { widthMm: "asc" },
@@ -42,6 +43,7 @@ export default async function CustomerNewOrderPage({
         gstin: true,
       },
     }),
+    getCompanyProfile(),
   ]);
 
   const allProducts: ProductItem[] = rawProducts.map((p) => ({
@@ -102,15 +104,16 @@ export default async function CustomerNewOrderPage({
       <CustomerOrderForm
         aacProducts={aacProducts}
         adhesiveProduct={adhesiveProduct}
+        companyProfile={companyProfile}
         customerDefaults={{
-          name: user?.companyName || user?.name || session.name || "",
-          mobile: user?.mobile || "",
-          email: user?.email || "",
-          deliveryAddress: user?.deliveryAddress || "",
-          city: user?.city || "",
-          pincode: user?.pincode || "",
-          gstin: user?.gstin || "",
-          companyName: user?.companyName || user?.name || "",
+          name: session.role === "ADMIN" ? "" : (user?.companyName || user?.name || session.name || ""),
+          mobile: session.role === "ADMIN" ? "" : (user?.mobile || ""),
+          email: session.role === "ADMIN" ? "" : (user?.email || ""),
+          deliveryAddress: (session.role === "ADMIN" || user?.deliveryAddress?.includes("Swarnim AAC Block Yard")) ? "" : (user?.deliveryAddress || ""),
+          city: session.role === "ADMIN" ? "Ahmedabad" : (user?.city || ""),
+          pincode: session.role === "ADMIN" ? "" : (user?.pincode || ""),
+          gstin: session.role === "ADMIN" ? "" : (user?.gstin || ""),
+          companyName: session.role === "ADMIN" ? "" : (user?.companyName || user?.name || ""),
         }}
         defaultProductId={productId}
         defaultQuantity={defaultQty}

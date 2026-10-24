@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { TaxInvoiceView } from "@/components/tax-invoice";
+import { getCompanyProfile } from "@/lib/company-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -13,19 +14,22 @@ export default async function PublicInvoiceSharePage({
 
   if (!token) notFound();
 
-  const order = await prisma.order.findUnique({
-    where: { shareToken: token },
-    include: {
-      customer: true,
-      product: true,
-      transport: true,
-      weighbridgeSlip: true,
-      items: {
-        include: { product: true },
-        orderBy: { createdAt: "asc" },
+  const [order, companyProfile] = await Promise.all([
+    prisma.order.findUnique({
+      where: { shareToken: token },
+      include: {
+        customer: true,
+        product: true,
+        transport: true,
+        weighbridgeSlip: true,
+        items: {
+          include: { product: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
-    },
-  });
+    }),
+    getCompanyProfile(),
+  ]);
 
   if (!order || (!order.invoiceNo && !order.dcNumber)) notFound();
 
@@ -76,6 +80,6 @@ export default async function PublicInvoiceSharePage({
       : null,
   };
 
-  return <TaxInvoiceView order={serializedOrder} isPublic={true} />;
+  return <TaxInvoiceView order={serializedOrder} companyProfile={companyProfile} isPublic={true} />;
 }
 

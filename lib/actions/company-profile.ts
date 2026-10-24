@@ -27,6 +27,13 @@ export async function updateCompanyProfileAction(formData: FormData) {
   const website = String(formData.get("website") ?? "").trim() || null;
   const factoryAddress = String(formData.get("factoryAddress") ?? "").trim() || null;
   const factoryContact = String(formData.get("factoryContact") ?? "").trim() || null;
+  const factoryName = String(formData.get("factoryName") ?? "").trim() || "Swarnim AAC Block Manufacturing Plant & Yard";
+  const yardAddress = String(formData.get("yardAddress") ?? "").trim() || null;
+  const factoryCity = String(formData.get("factoryCity") ?? "").trim() || null;
+  const factoryDistrict = String(formData.get("factoryDistrict") ?? "").trim() || null;
+  const factoryState = String(formData.get("factoryState") ?? "").trim() || "Gujarat";
+  const factoryPincode = String(formData.get("factoryPincode") ?? "").trim() || null;
+  const factoryMapsUrl = String(formData.get("factoryMapsUrl") ?? "").trim() || null;
   const officeAddress = String(formData.get("officeAddress") ?? "").trim() || null;
   const signatoryName = String(formData.get("signatoryName") ?? "").trim() || null;
   const logoUrl = String(formData.get("logoUrl") ?? "").trim() || null;
@@ -54,6 +61,13 @@ export async function updateCompanyProfileAction(formData: FormData) {
         website,
         factoryAddress,
         factoryContact,
+        factoryName,
+        yardAddress,
+        factoryCity,
+        factoryDistrict,
+        factoryState,
+        factoryPincode,
+        factoryMapsUrl,
         officeAddress,
         signatoryName,
         logoUrl,
@@ -79,6 +93,13 @@ export async function updateCompanyProfileAction(formData: FormData) {
         website,
         factoryAddress,
         factoryContact,
+        factoryName,
+        yardAddress,
+        factoryCity,
+        factoryDistrict,
+        factoryState,
+        factoryPincode,
+        factoryMapsUrl,
         officeAddress,
         signatoryName,
         logoUrl,
@@ -89,5 +110,11 @@ export async function updateCompanyProfileAction(formData: FormData) {
 
   revalidatePath("/admin/company-profile");
   revalidatePath("/admin/dashboard");
+  revalidatePath("/customer/new-order");
+  revalidatePath("/salesman/orders/new");
+  revalidatePath("/salesman/orders/[id]/edit");
+  revalidatePath("/customer/orders/[id]/edit");
+  revalidatePath("/admin/orders");
+  revalidatePath("/staff/orders");
   redirect("/admin/company-profile?success=1");
 }

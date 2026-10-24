@@ -348,7 +348,7 @@ export async function GET(
           <div class="brand-address">
             <strong>GSTIN:</strong> ${company.gstin} • <strong>Constitution:</strong> ${company.constitution}<br>
             <strong>Reg. Office:</strong> ${company.registeredAddress}<br>
-            ${company.factoryAddress ? `<strong>Factory:</strong> ${company.factoryAddress}<br>` : ""}
+            ${company.factoryAddress ? `<strong>Factory / Yard:</strong> ${company.factoryName ? `${company.factoryName} • ` : ""}${company.factoryAddress}${company.factoryCity ? `, ${company.factoryCity}` : ""}${company.factoryPincode ? ` - ${company.factoryPincode}` : ""}<br>` : ""}
             <strong>Phone:</strong> ${company.companyMobile || "+91 98795 00000"}${company.altMobile ? ` / ${company.altMobile}` : ""} • <strong>Email:</strong> ${company.companyEmail || "info@swarnimaac.com"}
           </div>
         </div>
