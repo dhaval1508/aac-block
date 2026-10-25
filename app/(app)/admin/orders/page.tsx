@@ -36,6 +36,7 @@ import {
   formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
+  calculateOrderPrice,
 } from "@/lib/utils";
 import { resolveDateRange, buildPrismaDateFilter } from "@/lib/date-utils";
 import { DateRangeFilter } from "@/components/date-range-filter";
@@ -460,7 +461,7 @@ export default async function AdminOrdersPage({
               : rawCompName ? rawCompName.split("@")[0]
               : "Valued Customer";
 
-            const orderPriceNum = Number(o.totalAmount || 0);
+            const pricing = calculateOrderPrice(o);
 
             return (
               <Link
@@ -513,9 +514,18 @@ export default async function AdminOrdersPage({
                     <span className="text-[10px] text-slate-400 italic block">
                       ≈ {formatNumber(o.quantity)} Blocks
                     </span>
-                    {orderPriceNum > 0 && (
-                      <span className="font-bold text-xs text-emerald-700 block font-mono mt-0.5">
-                        ₹{formatNumber(orderPriceNum)}
+                    {pricing.isPriceAdded ? (
+                      <div className="mt-1">
+                        <span className="font-black text-sm text-emerald-700 block font-mono">
+                          {pricing.formattedTotal}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium block">
+                          {pricing.formattedRate}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 italic font-medium block mt-1">
+                        Price Not Added
                       </span>
                     )}
                   </div>

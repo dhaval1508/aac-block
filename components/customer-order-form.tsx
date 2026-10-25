@@ -472,8 +472,9 @@ export function CustomerOrderForm({
       isPriceAdded && gstBillingSelected
         ? Number(((materialSubtotal * 18) / 100).toFixed(2))
         : 0;
+    // Total Order Price is strictly Price Per CBM × Ordered CBM (without adding GST)
     const finalTotalAmount = isPriceAdded
-      ? Number((materialSubtotal + gstAmount).toFixed(2))
+      ? Number(materialSubtotal.toFixed(2))
       : 0;
 
     return {
@@ -1336,7 +1337,7 @@ export function CustomerOrderForm({
           </div>
           <span className="self-start sm:self-auto rounded-full px-3 py-1 text-[11px] font-bold border bg-teal-50 text-[#13789B] border-teal-200">
             {pricingCalculations.isPriceAdded
-              ? `Subtotal: ₹${pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+              ? `Total: ₹${pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
               : "Price Not Added"}
           </span>
         </div>
@@ -1428,34 +1429,29 @@ export function CustomerOrderForm({
 
         {/* Live Calculation Preview Banner */}
         {pricingCalculations.isPriceAdded && (
-          <div className="rounded-2xl bg-teal-50/70 border border-teal-200/90 p-3.5 text-xs text-navy flex flex-wrap items-center justify-between gap-3">
+          <div className="rounded-2xl bg-teal-50/70 border border-teal-200/90 p-4 text-xs text-navy flex items-center justify-between gap-4">
             <div>
               <span className="font-bold text-[#13789B] uppercase tracking-wider text-[10px] block">
-                Material Amount
+                Total Order Price
               </span>
-              <span className="font-black text-sm sm:text-base font-mono text-navy">
+              <div className="font-black text-lg sm:text-2xl font-mono text-emerald-700 mt-0.5">
                 ₹{pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </span>
-              <span className="text-[11px] text-slate-500 ml-1.5">
-                ({combinedCbm.toFixed(3)} CBM × ₹{pricingCalculations.fallbackRate.toLocaleString("en-IN")}/CBM)
+              </div>
+              <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
+                {pricingCalculations.fallbackRate > 0
+                  ? `₹${pricingCalculations.fallbackRate.toLocaleString("en-IN")} / CBM`
+                  : `${combinedCbm.toFixed(3)} CBM`}
               </span>
             </div>
-            {gstBillingSelected && (
-              <div className="text-right">
-                <span className="font-bold text-emerald-700 uppercase tracking-wider text-[10px] block">
-                  + 18% GST Amount
-                </span>
-                <span className="font-black text-xs sm:text-sm font-mono text-emerald-800">
-                  + ₹{pricingCalculations.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            )}
-            <div className="text-right border-l border-teal-200/80 pl-3">
-              <span className="font-bold text-navy uppercase tracking-wider text-[10px] block">
-                Estimated Total
+            <div className="text-right border-l border-teal-200/80 pl-4">
+              <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block">
+                Consignment Volume
               </span>
-              <span className="font-black text-sm sm:text-lg font-mono text-[#13789B]">
-                ₹{pricingCalculations.finalTotalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              <span className="font-black text-sm sm:text-base font-mono text-navy mt-0.5 block">
+                {combinedCbm.toFixed(3)} CBM
+              </span>
+              <span className="text-[11px] text-slate-500 block italic">
+                ≈ {formatNumber(totalBlocks)} Blocks
               </span>
             </div>
           </div>
@@ -1977,31 +1973,22 @@ export function CustomerOrderForm({
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <span className="text-slate-500 block text-[10px] uppercase font-bold">Price Per CBM</span>
-                        <strong className="text-navy font-mono">
-                          {pricingCalculations.fallbackRate > 0 ? `₹${pricingCalculations.fallbackRate.toLocaleString("en-IN")}` : "Per Size Rates"}
+                        <strong className="text-navy font-mono text-xs sm:text-sm">
+                          {pricingCalculations.fallbackRate > 0 ? `₹${pricingCalculations.fallbackRate.toLocaleString("en-IN")} / CBM` : "Per Size Rates"}
                         </strong>
                       </div>
                       <div>
-                        <span className="text-slate-500 block text-[10px] uppercase font-bold">Material Subtotal</span>
-                        <strong className="text-navy font-mono">
+                        <span className="text-slate-500 block text-[10px] uppercase font-bold">Total Order Price</span>
+                        <strong className="text-emerald-700 font-mono text-sm sm:text-base">
                           ₹{pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </strong>
                       </div>
                     </div>
 
-                    {gstBillingSelected && (
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-emerald-800">
-                        <span className="text-[11px] font-bold">Applicable GST (18%):</span>
-                        <span className="font-mono font-black">
-                          + ₹{pricingCalculations.gstAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    )}
-
                     <div className="flex items-center justify-between pt-1.5 border-t border-slate-300 font-bold text-navy">
-                      <span className="text-xs font-black uppercase">Final Order Amount:</span>
-                      <span className="font-mono text-sm sm:text-base font-black text-[#13789B]">
-                        ₹{pricingCalculations.finalTotalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      <span className="text-xs font-black uppercase">Final Order Total:</span>
+                      <span className="font-mono text-sm sm:text-base font-black text-emerald-700">
+                        ₹{pricingCalculations.materialSubtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </span>
                     </div>
 

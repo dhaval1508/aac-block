@@ -463,7 +463,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
           lineSubtotal = Number((totalCbm * lineRate).toFixed(2));
           lineGstRate = gstBillingSelected ? 18 : 0;
           lineGstAmount = gstBillingSelected ? Number(((lineSubtotal * 18) / 100).toFixed(2)) : 0;
-          lineTotalAmount = Number((lineSubtotal + lineGstAmount).toFixed(2));
+          lineTotalAmount = lineSubtotal; // Material-only total without adding GST
         }
       } else if (prod.category === "ADHESIVE" || prod.category === "MORTAR" || prod.category === "BLOCK_JOINTING_MORTAR") {
         hasAdhesive = true;
@@ -498,7 +498,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
     const totalGstAmount = Number(
       resolvedItems.reduce((sum, it) => sum + (it.gstAmount || 0), 0).toFixed(2)
     );
-    const grandTotalAmount = Number((totalMaterialSubtotal + totalGstAmount).toFixed(2));
+    const grandTotalAmount = totalMaterialSubtotal; // Material-only total without GST
 
     const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
     const aacBlockItems = resolvedItems.filter((it) => it.productType === "AAC_BLOCK");
@@ -757,11 +757,15 @@ export async function confirmOrderAction(formData: FormData) {
     let totalAmount = order.totalAmount;
 
     if (quantity > 0 || rate > 0 || (cbmRaw && Number(cbmRaw) > 0)) {
-      const s = finalQty * finalRate;
-      const g = s * (Number(order.gstRate) / 100);
+      const s = finalCbm > 0
+        ? Number((finalCbm * finalRate).toFixed(2))
+        : Number((finalQty * finalRate).toFixed(2));
+      const g = order.gstBillingSelected
+        ? Number(((s * Number(order.gstRate || 18)) / 100).toFixed(2))
+        : 0;
       subtotal = s as any;
       gstAmount = g as any;
-      totalAmount = (s + g) as any;
+      totalAmount = s as any; // Material-only total without GST
     }
 
     const invoiceNo = await nextInvoiceNo();
@@ -2013,7 +2017,7 @@ export async function editCustomerOrderAction(formData: FormData) {
         lineSubtotal = Number((itemCbm * lineRate).toFixed(2));
         lineGstRate = gstBillingSelected ? 18 : 0;
         lineGstAmount = gstBillingSelected ? Number(((lineSubtotal * 18) / 100).toFixed(2)) : 0;
-        lineTotalAmount = Number((lineSubtotal + lineGstAmount).toFixed(2));
+        lineTotalAmount = lineSubtotal; // Material-only total without adding GST
       }
     } else {
       hasAdhesive = true;
@@ -2042,7 +2046,7 @@ export async function editCustomerOrderAction(formData: FormData) {
   const totalGstAmount = Number(
     resolvedItems.reduce((sum, it) => sum + (it.gstAmount || 0), 0).toFixed(2)
   );
-  const grandTotalAmount = Number((totalMaterialSubtotal + totalGstAmount).toFixed(2));
+  const grandTotalAmount = totalMaterialSubtotal; // Material-only total without GST
 
   const primaryItem = resolvedItems.find((it) => it.productType === "AAC_BLOCK") || resolvedItems[0];
 

@@ -32,6 +32,7 @@ import {
   formatBlockSizeName,
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
+  calculateOrderPrice,
 } from "@/lib/utils";
 import { OpenLocationButton } from "@/components/open-location-button";
 import { DeleteOrderModal } from "@/components/delete-order-modal";
@@ -162,8 +163,7 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
     secondaryLabel = rawEmail;
   }
 
-  const orderPriceNum = Number(order.totalAmount || 0);
-  const pricePerCbmNum = Number(order.pricePerCbm || 0);
+  const pricing = calculateOrderPrice(order);
 
   return (
     <>
@@ -330,20 +330,20 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
 
         {/* 5. Order Price (Super Admin & Authorized Viewers) */}
         <td className="py-3.5 px-3.5 align-top whitespace-nowrap min-w-[130px]">
-          {orderPriceNum > 0 ? (
+          {pricing.isPriceAdded && pricing.totalPrice > 0 ? (
             <div className="space-y-0.5">
               <p className="font-black text-sm text-emerald-700">
-                ₹{formatNumber(orderPriceNum)}
+                ₹{formatNumber(Math.round(pricing.totalPrice))}
               </p>
-              {pricePerCbmNum > 0 && (
+              {pricing.pricePerCbm > 0 && (
                 <span className="text-[10px] text-slate-400 block font-mono">
-                  ₹{formatNumber(pricePerCbmNum)} / CBM
+                  ₹{formatNumber(Math.round(pricing.pricePerCbm))} / CBM
                 </span>
               )}
             </div>
-          ) : pricePerCbmNum > 0 ? (
+          ) : pricing.pricePerCbm > 0 ? (
             <p className="font-black text-xs text-emerald-700 font-mono">
-              ₹{formatNumber(pricePerCbmNum)} / CBM
+              ₹{formatNumber(Math.round(pricing.pricePerCbm))} / CBM
             </p>
           ) : (
             <span className="text-slate-400 text-xs italic">Price Not Added</span>

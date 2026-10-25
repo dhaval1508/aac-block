@@ -243,3 +243,138 @@ export function formatBlockSizeName(sizeLabel?: string | null): string {
   if (/^12(?:\s*inch|\")?$/i.test(s)) return "12 Inch";
   return s.replace(/"/g, " Inch").replace(/\s+Inch/gi, " Inch");
 }
+
+export interface OrderPricingResult {
+  isPriceAdded: boolean;
+  totalPrice: number;        // Material total: Order CBM × Price Per CBM (no GST)
+  pricePerCbm: number;       // Rate per CBM
+  totalCbm: number;          // Total AAC Block CBM
+  hasMultipleRates: boolean; // True if multiple sizes with different rates
+  formattedTotal: string;    // "₹90,000" or "Price Not Added"
+  formattedRate: string;     // "₹3,000 / CBM" or "Price Not Added"
+}
+
+/**
+ * Shared authoritative order price calculation:
+ * Total Price is strictly Price Per CBM × Ordered CBM (without adding GST).
+ * For multiple block sizes: Sum of (Each Block Item CBM × Its Price Per CBM).
+ */
+export function calculateOrderPrice(order?: {
+  pricePerCbm?: any;
+  rate?: any;
+  totalCbm?: any;
+  quantity?: any;
+  subtotal?: any;
+  totalAmount?: any;
+  items?: Array<{
+    productType?: string | null;
+    totalCbm?: any;
+    cbm?: any;
+    rate?: any;
+    pricePerCbm?: any;
+    subtotal?: any;
+  }> | null;
+} | null): OrderPricingResult {
+  if (!order) {
+    return {
+      isPriceAdded: false,
+      totalPrice: 0,
+      pricePerCbm: 0,
+      totalCbm: 0,
+      hasMultipleRates: false,
+      formattedTotal: "Price Not Added",
+      formattedRate: "Price Not Added",
+    };
+  }
+
+  let basePricePerCbm =
+    order.pricePerCbm !== undefined && order.pricePerCbm !== null
+      ? Number(order.pricePerCbm)
+      : order.rate !== undefined && order.rate !== null
+      ? Number(order.rate)
+      : 0;
+
+  const baseTotalCbm =
+    order.totalCbm !== undefined && order.totalCbm !== null
+      ? Number(order.totalCbm)
+      : 0;
+
+  const baseSubtotal =
+    order.subtotal !== undefined && order.subtotal !== null
+      ? Number(order.subtotal)
+      : 0;
+
+  if (basePricePerCbm <= 0 && baseSubtotal > 0 && baseTotalCbm > 0) {
+    basePricePerCbm = Number((baseSubtotal / baseTotalCbm).toFixed(2));
+  }
+
+  // Filter AAC Block items only (never include mortar / adhesive in CBM block pricing)
+  const allItems = Array.isArray(order.items) ? order.items : [];
+  const aacItems = allItems.filter(
+    (it) =>
+      it.productType === "AAC_BLOCK" ||
+      (!it.productType && (Number(it.totalCbm || 0) > 0 || Number(it.cbm || 0) > 0))
+  );
+
+  let combinedBlockCbm = 0;
+  let itemsTotalPrice = 0;
+  let itemsWithRatesCount = 0;
+  const distinctRates = new Set<number>();
+
+  if (aacItems.length > 0) {
+    for (const it of aacItems) {
+      const itCbm = Number(it.totalCbm ?? it.cbm ?? 0);
+      const itRate = Number(it.pricePerCbm ?? it.rate ?? 0);
+      combinedBlockCbm += itCbm;
+
+      if (itRate > 0 && itCbm > 0) {
+        itemsWithRatesCount++;
+        distinctRates.add(itRate);
+        itemsTotalPrice += Number((itCbm * itRate).toFixed(2));
+      } else if (Number(it.subtotal || 0) > 0 && itCbm > 0) {
+        itemsWithRatesCount++;
+        const impliedRate = Number((Number(it.subtotal) / itCbm).toFixed(2));
+        distinctRates.add(impliedRate);
+        itemsTotalPrice += Number(Number(it.subtotal).toFixed(2));
+      }
+    }
+  }
+
+  const effectiveCbm = combinedBlockCbm > 0 ? combinedBlockCbm : baseTotalCbm;
+  let finalTotalPrice = 0;
+  let finalPricePerCbm = 0;
+  const hasMultipleRates = distinctRates.size > 1;
+
+  if (itemsWithRatesCount > 0 && itemsTotalPrice > 0) {
+    finalTotalPrice = Number(itemsTotalPrice.toFixed(2));
+    finalPricePerCbm =
+      effectiveCbm > 0
+        ? Number((finalTotalPrice / effectiveCbm).toFixed(2))
+        : basePricePerCbm;
+  } else if (basePricePerCbm > 0 && effectiveCbm > 0) {
+    finalTotalPrice = Number((effectiveCbm * basePricePerCbm).toFixed(2));
+    finalPricePerCbm = basePricePerCbm;
+  } else if (basePricePerCbm > 0) {
+    finalPricePerCbm = basePricePerCbm;
+    finalTotalPrice = 0;
+  }
+
+  const isPriceAdded = finalTotalPrice > 0 || finalPricePerCbm > 0;
+
+  return {
+    isPriceAdded,
+    totalPrice: finalTotalPrice,
+    pricePerCbm: finalPricePerCbm,
+    totalCbm: effectiveCbm,
+    hasMultipleRates,
+    formattedTotal:
+      isPriceAdded && finalTotalPrice > 0
+        ? `₹${formatNumber(Math.round(finalTotalPrice))}`
+        : "Price Not Added",
+    formattedRate:
+      finalPricePerCbm > 0
+        ? `₹${formatNumber(Math.round(finalPricePerCbm))} / CBM`
+        : "Price Not Added",
+  };
+}
+

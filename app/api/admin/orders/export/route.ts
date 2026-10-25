@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { formatBlockSizeName } from "@/lib/utils";
+import { formatBlockSizeName, calculateOrderPrice } from "@/lib/utils";
 import { OrderStatus, Prisma } from "@prisma/client";
 
 export async function GET(req: Request) {
@@ -120,6 +120,7 @@ export async function GET(req: Request) {
     }
 
     const mortarBags = o.adhesiveBags ?? 0;
+    const pricing = calculateOrderPrice(o);
 
     return [
       escapeCsv(o.orderNo),
@@ -134,11 +135,11 @@ export async function GET(req: Request) {
       escapeCsv(o.quantity),
       escapeCsv(cbm),
       escapeCsv(mortarBags),
-      escapeCsv(o.pricePerCbm ? String(o.pricePerCbm) : "Price Not Added"),
-      escapeCsv(o.subtotal ? String(o.subtotal) : ""),
+      escapeCsv(pricing.pricePerCbm > 0 ? String(pricing.pricePerCbm) : "Price Not Added"),
+      escapeCsv(pricing.isPriceAdded && pricing.totalPrice > 0 ? String(pricing.totalPrice) : ""),
       escapeCsv(o.gstRate ? `${o.gstRate}%` : ""),
       escapeCsv(o.gstAmount ? String(o.gstAmount) : ""),
-      escapeCsv(o.totalAmount ? String(o.totalAmount) : ""),
+      escapeCsv(pricing.isPriceAdded && pricing.totalPrice > 0 ? String(pricing.totalPrice) : ""),
       escapeCsv(o.pricingRemarks || ""),
       escapeCsv(o.transport?.truckNumber || ""),
       escapeCsv(o.transport?.driverName || ""),

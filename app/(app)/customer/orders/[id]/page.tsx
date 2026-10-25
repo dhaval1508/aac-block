@@ -27,6 +27,7 @@ import {
   telHref,
   mapsHref,
   canViewOrderPricing,
+  calculateOrderPrice,
 } from "@/lib/utils";
 import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
 import { OpenLocationButton } from "@/components/open-location-button";
@@ -101,6 +102,8 @@ export default async function CustomerOrderDetailPage({
     : order.product
     ? Number(order.product.cbmPerBlock) * order.quantity
     : 0;
+
+  const pricing = calculateOrderPrice(order);
 
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 max-w-4xl mx-auto min-w-0 max-w-full">
@@ -266,7 +269,7 @@ export default async function CustomerOrderDetailPage({
               </div>
             </div>
             <span className="rounded-full px-3 py-1 text-[11px] font-bold border bg-teal-50 text-[#13789B] border-teal-200 self-start sm:self-auto">
-              {order.pricePerCbm ? `Rate: ₹${Number(order.pricePerCbm).toLocaleString("en-IN")}/CBM` : "Price Not Added"}
+              {pricing.pricePerCbm > 0 ? `Rate: ₹${formatNumber(Math.round(pricing.pricePerCbm))}/CBM` : "Price Not Added"}
             </span>
           </div>
 
@@ -274,39 +277,50 @@ export default async function CustomerOrderDetailPage({
             <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-200">
               <span className="text-[10px] font-bold uppercase text-slate-400 block">Price Per CBM</span>
               <div className="text-base sm:text-lg font-black font-mono text-navy mt-0.5">
-                {order.pricePerCbm ? `₹${Number(order.pricePerCbm).toLocaleString("en-IN")}` : "Price Not Added"}
+                {pricing.pricePerCbm > 0 ? `₹${formatNumber(Math.round(pricing.pricePerCbm))}` : "Price Not Added"}
               </div>
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-200">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">Material Subtotal</span>
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Material Calculation</span>
               <div className="text-base sm:text-lg font-black font-mono text-navy mt-0.5">
-                {order.subtotal && Number(order.subtotal) > 0
-                  ? `₹${Number(order.subtotal).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                  : order.pricePerCbm
-                  ? `₹${(Number(order.pricePerCbm) * totalCbm).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+                {pricing.isPriceAdded && pricing.totalPrice > 0
+                  ? `₹${pricing.totalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
                   : "Price Not Added"}
               </div>
+              {pricing.totalCbm > 0 && pricing.pricePerCbm > 0 && (
+                <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
+                  {pricing.totalCbm.toFixed(3)} CBM × ₹{formatNumber(Math.round(pricing.pricePerCbm))}
+                </span>
+              )}
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-200">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">GST Treatment</span>
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">GST Billing Mode</span>
               <div className="text-sm sm:text-base font-black font-mono text-emerald-800 mt-0.5">
                 {order.gstBillingSelected
-                  ? `18% (₹${Number(order.gstAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })})`
+                  ? "✓ 18% GST Bill"
                   : "Without-GST Bill"}
               </div>
+              {order.gstNumber && (
+                <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
+                  GSTIN: {order.gstNumber}
+                </span>
+              )}
             </div>
 
             <div className="rounded-2xl bg-teal-50/70 p-3.5 border border-teal-200">
-              <span className="text-[10px] font-bold uppercase text-[#13789B] block">Final Order Amount</span>
-              <div className="text-base sm:text-lg font-black font-mono text-[#13789B] mt-0.5">
-                {order.totalAmount && Number(order.totalAmount) > 0
-                  ? `₹${Number(order.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-                  : order.pricePerCbm
-                  ? `₹${(Number(order.pricePerCbm) * totalCbm).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
+              <span className="text-[10px] font-bold uppercase text-[#13789B] block">Total Order Price</span>
+              <div className="text-base sm:text-lg font-black font-mono text-emerald-700 mt-0.5">
+                {pricing.isPriceAdded && pricing.totalPrice > 0
+                  ? `₹${pricing.totalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
                   : "Price Not Added"}
               </div>
+              {pricing.pricePerCbm > 0 && (
+                <span className="text-[10px] text-slate-500 block font-mono mt-0.5">
+                  ₹{formatNumber(Math.round(pricing.pricePerCbm))} / CBM
+                </span>
+              )}
             </div>
           </div>
 

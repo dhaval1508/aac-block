@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { formatNumber, formatBlockSizeName, canViewOrderPricing } from "@/lib/utils";
+import { formatNumber, formatBlockSizeName, canViewOrderPricing, calculateOrderPrice } from "@/lib/utils";
 import { getCompanyProfile } from "@/lib/company-profile";
 
 export async function GET(
@@ -78,6 +78,7 @@ export async function GET(
     : aacItems.reduce((acc, it) => acc + (Number(it.totalCbm) || 0), 0);
 
   const adhesiveBags = order.adhesiveBags ?? 0;
+  const pricing = calculateOrderPrice(order);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -479,19 +480,19 @@ export async function GET(
         <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; font-size:12px;">
           <div>
             <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">Price Per CBM</span>
-            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${order.pricePerCbm ? `₹${Number(order.pricePerCbm).toLocaleString('en-IN')}` : "Price Not Added"}</strong>
+            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${pricing.pricePerCbm > 0 ? `₹${Number(pricing.pricePerCbm).toLocaleString('en-IN')}` : "Price Not Added"}</strong>
           </div>
           <div>
-            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">Material Subtotal</span>
-            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${order.subtotal && Number(order.subtotal) > 0 ? `₹${Number(order.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : order.pricePerCbm ? `₹${(Number(order.pricePerCbm) * totalCbm).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
+            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">Material Calculation</span>
+            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${pricing.isPriceAdded && pricing.totalPrice > 0 ? `₹${pricing.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
           </div>
           <div>
             <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">GST Billing</span>
-            <strong style="font-size:13px; font-family:monospace; color:#065f46;">${order.gstBillingSelected ? `18% (₹${Number(order.gstAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })})` : "Without GST"}</strong>
+            <strong style="font-size:13px; font-family:monospace; color:#065f46;">${order.gstBillingSelected ? "18% GST Bill" : "Without GST"}</strong>
           </div>
           <div>
-            <span style="font-size:10px; font-weight:bold; color:#0369a1; text-transform:uppercase; display:block;">Total Amount</span>
-            <strong style="font-size:15px; font-family:monospace; color:#13789b;">${order.totalAmount && Number(order.totalAmount) > 0 ? `₹${Number(order.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : order.pricePerCbm ? `₹${(Number(order.pricePerCbm) * totalCbm).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
+            <span style="font-size:10px; font-weight:bold; color:#0369a1; text-transform:uppercase; display:block;">Total Order Price</span>
+            <strong style="font-size:15px; font-family:monospace; color:#13789b;">${pricing.isPriceAdded && pricing.totalPrice > 0 ? `₹${pricing.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
           </div>
         </div>
         ${order.pricingRemarks ? `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:11px; color:#475569;"><strong>Notes / Remarks:</strong> <em>${order.pricingRemarks}</em></div>` : ""}
