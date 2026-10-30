@@ -85,6 +85,12 @@ export default async function SalesmanOrderDetailPage({
   const totalCbm = order.totalCbm ? Number(order.totalCbm) : 0;
   const pricing = calculateOrderPrice(order);
   const aacItems = order.items.filter((it) => it.productType === "AAC_BLOCK");
+  const totalMortarBags =
+    order.adhesiveBags && order.adhesiveBags > 0
+      ? order.adhesiveBags
+      : order.items
+          .filter((it) => it.productType === "MORTAR")
+          .reduce((sum, it) => sum + (it.quantity || 0), 0);
   const blockSizesSummary =
     aacItems.map((it) => formatBlockSizeName(it.sizeLabel)).join(", ") ||
     (order.product?.sizeLabel ? formatBlockSizeName(order.product.sizeLabel) : "Standard AAC Block");
@@ -318,10 +324,10 @@ export default async function SalesmanOrderDetailPage({
             )}
           </div>
 
-          {order.items && order.items.length > 0 ? (
+          {aacItems.length > 0 ? (
             <div className="space-y-3">
               <div className="divide-y divide-slate-100">
-                {order.items.map((it) => (
+                {aacItems.map((it) => (
                   <div key={it.id} className="py-2.5 flex items-start justify-between gap-2 text-xs">
                     <div>
                       <p className="font-bold text-navy text-sm">{it.productName}</p>
@@ -336,7 +342,7 @@ export default async function SalesmanOrderDetailPage({
                           <div className="text-[10px] text-slate-400 italic">≈ {formatNumber(it.quantity)} Blocks</div>
                         </>
                       ) : (
-                        <div className="font-black text-navy font-mono text-sm">{formatNumber(it.quantity)} Bags</div>
+                        <div className="font-black text-navy font-mono text-sm">{formatNumber(it.quantity)} Blocks</div>
                       )}
                     </div>
                   </div>
@@ -346,6 +352,16 @@ export default async function SalesmanOrderDetailPage({
               <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
                 <span className="text-slate-500 font-bold">Total AAC Volume:</span>
                 <span className="font-black text-navy font-mono text-sm">{totalCbm.toFixed(3)} CBM</span>
+              </div>
+
+              <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3 flex items-center justify-between text-xs mt-2">
+                <div>
+                  <span className="font-bold text-[#13789B] text-sm">Block Jointing Morter</span>
+                  <span className="block text-[11px] text-slate-500">40 KG Bag Packaging Only</span>
+                </div>
+                <span className="font-mono font-black text-navy text-base">
+                  {totalMortarBags} Bags
+                </span>
               </div>
             </div>
           ) : (
@@ -372,7 +388,7 @@ export default async function SalesmanOrderDetailPage({
               <div className="flex justify-between items-center py-1 border-b border-slate-50">
                 <span className="text-slate-500 font-semibold">Block Jointing Morter:</span>
                 <span className="rounded-lg bg-sky-50 border border-sky-200 px-2 py-0.5 font-bold font-mono text-navy">
-                  {order.adhesiveBags ?? 0} Bags (40 KG)
+                  {totalMortarBags} Bags (40 KG)
                 </span>
               </div>
             </div>

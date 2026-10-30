@@ -47,6 +47,22 @@ export async function GET(
 
   const canViewPricing = canViewOrderPricing(session, order);
 
+  const html = renderOrderSummaryHtml({ order, company, canViewPricing });
+
+  return new NextResponse(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+    },
+  });
+}
+
+export function renderOrderSummaryHtml(params: {
+  order: any;
+  company: any;
+  canViewPricing: boolean;
+}): string {
+  const { order, company, canViewPricing } = params;
+
   const items = order.items.length > 0
     ? order.items
     : order.product
@@ -69,40 +85,56 @@ export async function GET(
       ]
     : [];
 
-  const aacItems = items.filter((it) => it.productType === "AAC_BLOCK");
+  const aacItems = items.filter((it: any) => it.productType === "AAC_BLOCK");
 
-  const totalBlocks = aacItems.reduce((acc, it) => acc + it.quantity, 0) || order.quantity;
+  const totalBlocks = aacItems.reduce((acc: number, it: any) => acc + it.quantity, 0) || order.quantity;
 
   const totalCbm = order.totalCbm
     ? Number(order.totalCbm)
-    : aacItems.reduce((acc, it) => acc + (Number(it.totalCbm) || 0), 0);
+    : aacItems.reduce((acc: number, it: any) => acc + (Number(it.totalCbm) || 0), 0);
 
-  const adhesiveBags = order.adhesiveBags ?? 0;
+  const mortarItems = items.filter(
+    (it: any) => it.productType === "MORTAR" || ("product" in it && (it as { product?: { category?: string } }).product?.category === "MORTAR")
+  );
+  const adhesiveBags =
+    order.adhesiveBags && order.adhesiveBags > 0
+      ? order.adhesiveBags
+      : mortarItems.reduce((acc: number, it: any) => acc + (it.quantity || 0), 0);
   const pricing = calculateOrderPrice(order);
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Swarnim AAC Order Summary - ${order.orderNo}</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #0f172a;
       background: #f8fafc;
-      padding: 30px 16px;
-      font-size: 13px;
-      line-height: 1.5;
+      padding: 16px 12px;
+      font-size: 11px;
+      line-height: 1.35;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .container {
-      max-width: 820px;
+      max-width: 800px;
       margin: 0 auto;
       background: #ffffff;
       border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 36px;
+      border-radius: 12px;
+      padding: 20px 24px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.04);
     }
     .header {
@@ -110,145 +142,180 @@ export async function GET(
       justify-content: space-between;
       align-items: flex-start;
       border-bottom: 2px solid #13789b;
-      padding-bottom: 20px;
-      margin-bottom: 24px;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
     }
     .logo-container {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     .logo-icon {
-      width: 44px;
-      height: 44px;
+      width: 36px;
+      height: 36px;
       background: linear-gradient(135deg, #0d5d79 0%, #13789b 100%);
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #fff;
       font-weight: 900;
-      font-size: 22px;
-      box-shadow: 0 2px 8px rgba(19, 120, 155, 0.3);
+      font-size: 18px;
+      box-shadow: 0 2px 6px rgba(19, 120, 155, 0.25);
     }
     .brand-title {
-      font-size: 20px;
+      font-size: 15px;
       font-weight: 900;
       color: #0f172a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      line-height: 1.2;
     }
     .brand-sub {
-      font-size: 11px;
+      font-size: 9.5px;
       font-weight: 700;
       color: #13789b;
       margin-top: 1px;
     }
     .brand-address {
-      font-size: 10px;
+      font-size: 8.5px;
       color: #64748b;
-      margin-top: 4px;
-      max-width: 400px;
-      line-height: 1.4;
+      margin-top: 3px;
+      max-width: 440px;
+      line-height: 1.35;
     }
     .order-badge-box {
       text-align: right;
+      flex-shrink: 0;
     }
     .badge {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
+      padding: 2px 8px;
+      border-radius: 12px;
       background: #0f172a;
       color: #ffffff;
-      font-size: 10px;
+      font-size: 8.5px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
     }
     .order-id {
-      font-size: 20px;
+      font-size: 15px;
       font-weight: 900;
       color: #13789b;
       font-family: monospace;
-      margin-top: 6px;
+      margin-top: 2px;
     }
     .meta-date {
-      font-size: 11px;
+      font-size: 9.5px;
       color: #64748b;
-      margin-top: 2px;
+      margin-top: 1px;
+    }
+    .weighbridge-banner {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .weighbridge-title {
+      color: #166534;
+      font-size: 11px;
+    }
+    .weighbridge-text {
+      color: #15803d;
+    }
+    .weighbridge-net {
+      font-size: 13px;
+      font-weight: 900;
+      color: #14532d;
+      font-family: monospace;
     }
     .grid-info {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: 12px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 18px;
-      margin-bottom: 24px;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .info-title {
-      font-size: 10px;
+      font-size: 8.5px;
       font-weight: 800;
       color: #94a3b8;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .info-text-bold {
       font-weight: 800;
       color: #0f172a;
-      font-size: 13px;
+      font-size: 11.5px;
     }
     .info-text {
       color: #475569;
-      font-size: 12px;
-      margin-top: 2px;
+      font-size: 10px;
+      margin-top: 1.5px;
+      line-height: 1.35;
     }
     .metrics-banner {
       background: linear-gradient(135deg, #0f172a 0%, #13789b 100%);
       color: #ffffff;
-      border-radius: 12px;
-      padding: 16px 20px;
+      border-radius: 8px;
+      padding: 8px 14px;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      gap: 8px;
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .metric-label {
-      font-size: 10px;
+      font-size: 8.5px;
       font-weight: 700;
       text-transform: uppercase;
       color: #93c5fd;
       letter-spacing: 0.5px;
     }
     .metric-val {
-      font-size: 18px;
+      font-size: 14px;
       font-weight: 900;
       font-family: monospace;
-      margin-top: 2px;
+      margin-top: 1px;
       color: #ffffff;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 24px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     th {
       background: #f1f5f9;
       color: #334155;
-      font-size: 11px;
+      font-size: 9px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      padding: 10px 12px;
+      padding: 5px 8px;
       border-bottom: 1px solid #cbd5e1;
     }
     td {
-      padding: 12px;
+      padding: 5px 8px;
       border-bottom: 1px solid #e2e8f0;
-      font-size: 12px;
+      font-size: 10px;
       color: #1e293b;
     }
     .text-right { text-align: right; }
@@ -256,52 +323,91 @@ export async function GET(
     .adhesive-card {
       background: #f0f9ff;
       border: 1px solid #bae6fd;
-      border-radius: 12px;
-      padding: 14px 18px;
+      border-radius: 8px;
+      padding: 6px 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .adhesive-title {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 800;
       color: #0369a1;
     }
     .adhesive-sub {
-      font-size: 11px;
+      font-size: 9px;
       color: #0284c7;
       margin-top: 1px;
     }
     .adhesive-qty {
-      font-size: 18px;
+      font-size: 13px;
       font-weight: 900;
       color: #0c4a6e;
       font-family: monospace;
     }
+    .pricing-card {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .pricing-title {
+      font-weight: 800;
+      font-size: 11px;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 5px;
+      margin-bottom: 8px;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      font-size: 10px;
+    }
+    .pricing-label {
+      font-size: 8.5px;
+      font-weight: bold;
+      color: #64748b;
+      text-transform: uppercase;
+      display: block;
+    }
+    .pricing-val {
+      font-size: 12px;
+      font-family: monospace;
+      color: #0f172a;
+    }
     .footer-note {
       border-top: 1px solid #e2e8f0;
-      padding-top: 16px;
+      padding-top: 6px;
       text-align: center;
-      font-size: 10px;
+      font-size: 8.5px;
       color: #94a3b8;
-      line-height: 1.6;
+      line-height: 1.35;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .btn-bar {
-      margin-bottom: 20px;
+      margin-bottom: 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     .print-btn {
       background: #13789b;
       color: #fff;
       border: none;
-      padding: 10px 18px;
-      border-radius: 8px;
+      padding: 8px 16px;
+      border-radius: 6px;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 11px;
       cursor: pointer;
       text-decoration: none;
       display: inline-flex;
@@ -312,19 +418,168 @@ export async function GET(
       background: #ffffff;
       color: #13789b;
       border: 1px solid #cbd5e1;
-      padding: 9px 16px;
-      border-radius: 8px;
+      padding: 7px 14px;
+      border-radius: 6px;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 11px;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       gap: 6px;
     }
     @media print {
-      body { background: #fff; padding: 0; }
-      .container { border: none; box-shadow: none; padding: 0; max-width: 100%; }
-      .btn-bar { display: none; }
+      @page {
+        size: A4 portrait;
+        margin: 8mm;
+      }
+      *, *::before, *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        box-sizing: border-box !important;
+      }
+      html, body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        font-size: 9.5px !important;
+        line-height: 1.3 !important;
+      }
+      .container {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .btn-bar {
+        display: none !important;
+      }
+      .header {
+        padding-bottom: 5px !important;
+        margin-bottom: 6px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .logo-icon {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 16px !important;
+      }
+      .brand-title {
+        font-size: 13px !important;
+      }
+      .brand-sub {
+        font-size: 8.5px !important;
+      }
+      .brand-address {
+        font-size: 7.5px !important;
+        line-height: 1.2 !important;
+        max-width: 380px !important;
+      }
+      .order-id {
+        font-size: 13px !important;
+      }
+      .meta-date {
+        font-size: 8px !important;
+      }
+      .weighbridge-banner {
+        padding: 4px 8px !important;
+        margin-bottom: 6px !important;
+        font-size: 8.5px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .grid-info {
+        padding: 6px 8px !important;
+        gap: 8px !important;
+        margin-bottom: 6px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .info-title {
+        font-size: 7px !important;
+      }
+      .info-text-bold {
+        font-size: 10px !important;
+      }
+      .info-text {
+        font-size: 8.5px !important;
+        line-height: 1.2 !important;
+      }
+      .metrics-banner {
+        padding: 6px 8px !important;
+        gap: 6px !important;
+        margin-bottom: 6px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .metric-label {
+        font-size: 7px !important;
+      }
+      .metric-val {
+        font-size: 12px !important;
+      }
+      table {
+        margin-bottom: 6px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      th {
+        padding: 3px 5px !important;
+        font-size: 7.5px !important;
+      }
+      td {
+        padding: 3px 5px !important;
+        font-size: 8.5px !important;
+      }
+      .adhesive-card {
+        padding: 4px 8px !important;
+        margin-bottom: 6px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .adhesive-title {
+        font-size: 9.5px !important;
+      }
+      .adhesive-sub {
+        font-size: 7.5px !important;
+      }
+      .adhesive-qty {
+        font-size: 11px !important;
+      }
+      .pricing-card {
+        padding: 5px 8px !important;
+        margin-bottom: 6px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .pricing-title {
+        font-size: 9.5px !important;
+        padding-bottom: 3px !important;
+        margin-bottom: 5px !important;
+      }
+      .pricing-grid {
+        gap: 6px !important;
+        font-size: 8.5px !important;
+      }
+      .pricing-label {
+        font-size: 7px !important;
+      }
+      .pricing-val {
+        font-size: 10.5px !important;
+      }
+      .footer-note {
+        padding-top: 4px !important;
+        font-size: 7px !important;
+        line-height: 1.2 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
     }
   </style>
 </head>
@@ -365,13 +620,13 @@ export async function GET(
 
     ${order.weighbridgeSlip ? `
     <!-- Weighbridge Slip Banner -->
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+    <div class="weighbridge-banner">
       <div>
-        <strong style="color:#166534;font-size:13px;">⚖️ Official Weighbridge / Vajan Slip Details</strong><br>
-        <span style="color:#15803d;">RST Slip No: <strong>${order.weighbridgeSlip.rstNumber}</strong> • Vehicle: <strong>${order.weighbridgeSlip.vehicleNumber}</strong> • Weighbridge: <strong>${order.weighbridgeSlip.weighbridgeName}</strong></span>
+        <strong class="weighbridge-title">⚖️ Official Weighbridge / Vajan Slip Details</strong><br>
+        <span class="weighbridge-text">RST Slip No: <strong>${order.weighbridgeSlip.rstNumber}</strong> • Vehicle: <strong>${order.weighbridgeSlip.vehicleNumber}</strong> • Weighbridge: <strong>${order.weighbridgeSlip.weighbridgeName}</strong></span>
       </div>
       <div style="text-align:right;">
-        <span style="font-size:15px;font-weight:900;color:#14532d;font-family:monospace;">Net Weight: ${Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG</span>
+        <span class="weighbridge-net">Net Weight: ${Number(order.weighbridgeSlip.netWeightKg).toLocaleString()} KG</span>
       </div>
     </div>
     ` : ""}
@@ -473,29 +728,29 @@ export async function GET(
 
     ${canViewPricing ? `
       <!-- Private Commercial Pricing Summary (Authorized Super Admin & Creator Only) -->
-      <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:24px;">
-        <div style="font-weight:800; font-size:13px; color:#0f172a; border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:12px;">
+      <div class="pricing-card">
+        <div class="pricing-title">
           Order Price & Commercial Details
         </div>
-        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; font-size:12px;">
+        <div class="pricing-grid">
           <div>
-            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">Price Per CBM</span>
-            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${pricing.pricePerCbm > 0 ? `₹${Number(pricing.pricePerCbm).toLocaleString('en-IN')}` : "Price Not Added"}</strong>
+            <span class="pricing-label">Price Per CBM</span>
+            <strong class="pricing-val">${pricing.pricePerCbm > 0 ? `₹${Number(pricing.pricePerCbm).toLocaleString('en-IN')}` : "Price Not Added"}</strong>
           </div>
           <div>
-            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">Material Calculation</span>
-            <strong style="font-size:14px; font-family:monospace; color:#0f172a;">${pricing.isPriceAdded && pricing.totalPrice > 0 ? `₹${pricing.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
+            <span class="pricing-label">Material Calculation</span>
+            <strong class="pricing-val">${pricing.isPriceAdded && pricing.totalPrice > 0 ? `₹${pricing.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
           </div>
           <div>
-            <span style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; display:block;">GST Billing</span>
-            <strong style="font-size:13px; font-family:monospace; color:#065f46;">${order.gstBillingSelected ? "18% GST Bill" : "Without GST"}</strong>
+            <span class="pricing-label">GST Billing</span>
+            <strong class="pricing-val" style="color:#065f46;">${order.gstBillingSelected ? "18% GST Bill" : "Without GST"}</strong>
           </div>
           <div>
-            <span style="font-size:10px; font-weight:bold; color:#0369a1; text-transform:uppercase; display:block;">Total Order Price</span>
-            <strong style="font-size:15px; font-family:monospace; color:#13789b;">${pricing.isPriceAdded && pricing.totalPrice > 0 ? `₹${pricing.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
+            <span class="pricing-label" style="color:#0369a1;">Total Order Price</span>
+            <strong class="pricing-val" style="color:#13789b; font-size:13px;">${pricing.isPriceAdded && pricing.totalPrice > 0 ? `₹${pricing.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "Price Not Added"}</strong>
           </div>
         </div>
-        ${order.pricingRemarks ? `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed #cbd5e1; font-size:11px; color:#475569;"><strong>Notes / Remarks:</strong> <em>${order.pricingRemarks}</em></div>` : ""}
+        ${order.pricingRemarks ? `<div style="margin-top:6px; padding-top:5px; border-top:1px dashed #cbd5e1; font-size:9.5px; color:#475569;"><strong>Notes / Remarks:</strong> <em>${order.pricingRemarks}</em></div>` : ""}
       </div>
     ` : ""}
 
@@ -507,10 +762,4 @@ export async function GET(
   </div>
 </body>
 </html>`;
-
-  return new NextResponse(html, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-    },
-  });
 }

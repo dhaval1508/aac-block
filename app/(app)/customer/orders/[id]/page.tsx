@@ -103,6 +103,13 @@ export default async function CustomerOrderDetailPage({
     ? Number(order.product.cbmPerBlock) * order.quantity
     : 0;
 
+  const totalMortarBags =
+    order.adhesiveBags && order.adhesiveBags > 0
+      ? order.adhesiveBags
+      : (order.items || [])
+          .filter((it) => it.productType === "MORTAR" || it.product?.category === "MORTAR")
+          .reduce((s, it) => s + (it.quantity || 0), 0);
+
   const pricing = calculateOrderPrice(order);
 
   return (
@@ -347,59 +354,101 @@ export default async function CustomerOrderDetailPage({
           )}
         </div>
 
-        {order.items && order.items.length > 0 ? (
-          <div className="divide-y divide-slate-100">
-            {order.items.map((it) => (
-              <div key={it.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-navy text-sm">{it.productName}</span>
-                    {it.sizeLabel && (
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                        {formatBlockSizeName(it.sizeLabel)}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-slate-500 font-mono mt-0.5">
-                    {it.dimensions || it.productType}
-                  </p>
+        {(() => {
+          const aacBlockItems = (order.items || []).filter(
+            (it) => it.productType === "AAC_BLOCK" || it.product?.category === "AAC_BLOCK" || Number(it.cbmPerUnit || 0) > 0
+          );
+          const totalMortarBags =
+            order.adhesiveBags && order.adhesiveBags > 0
+              ? order.adhesiveBags
+              : (order.items || [])
+                  .filter((it) => it.productType === "MORTAR" || it.product?.category === "MORTAR")
+                  .reduce((s, it) => s + (it.quantity || 0), 0);
+
+          if (aacBlockItems.length > 0) {
+            return (
+              <div className="space-y-3">
+                <div className="divide-y divide-slate-100">
+                  {aacBlockItems.map((it) => (
+                    <div key={it.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-navy text-sm">{it.productName}</span>
+                          {it.sizeLabel && (
+                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                              {formatBlockSizeName(it.sizeLabel)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-slate-500 font-mono mt-0.5">
+                          {it.dimensions || it.productType}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4 sm:text-right">
+                        <div>
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Volume & Quantity</span>
+                          <span className="font-mono font-bold text-navy text-sm">
+                            {it.totalCbm ? `${Number(it.totalCbm).toFixed(3)} CBM` : `${formatNumber(it.quantity)} Units`}
+                          </span>
+                          {it.totalCbm ? (
+                            <span className="text-[10px] text-slate-400 italic block">
+                              ≈ {formatNumber(it.quantity)} Blocks
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-4 sm:text-right">
+                <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3 flex items-center justify-between text-xs mt-3">
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Volume & Quantity</span>
-                    <span className="font-mono font-bold text-navy text-sm">
-                      {it.totalCbm ? `${Number(it.totalCbm).toFixed(3)} CBM` : `${formatNumber(it.quantity)} Units`}
-                    </span>
-                    {it.totalCbm ? (
-                      <span className="text-[10px] text-slate-400 italic block">
-                        ≈ {formatNumber(it.quantity)} Blocks
-                      </span>
-                    ) : null}
+                    <span className="font-bold text-[#13789B] text-sm">Block Jointing Morter</span>
+                    <span className="block text-[11px] text-slate-500">40 KG Bag Packaging Only</span>
                   </div>
+                  <span className="font-mono font-black text-navy text-base">
+                    {totalMortarBags} Bags
+                  </span>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : order.product ? (
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Product / Size:</span>
-              <strong className="text-navy">{formatBlockSizeName(order.product.sizeLabel)} ({order.product.dimensions})</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Unit CBM / Block:</span>
-              <strong className="text-navy font-mono">{Number(order.product.cbmPerBlock).toFixed(4)} CBM</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Total Volume (CBM):</span>
-              <strong className="text-navy font-mono font-bold text-sm">{totalCbm.toFixed(3)} CBM</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Estimated Blocks:</span>
-              <strong className="text-slate-500 font-mono italic">≈ {formatNumber(order.quantity)} Blocks</strong>
-            </div>
-          </div>
-        ) : null}
+            );
+          }
+
+          if (order.product) {
+            return (
+              <div className="space-y-3">
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Product / Size:</span>
+                    <strong className="text-navy">{formatBlockSizeName(order.product.sizeLabel)} ({order.product.dimensions})</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Unit CBM / Block:</span>
+                    <strong className="text-navy font-mono">{Number(order.product.cbmPerBlock).toFixed(4)} CBM</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Total Volume (CBM):</span>
+                    <strong className="text-navy font-mono font-bold text-sm">{totalCbm.toFixed(3)} CBM</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Estimated Blocks:</span>
+                    <strong className="text-slate-500 font-mono italic">≈ {formatNumber(order.quantity)} Blocks</strong>
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3 flex items-center justify-between text-xs mt-3">
+                  <div>
+                    <span className="font-bold text-[#13789B] text-sm">Block Jointing Morter</span>
+                    <span className="block text-[11px] text-slate-500">40 KG Bag Packaging Only</span>
+                  </div>
+                  <span className="font-mono font-black text-navy text-base">
+                    {totalMortarBags} Bags
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
+          return null;
+        })()}
 
         <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
           <div>
@@ -495,7 +544,7 @@ export default async function CustomerOrderDetailPage({
             </div>
             <div className="flex justify-between text-slate-600">
               <span>Block Jointing Morter (40 KG):</span>
-              <strong className="text-navy font-mono">{order.adhesiveBags ?? 0} Bags</strong>
+              <strong className="text-navy font-mono">{totalMortarBags} Bags</strong>
             </div>
             <div className="flex justify-between text-xs border-t border-slate-100 pt-2">
               <span className="text-slate-500">Order Status:</span>

@@ -108,6 +108,42 @@ export default async function StaffOrderDetailPage({
       ? currentCbm >= outCbm - 0.0001
       : currentStock >= outQty;
 
+  // Isolate AAC Block items vs Mortar items
+  const aacBlockItems = (order.items || []).filter(
+    (it) =>
+      it.productType === "AAC_BLOCK" ||
+      it.product?.category === "AAC_BLOCK" ||
+      (!["MORTAR"].includes(it.productType) &&
+        it.product?.category !== "MORTAR" &&
+        Number(it.cbmPerUnit || 0) > 0)
+  );
+
+  const mortarItems = (order.items || []).filter(
+    (it) =>
+      it.productType === "MORTAR" ||
+      it.product?.category === "MORTAR" ||
+      (!["AAC_BLOCK"].includes(it.productType) &&
+        it.product?.category !== "AAC_BLOCK" &&
+        (it.cbmPerUnit == null || Number(it.cbmPerUnit) === 0))
+  );
+
+  const totalMortarBags =
+    order.adhesiveBags && order.adhesiveBags > 0
+      ? order.adhesiveBags
+      : mortarItems.reduce((sum, it) => sum + (it.quantity || 0), 0);
+
+  const totalAacVolumeCbm =
+    aacBlockItems.length > 0
+      ? aacBlockItems.reduce((acc, it) => acc + Number(it.totalCbm || 0), 0)
+      : order.totalCbm
+      ? Number(order.totalCbm)
+      : 0;
+
+  const totalAacBlocksCount =
+    aacBlockItems.length > 0
+      ? aacBlockItems.reduce((acc, it) => acc + (it.quantity || 0), 0)
+      : order.quantity;
+
   // WhatsApp Helpers
   const whatsappInfo = {
     orderNo: order.orderNo,
@@ -283,14 +319,14 @@ export default async function StaffOrderDetailPage({
               <p className="text-[11px] text-slate-500">Official material manifest specifications and cubic meter volume</p>
             </div>
           </div>
-          {order.totalCbm ? (
+          {totalAacVolumeCbm > 0 || order.totalCbm ? (
             <span className="rounded-xl bg-[#13789B]/10 border border-[#13789B]/30 px-3 py-1 text-xs font-black text-[#13789B] shrink-0 self-start sm:self-auto">
-              Total Volume: {Number(order.totalCbm).toFixed(3)} m³ CBM (≈ {formatNumber(order.quantity)} Blocks)
+              Total Volume: {(totalAacVolumeCbm > 0 ? totalAacVolumeCbm : Number(order.totalCbm || 0)).toFixed(3)} m³ CBM (≈ {formatNumber(totalAacBlocksCount)} Blocks)
             </span>
           ) : null}
         </div>
 
-        {order.items && order.items.length > 0 ? (
+        {aacBlockItems.length > 0 ? (
           <div className="space-y-3">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -304,30 +340,24 @@ export default async function StaffOrderDetailPage({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {order.items.map((item) => (
+                  {aacBlockItems.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50/50">
                       <td className="p-3">
-                        <p className="font-bold text-navy text-sm">{item.product?.name || "Product"}</p>
-                        <span className="text-[10px] text-slate-400 capitalize">{item.product?.category?.replace("_", " ") || "Material"}</span>
+                        <p className="font-bold text-navy text-sm">{item.product?.name || item.productName || "AAC Block"}</p>
+                        <span className="text-[10px] text-slate-400 capitalize">{item.product?.category?.replace("_", " ") || "AAC Block"}</span>
                       </td>
                       <td className="p-3 text-center">
                         {item.product?.sizeLabel ? (
                           <span className="font-mono text-slate-700 font-semibold">{formatBlockSizeName(item.product.sizeLabel)} ({item.product.dimensions})</span>
-                        ) : item.product?.bagWeightKg ? (
-                          <span className="text-slate-700 font-semibold">{Number(item.product.bagWeightKg)} kg Bag</span>
+                        ) : item.dimensions ? (
+                          <span className="font-mono text-slate-700 font-semibold">{item.dimensions}</span>
                         ) : (
                           "-"
                         )}
                       </td>
                       <td className="p-3 text-right">
-                        {item.totalCbm ? (
-                          <>
-                            <div className="font-black text-navy text-sm">{Number(item.totalCbm).toFixed(3)} CBM</div>
-                            <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(item.quantity)} Blocks</div>
-                          </>
-                        ) : (
-                          <div className="font-black text-navy text-sm">{formatNumber(item.quantity)} Bags</div>
-                        )}
+                        <div className="font-black text-navy text-sm">{Number(item.totalCbm || 0).toFixed(3)} CBM</div>
+                        <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(item.quantity)} Blocks</div>
                       </td>
                       <td className="p-3 text-right text-slate-600 font-mono">
                         {item.cbmPerUnit ? `${Number(item.cbmPerUnit).toFixed(4)} CBM` : "-"}
@@ -342,12 +372,12 @@ export default async function StaffOrderDetailPage({
                   <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold">
                     <td colSpan={2} className="p-3 text-slate-700 text-sm">Combined Totals:</td>
                     <td className="p-3 text-right">
-                      <div className="font-black text-navy text-sm">{order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}</div>
-                      <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(order.quantity)} Blocks</div>
+                      <div className="font-black text-navy text-sm">{totalAacVolumeCbm.toFixed(3)} CBM</div>
+                      <div className="text-[11px] text-slate-400 italic">≈ {formatNumber(totalAacBlocksCount)} Blocks</div>
                     </td>
                     <td></td>
                     <td className="p-3 text-right font-black text-[#13789B] font-mono text-sm">
-                      {order.totalCbm ? `${Number(order.totalCbm).toFixed(3)} CBM` : "-"}
+                      {totalAacVolumeCbm.toFixed(3)} CBM
                     </td>
                   </tr>
                 </tfoot>
@@ -359,31 +389,52 @@ export default async function StaffOrderDetailPage({
                 <span className="block text-[11px] text-slate-500">Factory Specification: 40 KG Bag Packaging Only</span>
               </div>
               <span className="font-mono font-black text-navy text-base">
-                {order.adhesiveBags ?? 0} Bags
+                {totalMortarBags} Bags
               </span>
             </div>
           </div>
         ) : order.product ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-xs min-w-0">
-            <div className="min-w-0">
-              <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Block Size</span>
-              <p className="mt-1 font-black text-sm text-navy truncate">{formatBlockSizeName(order.product.sizeLabel)}</p>
-              <p className="text-[11px] text-slate-500 truncate">{order.product.dimensions}</p>
-            </div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-xs min-w-0">
+              <div className="min-w-0">
+                <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Block Size</span>
+                <p className="mt-1 font-black text-sm text-navy truncate">{formatBlockSizeName(order.product.sizeLabel)}</p>
+                <p className="text-[11px] text-slate-500 truncate">{order.product.dimensions}</p>
+              </div>
 
-            <div className="min-w-0">
-              <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Unit Volume</span>
-              <p className="mt-1 font-black text-sm text-navy truncate">{Number(order.product.cbmPerBlock).toFixed(4)} m³</p>
-              <p className="text-[11px] text-slate-500 truncate">Per block</p>
-            </div>
+              <div className="min-w-0">
+                <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Unit Volume</span>
+                <p className="mt-1 font-black text-sm text-navy truncate">{Number(order.product.cbmPerBlock).toFixed(4)} m³</p>
+                <p className="text-[11px] text-slate-500 truncate">Per block</p>
+              </div>
 
-            <div className="min-w-0">
-              <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Stacking Ratio</span>
-              <p className="mt-1 font-black text-sm text-[#13789B] truncate">{Number(order.product.blocksPerCbm).toFixed(1)} blk/m³</p>
-              <p className="text-[11px] text-slate-500 truncate">Yard stacking</p>
+              <div className="min-w-0">
+                <span className="text-slate-400 font-bold uppercase text-[10px] block truncate">Stacking Ratio</span>
+                <p className="mt-1 font-black text-sm text-[#13789B] truncate">{Number(order.product.blocksPerCbm).toFixed(1)} blk/m³</p>
+                <p className="text-[11px] text-slate-500 truncate">Yard stacking</p>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3.5 flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-[#13789B] text-sm">Block Jointing Morter</span>
+                <span className="block text-[11px] text-slate-500">Factory Specification: 40 KG Bag Packaging Only</span>
+              </div>
+              <span className="font-mono font-black text-navy text-base">
+                {totalMortarBags} Bags
+              </span>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3.5 flex items-center justify-between text-xs">
+            <div>
+              <span className="font-bold text-[#13789B] text-sm">Block Jointing Morter</span>
+              <span className="block text-[11px] text-slate-500">Factory Specification: 40 KG Bag Packaging Only</span>
+            </div>
+            <span className="font-mono font-black text-navy text-base">
+              {totalMortarBags} Bags
+            </span>
+          </div>
+        )}
       </div>
 
       {/* =========================================================================

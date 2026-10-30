@@ -126,3 +126,4 @@ fixContaminatedAddresses()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
