@@ -121,8 +121,8 @@ export async function POST(request: Request) {
     const placeName = extractPlaceName(resolvedUrl);
 
     let address = placeName || "";
-    let city = "Ahmedabad";
-    let state = "Gujarat";
+    let city = "";
+    let state = "";
 
     // Try reverse geocoding if coordinates exist
     if (coords) {

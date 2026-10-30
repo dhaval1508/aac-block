@@ -16,9 +16,9 @@ export async function POST(request: Request) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
     let address = "";
-    let city = "Ahmedabad";
-    let district = "Ahmedabad";
-    let state = "Gujarat";
+    let city = "";
+    let district = "";
+    let state = "";
     let pincode = "";
 
     if (apiKey) {

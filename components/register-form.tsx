@@ -202,7 +202,7 @@ export function RegisterForm({ error }: { error?: string }) {
           <label className="mb-1 block text-xs font-semibold text-slate-700">City</label>
           <input
             name="city"
-            defaultValue="Ahmedabad"
+            placeholder="e.g. Vadodara, Surat"
             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3.5 text-sm outline-none focus:border-swarnim focus:bg-white focus:ring-2 focus:ring-swarnim/20"
           />
         </div>

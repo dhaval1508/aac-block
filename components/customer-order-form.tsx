@@ -170,7 +170,7 @@ export function CustomerOrderForm({
   const [newCustomerEmail, setNewCustomerEmail] = useState("");
   const [newCustomerCompanyName, setNewCustomerCompanyName] = useState("");
   const [newCustomerAddress, setNewCustomerAddress] = useState("");
-  const [newCustomerCity, setNewCustomerCity] = useState("Ahmedabad");
+  const [newCustomerCity, setNewCustomerCity] = useState("");
   const [newCustomerState, setNewCustomerState] = useState("Gujarat");
   const [newCustomerPincode, setNewCustomerPincode] = useState("");
 
@@ -209,7 +209,7 @@ export function CustomerOrderForm({
   );
   const [city, setCity] = useState(
     initialDeliveryLocation?.city ||
-      (isSalesmanMode && initialAssigned ? initialAssigned.city || "Ahmedabad" : customerDefaults.city || "Ahmedabad")
+      (isSalesmanMode && initialAssigned ? initialAssigned.city || "" : customerDefaults.city || "")
   );
   const [pincode, setPincode] = useState(
     initialDeliveryLocation?.pincode ||
@@ -222,7 +222,7 @@ export function CustomerOrderForm({
     initialDeliveryLocation || {
       address: isSalesmanMode && initialAssigned ? initialAssigned.deliveryAddress || "" : customerDefaults.deliveryAddress || "",
       locationSource: "MANUAL",
-      city: isSalesmanMode && initialAssigned ? initialAssigned.city || "Ahmedabad" : customerDefaults.city || "Ahmedabad",
+      city: isSalesmanMode && initialAssigned ? initialAssigned.city || "" : customerDefaults.city || "",
       pincode: isSalesmanMode && initialAssigned ? initialAssigned.pincode || "" : customerDefaults.pincode || "",
       state: isSalesmanMode && initialAssigned ? initialAssigned.state || "Gujarat" : "Gujarat",
     }
@@ -316,7 +316,7 @@ export function CustomerOrderForm({
     setCustomerMobile(cust.mobile);
     setCustomerEmail(cust.email || "");
     setDeliveryAddress(cust.deliveryAddress || "");
-    setCity(cust.city || "Ahmedabad");
+    setCity(cust.city || "");
     setPincode(cust.pincode || "");
     if (cust.gstin && cust.gstin.trim().length === 15) {
       setGstNumber(cust.gstin.trim().toUpperCase());
@@ -326,7 +326,7 @@ export function CustomerOrderForm({
     setDeliveryLocation((prev) => ({
       ...prev,
       address: cust.deliveryAddress || "",
-      city: cust.city || "Ahmedabad",
+      city: cust.city || "",
       pincode: cust.pincode || "",
       state: cust.state || "Gujarat",
     }));
@@ -340,12 +340,12 @@ export function CustomerOrderForm({
       setCustomerMobile(newCustomerMobile || "");
       setCustomerEmail(newCustomerEmail || "");
       setDeliveryAddress(newCustomerAddress || "");
-      setCity(newCustomerCity || "Ahmedabad");
+      setCity(newCustomerCity || "");
       setPincode(newCustomerPincode || "");
       setDeliveryLocation((prev) => ({
         ...prev,
         address: newCustomerAddress || "",
-        city: newCustomerCity || "Ahmedabad",
+        city: newCustomerCity || "",
         pincode: newCustomerPincode || "",
         state: newCustomerState || "Gujarat",
       }));
@@ -713,7 +713,7 @@ export function CustomerOrderForm({
                     {activeCustomerObj.deliveryAddress && (
                       <div className="sm:col-span-2">
                         <span className="text-slate-500 text-[10px] block">Master Profile Delivery Address:</span>
-                        <span className="text-slate-700">{activeCustomerObj.deliveryAddress} ({activeCustomerObj.city || "Ahmedabad"})</span>
+                        <span className="text-slate-700">{activeCustomerObj.deliveryAddress}{activeCustomerObj.city ? ` (${activeCustomerObj.city})` : ""}</span>
                       </div>
                     )}
                   </div>
@@ -835,7 +835,7 @@ export function CustomerOrderForm({
                       setCity(e.target.value);
                       setDeliveryLocation((prev) => ({ ...prev, city: e.target.value }));
                     }}
-                    placeholder="Ahmedabad"
+                    placeholder="e.g. Vadodara, Kheda"
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-navy outline-none focus:border-[#13789B] focus:ring-1 focus:ring-[#13789B]"
                   />
                 </div>

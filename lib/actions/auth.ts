@@ -84,7 +84,7 @@ export async function registerCustomerAction(formData: FormData) {
   const gstin = String(formData.get("gstin") ?? "").trim().toUpperCase() || null;
   const billingAddress = String(formData.get("billingAddress") ?? "").trim() || null;
   const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
-  const city = String(formData.get("city") ?? "Ahmedabad").trim() || "Ahmedabad";
+  const city = String(formData.get("city") ?? "").trim() || null;
   const state = String(formData.get("state") ?? "Gujarat").trim() || "Gujarat";
   const pincode = String(formData.get("pincode") ?? "").trim() || null;
 
@@ -194,7 +194,7 @@ export async function updateCustomerProfileAction(formData: FormData) {
   const gstin = String(formData.get("gstin") ?? "").trim().toUpperCase() || null;
   const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim();
   const billingAddress = String(formData.get("billingAddress") ?? "").trim() || deliveryAddress;
-  const city = String(formData.get("city") ?? "Ahmedabad").trim();
+  const city = String(formData.get("city") ?? "").trim() || null;
   const state = String(formData.get("state") ?? "Gujarat").trim();
   const pincode = String(formData.get("pincode") ?? "").trim() || null;
 

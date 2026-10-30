@@ -219,7 +219,7 @@ export function AppShell({
       ========================================================================= */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 hidden flex-col bg-[#111827] text-white transition-all duration-300 ease-in-out lg:flex",
+          "fixed inset-y-0 left-0 z-40 hidden flex-col bg-[#111827] text-white transition-all duration-300 ease-in-out lg:flex print:hidden",
           collapsed ? "w-20" : "w-64"
         )}
       >
@@ -365,7 +365,7 @@ export function AppShell({
       ========================================================================= */}
       {moreOpen && (
         <div
-          className="fixed inset-0 z-[1100] bg-black/60 backdrop-blur-xs lg:hidden animate-in fade-in duration-200 flex flex-col justify-end"
+          className="fixed inset-0 z-[1100] bg-black/60 backdrop-blur-xs lg:hidden animate-in fade-in duration-200 flex flex-col justify-end print:hidden"
           onClick={() => setMoreOpen(false)}
         >
           <div
@@ -735,12 +735,12 @@ export function AppShell({
       ========================================================================= */}
       <div
         className={cn(
-          "min-h-screen transition-all duration-300 ease-in-out flex flex-col",
+          "min-h-screen transition-all duration-300 ease-in-out flex flex-col print:p-0 print:m-0 print:pl-0",
           collapsed ? "lg:pl-20" : "lg:pl-64"
         )}
       >
         {/* Desktop Enterprise Top Header */}
-        <header className="sticky top-0 z-30 hidden h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-6 backdrop-blur-md lg:flex shadow-xs">
+        <header className="sticky top-0 z-30 hidden h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-6 backdrop-blur-md lg:flex shadow-xs print:hidden">
           <div className="flex items-center gap-3">
             <div>
               <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
@@ -774,7 +774,7 @@ export function AppShell({
         </header>
 
         {/* Mobile Top Header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200/80 bg-white/95 px-3 sm:px-4 backdrop-blur-md lg:hidden shadow-xs min-w-0 max-w-full">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200/80 bg-white/95 px-3 sm:px-4 backdrop-blur-md lg:hidden shadow-xs min-w-0 max-w-full print:hidden">
           <Link
             href={
               user.role === "CUSTOMER"
@@ -814,14 +814,14 @@ export function AppShell({
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 w-full max-w-full min-w-0 pb-24 sm:pb-28 lg:pb-8 overflow-x-clip">
-          <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>
+        <main className="flex-1 w-full max-w-full min-w-0 pb-24 sm:pb-28 lg:pb-8 overflow-x-clip print:p-0 print:m-0 print:overflow-visible">
+          <div className="mx-auto w-full max-w-7xl min-w-0 print:max-w-full print:p-0 print:m-0">{children}</div>
         </main>
 
         {/* Mobile Sticky Bottom Navigation Bar */}
         <nav
           style={{ position: "fixed", bottom: 0, left: 0, width: "100%", zIndex: 1000 }}
-          className="border-t border-slate-200/90 bg-white/95 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-1 px-1.5 backdrop-blur-md lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
+          className="border-t border-slate-200/90 bg-white/95 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-1 px-1.5 backdrop-blur-md lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)] print:hidden"
         >
           {user.role === "ADMIN" && (
             <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">

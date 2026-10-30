@@ -159,7 +159,7 @@ export default async function SalesmanNewOrderPage({
           mobile: selectedCust?.mobile || "",
           email: selectedCust?.email || "",
           deliveryAddress: selectedCust?.deliveryAddress || "",
-          city: selectedCust?.city || "Ahmedabad",
+          city: selectedCust?.city || "",
           pincode: selectedCust?.pincode || "",
         }}
         defaultProductId={productId}

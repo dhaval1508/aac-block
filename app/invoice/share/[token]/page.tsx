@@ -41,6 +41,17 @@ export default async function PublicInvoiceSharePage({
     gstAmount: Number(order.gstAmount),
     totalAmount: Number(order.totalAmount),
     paidAmount: Number(order.paidAmount),
+    totalCbm: order.totalCbm ? Number(order.totalCbm) : null,
+    loadedCbm: order.loadedCbm ? Number(order.loadedCbm) : null,
+    totalSqft: order.totalSqft ? Number(order.totalSqft) : null,
+    pricePerCbm: order.pricePerCbm ? Number(order.pricePerCbm) : null,
+    latitude: order.latitude ? Number(order.latitude) : null,
+    longitude: order.longitude ? Number(order.longitude) : null,
+    customer: order.customer
+      ? {
+          ...order.customer,
+        }
+      : null,
     items: order.items.map((it) => ({
       id: it.id,
       productName: it.productName,

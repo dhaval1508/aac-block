@@ -137,8 +137,8 @@ export default async function CustomerEditOrderPage({
     longitude: order.longitude ? Number(order.longitude) : undefined,
     customSiteName: order.customSiteName || undefined,
     villageArea: order.villageArea || undefined,
-    city: order.city || "Ahmedabad",
-    district: order.district || "Ahmedabad",
+    city: order.city || "",
+    district: order.district || "",
     state: order.state || "Gujarat",
     pincode: order.pincode || "",
     nearbyLandmark: order.nearbyLandmark || undefined,
@@ -201,7 +201,7 @@ export default async function CustomerEditOrderPage({
           mobile: order.customer.mobile,
           email: order.customer.email,
           deliveryAddress: order.deliveryAddress,
-          city: order.city || "Ahmedabad",
+          city: order.city || "",
           pincode: order.pincode || "",
         }}
         defaultAdhesiveBags={order.adhesiveBags ?? 0}

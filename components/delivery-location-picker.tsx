@@ -73,8 +73,8 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
         const lng = Number(pos.coords.longitude.toFixed(6));
 
         let formattedAddress = `GPS Location: ${lat}, ${lng}`;
-        let city = value.city || "Ahmedabad";
-        let district = value.district || "Ahmedabad";
+        let city = value.city || "";
+        let district = value.district || "";
         let state = value.state || "Gujarat";
         let pincode = value.pincode || "";
 
@@ -177,7 +177,7 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
         longitude: data.longitude ?? value.longitude,
         address: confirmedAddress,
         customSiteName: data.siteName || value.customSiteName,
-        city: data.city || value.city || "Ahmedabad",
+        city: data.city || value.city || "",
         state: data.state || value.state || "Gujarat",
       });
     } catch (err: any) {
@@ -523,7 +523,7 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
                 disabled={disabled}
                 value={value.city || ""}
                 onChange={(e) => onChange({ ...value, city: e.target.value })}
-                placeholder="Ahmedabad"
+                placeholder="City (e.g. Vadodara, Kheda)"
                 className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
               />
             </div>
@@ -534,7 +534,7 @@ export function DeliveryLocationPicker({ value, onChange, disabled }: Props) {
                 disabled={disabled}
                 value={value.district || ""}
                 onChange={(e) => onChange({ ...value, district: e.target.value })}
-                placeholder="Ahmedabad"
+                placeholder="City (e.g. Vadodara, Kheda)"
                 className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-navy focus:border-[#13789B] outline-none"
               />
             </div>

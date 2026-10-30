@@ -110,7 +110,7 @@ export default async function CustomerNewOrderPage({
           mobile: session.role === "ADMIN" ? "" : (user?.mobile || ""),
           email: session.role === "ADMIN" ? "" : (user?.email || ""),
           deliveryAddress: (session.role === "ADMIN" || user?.deliveryAddress?.includes("Swarnim AAC Block Yard")) ? "" : (user?.deliveryAddress || ""),
-          city: session.role === "ADMIN" ? "Ahmedabad" : (user?.city || ""),
+          city: user?.city || "",
           pincode: session.role === "ADMIN" ? "" : (user?.pincode || ""),
           gstin: session.role === "ADMIN" ? "" : (user?.gstin || ""),
           companyName: session.role === "ADMIN" ? "" : (user?.companyName || user?.name || ""),

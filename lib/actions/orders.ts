@@ -186,7 +186,7 @@ export async function placeCustomerOrderAction(formData: FormData) {
         const newEmail = String(formData.get("newCustomerEmail") ?? "").trim() || null;
         const newCompany = String(formData.get("newCustomerCompanyName") ?? "").trim() || null;
         const newAddress = String(formData.get("newCustomerAddress") ?? formData.get("deliveryAddress") ?? "").trim();
-        const newCity = String(formData.get("newCustomerCity") ?? formData.get("city") ?? "").trim() || "Ahmedabad";
+        const newCity = String(formData.get("newCustomerCity") ?? formData.get("city") ?? "").trim() || null;
         const newState = String(formData.get("newCustomerState") ?? formData.get("state") ?? "").trim() || "Gujarat";
         const newPincode = String(formData.get("newCustomerPincode") ?? formData.get("pincode") ?? "").trim() || null;
 
@@ -309,8 +309,20 @@ export async function placeCustomerOrderAction(formData: FormData) {
       }
     }
 
-    // Append city and pincode to address if not already present and not a raw URL
-    if (!isGoogleMapsUrl(deliveryAddress)) {
+    // Append city and pincode to address only if it's a genuine text address (never on raw coordinates or maps URLs)
+    const isCoords = /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(deliveryAddress.trim());
+    if (isCoords || !deliveryAddress) {
+      // If deliveryAddress was just coordinates or blank, fall back to customer's site address if available
+      const custObj = await prisma.user.findUnique({
+        where: { id: targetCustomerId },
+        select: { deliveryAddress: true, city: true, pincode: true },
+      });
+      if (custObj?.deliveryAddress && !isGoogleMapsUrl(custObj.deliveryAddress) && !/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(custObj.deliveryAddress.trim())) {
+        deliveryAddress = custObj.deliveryAddress;
+      }
+    }
+
+    if (!isGoogleMapsUrl(deliveryAddress) && !isCoords) {
       if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
         deliveryAddress = `${deliveryAddress}, ${city}`;
       }
@@ -1906,7 +1918,8 @@ export async function editCustomerOrderAction(formData: FormData) {
   const nearbyLandmark = String(formData.get("nearbyLandmark") ?? "").trim() || null;
   const locationSource = String(formData.get("locationSource") ?? (googleMapsUrl ? "GOOGLE_MAPS_LINK" : googlePlaceId ? "GOOGLE_MAPS" : "MANUAL"));
 
-  if (!isGoogleMapsUrl(deliveryAddress)) {
+  const isCoordsUpdate = /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(deliveryAddress.trim());
+  if (!isGoogleMapsUrl(deliveryAddress) && !isCoordsUpdate) {
     if (city && !deliveryAddress.toLowerCase().includes(city.toLowerCase())) {
       deliveryAddress = `${deliveryAddress}, ${city}`;
     }

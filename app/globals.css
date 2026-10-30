@@ -113,3 +113,90 @@ input[type="number"] {
   }
 }
 
+/* =========================================================================
+   OFFICIAL A4 PRINT STYLES - STRICT SINGLE-PAGE SPECIFICATION
+   ========================================================================= */
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
+@media print {
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Completely suppress all browser application chrome, navigation, buttons and notifications */
+  header,
+  nav,
+  aside,
+  button,
+  .print\:hidden,
+  [data-print-hidden="true"],
+  [role="dialog"],
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset outer shell containers to zero out offsets */
+  main,
+  div {
+    box-sizing: border-box;
+  }
+
+  /* Force Delivery Challan A4 sheet to strictly avoid page breaks */
+  .challan-a4-document {
+    width: 100% !important;
+    max-width: 194mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    overflow: hidden !important;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Ensure multi-column sections maintain print column layout regardless of screen width */
+  .print-grid-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .print-grid-3 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .print-flex-row {
+    display: flex !important;
+    flex-direction: row !important;
+  }
+}
+
+

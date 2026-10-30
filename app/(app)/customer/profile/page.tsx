@@ -192,9 +192,9 @@ export default async function CustomerProfilePage({
                   <label className="label">City</label>
                   <input
                     name="city"
-                    defaultValue={user.city ?? "Ahmedabad"}
+                    defaultValue={user.city ?? ""}
                     className="field"
-                    placeholder="Ahmedabad"
+                    placeholder="e.g. Vadodara, Surat"
                   />
                 </div>
                 <div>

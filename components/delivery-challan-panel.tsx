@@ -31,6 +31,9 @@ interface Props {
       name: string;
       companyName?: string | null;
       mobile: string;
+      deliveryAddress?: string | null;
+      billingAddress?: string | null;
+      city?: string | null;
     } | null;
     product?: {
       name?: string | null;
@@ -83,6 +86,26 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
   const rstNumber =
     order.weighbridgeSlip?.rstNumber || order.loadingRecord?.rstNumber || null;
 
+  const cleanDeliveryAddress = React.useMemo(() => {
+    let addr = (order.deliveryAddress || "").trim();
+    if (/^-?\d+\.\d+\s*,\s*-?\d+\.\d+(?:,\s*.*)?$/i.test(addr)) {
+      const custDelivery = order.customer?.deliveryAddress?.trim();
+      const custBilling = order.customer?.billingAddress?.trim();
+      if (custDelivery && !custDelivery.startsWith("http") && !/^-?\d+\.\d+/.test(custDelivery)) {
+        addr = custDelivery;
+      } else if (custBilling && !custBilling.startsWith("http") && !/^-?\d+\.\d+/.test(custBilling)) {
+        addr = custBilling;
+      } else {
+        addr = "—";
+      }
+    }
+    const custCity = (order.customer?.city || "").trim();
+    if (custCity && custCity.toLowerCase() !== "ahmedabad") {
+      addr = addr.replace(/,\s*Ahmedabad(?:\s*-\s*\d{6})?/gi, "").trim();
+    }
+    return addr.replace(/[,\s-]+$/, "").trim() || "—";
+  }, [order.deliveryAddress, order.customer]);
+
   // Build WhatsApp Share Message with ALL material items
   const waChallanHref = React.useMemo(() => {
     const mobile = order.customer?.mobile || order.transport?.driverMobile;
@@ -129,14 +152,14 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
       order.transport?.truckNumber ? `Vehicle Number: ${order.transport.truckNumber}` : null,
       order.transport?.driverName ? `Driver: ${order.transport.driverName} (${order.transport.driverMobile || ""})` : null,
       netWeight ? `Certified Net Weight: ${netWeight.toLocaleString()} KG` : null,
-      `Delivery Site: ${order.deliveryAddress}`,
+      `Delivery Site: ${cleanDeliveryAddress}`,
       mapsLink ? `Google Maps: ${mapsLink}` : null,
       `HSN Classification: 6810 (AAC Blocks) · 38245090 (Jointing Morter)`,
       `Status: ${order.status}`,
     ].filter(Boolean);
 
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(lines.join("\n"))}`;
-  }, [order, challanNo, netWeight]);
+  }, [order, challanNo, netWeight, cleanDeliveryAddress]);
 
   if (!isConfirmedOrBeyond) {
     return null;
@@ -256,8 +279,8 @@ export function DeliveryChallanPanel({ order, userRole }: Props) {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1.5 pt-1.5 border-t border-slate-200/60">
               <span className="text-slate-500 font-semibold shrink-0">Delivery Site & Map</span>
               <div className="flex items-center gap-2 flex-wrap sm:justify-end">
-                <span className="text-navy font-semibold break-words">{order.deliveryAddress}</span>
-                <OpenLocationButton address={order.deliveryAddress} variant="badge" />
+                <span className="text-navy font-semibold break-words">{cleanDeliveryAddress}</span>
+                <OpenLocationButton address={cleanDeliveryAddress !== "—" ? cleanDeliveryAddress : order.deliveryAddress} variant="badge" />
               </div>
             </div>
           </div>
