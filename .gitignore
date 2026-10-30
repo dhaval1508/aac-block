@@ -49,6 +49,7 @@ prisma/migrations_backup*
 
 # logs & scratch
 scripts/test-output/
+scripts/test-output-live/
 *.log
 scratch/
 archive/
