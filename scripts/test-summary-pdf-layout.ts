@@ -1,7 +1,7 @@
 import { chromium } from "playwright-core";
 import { prisma } from "../lib/prisma";
 import { getCompanyProfile } from "../lib/company-profile";
-import { renderOrderSummaryHtml } from "../app/api/orders/[id]/summary-pdf/route";
+import { renderOrderSummaryHtml } from "../lib/order-summary-template";
 import fs from "fs";
 import path from "path";
 
