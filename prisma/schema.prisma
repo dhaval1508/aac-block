@@ -55,11 +55,13 @@ model User {
   passwordHash    String
   companyName     String?
   gstin           String?
-  billingAddress  String?
-  deliveryAddress String?
+  billingAddress  String?         @db.Text
+  deliveryAddress String?         @db.Text
   city            String?
   state           String?         @default("Gujarat")
   pincode         String?
+  avatarUrl       String?         @db.Text
+  lastLoginAt     DateTime?
   active          Boolean         @default(true)
   deletedAt       DateTime?
   createdAt       DateTime        @default(now())
@@ -67,7 +69,7 @@ model User {
 
   // Salesman specific profile fields
   salesmanCode    String?         @unique // e.g. "SAB-SALES-001"
-  remarks         String?
+  remarks         String?         @db.Text
 
   // Customer-to-Salesman assignment (One active salesman per customer)
   salesmanId      String?
@@ -86,6 +88,8 @@ model User {
   notifications     Notification[]
   invitationsCreated CustomerInvitation[] @relation("SalesmanInvitations")
   assignmentHistory  CustomerAssignmentHistory[] @relation("CustomerAssignments")
+  auditLogs          UserAuditLog[]              @relation("UserAuditLogs")
+  actionsLogged      UserAuditLog[]              @relation("ActorAuditLogs")
 
   @@index([role])
   @@index([mobile])
@@ -111,7 +115,7 @@ model Product {
   jointThicknessMm Decimal?      @default(3.0) @db.Decimal(5, 2)
   price          Decimal         @default(0) @db.Decimal(12, 2)
   gstRate        Decimal         @default(18.00) @db.Decimal(5, 2)
-  description    String?
+  description    String?         @db.Text
   productType    String?
   active         Boolean         @default(true)
   deletedAt      DateTime?
@@ -148,11 +152,11 @@ model Order {
   subtotal        Decimal         @db.Decimal(14, 2)
   gstAmount       Decimal         @db.Decimal(14, 2)
   totalAmount     Decimal         @db.Decimal(14, 2)
-  deliveryAddress String
+  deliveryAddress String          @db.Text
   requestedDate   DateTime?
-  notes           String?
+  notes           String?         @db.Text
   pricePerCbm     Decimal?        @db.Decimal(12, 2)
-  pricingRemarks  String?
+  pricingRemarks  String?         @db.Text
   status          OrderStatus     @default(PENDING)
   invoiceNo       String?         @unique // e.g. "INV-2026-0001"
   dcNumber        String?         @unique // Delivery Challan series e.g. "SAB/DC/0001"
@@ -164,17 +168,17 @@ model Order {
   
   // Google Maps & Custom Delivery Location fields
   googlePlaceId   String?
-  googleMapsUrl   String?         // Validated Google Maps short/full link (e.g. maps.app.goo.gl/...)
+  googleMapsUrl   String?         @db.Text // Validated Google Maps short/full link (e.g. maps.app.goo.gl/...)
   latitude        Decimal?        @db.Decimal(10, 7)
   longitude       Decimal?        @db.Decimal(10, 7)
-  formattedAddress String?
+  formattedAddress String?        @db.Text
   customSiteName  String?
   villageArea     String?
   city            String?
   district        String?
   state           String?
   pincode         String?
-  nearbyLandmark  String?
+  nearbyLandmark  String?         @db.Text
   locationSource  String?         @default("MANUAL") // "GPS" | "GOOGLE_MAPS_LINK" | "MANUAL"
 
   // Salesman attribution
@@ -270,7 +274,7 @@ model OrderEvent {
   order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   status      OrderStatus
   title       String
-  note        String?
+  note        String?     @db.Text
   createdById String?
   createdBy   User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
@@ -304,7 +308,7 @@ model StockMovement {
   quantityDelta Int       // Positive for IN, Negative for OUT (blocks or bags)
   cbmDelta      Decimal?  @default(0) @db.Decimal(14, 4) // Primary CBM delta for AAC Blocks
   referenceNo   String?
-  note          String?
+  note          String?   @db.Text
   purchasePrice Decimal?  @db.Decimal(12, 2)
   sellingPrice  Decimal?  @db.Decimal(12, 2)
   supplier      String?
@@ -326,7 +330,7 @@ model MessageLog {
   order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   messageType String    // invoice, confirmed, assigned, loading, loaded, dispatched, delivered, payment
   mobile      String
-  messageText String
+  messageText String    @db.Text
   createdById String?
   createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
@@ -338,10 +342,10 @@ model PushSubscription {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String   @unique
-  p256dh    String
+  endpoint  String   @unique @db.VarChar(500)
+  p256dh    String   @db.Text
   auth      String
-  userAgent String?
+  userAgent String?  @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -354,10 +358,10 @@ model Notification {
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   role      Role?
   title     String
-  message   String
+  message   String   @db.Text
   type      String   // NEW_ORDER, ORDER_ASSIGNED, STATUS_CHANGE, DISPATCH, etc.
   orderId   String?
-  link      String?
+  link      String?  @db.Text
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -371,10 +375,10 @@ model NotificationDeliveryLog {
   id             String   @id @default(cuid())
   notificationId String?
   userId         String?
-  endpoint       String
+  endpoint       String   @db.VarChar(500)
   status         String   // SUCCESS | FAILED
   statusCode     Int?
-  error          String?
+  error          String?  @db.Text
   sentAt         DateTime @default(now())
 
   @@index([userId])
@@ -384,8 +388,8 @@ model NotificationDeliveryLog {
 model SystemSetting {
   id          String   @id @default(cuid())
   key         String   @unique
-  value       String
-  description String?
+  value       String   @db.Text
+  description String?  @db.Text
   updatedAt   DateTime @updatedAt
 }
 
@@ -404,8 +408,8 @@ model WeighbridgeSlip {
   grossWeightKg   Decimal?  @db.Decimal(10, 2)
   tareWeightKg    Decimal?  @db.Decimal(10, 2)
   netWeightKg     Decimal   @db.Decimal(10, 2)
-  remarks         String?
-  slipUrl         String?
+  remarks         String?   @db.Text
+  slipUrl         String?   @db.Text
   fileType        String?
   fileName        String?
   createdById     String?
@@ -435,7 +439,7 @@ model LoadingRecord {
   grossWeight      Decimal?  @db.Decimal(10, 2)
   tareWeight       Decimal?  @db.Decimal(10, 2)
   netWeight        Decimal?  @db.Decimal(10, 2)
-  remarks          String?
+  remarks          String?   @db.Text
   createdById      String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -452,7 +456,8 @@ model OrderEditHistory {
   userRole       String
   previousValues Json
   newValues      Json
-  changedFields  String[]
+  // MySQL has no native string arrays — store as JSON array
+  changedFields  Json
   orderVersion   Int
   createdAt      DateTime  @default(now())
 
@@ -466,7 +471,7 @@ model CompanyProfile {
   tradeName          String   @default("SWARNIM AAC BLOCK PRIVATE LIMITED")
   gstin              String   @default("24ABNCS5280K1ZU")
   constitution       String   @default("Private Limited Company")
-  registeredAddress  String   @default("Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470")
+  registeredAddress  String   @default("Office No. 615, D-6th Floor, Ganesh Glory 11, Jagatpur Chenpur Road, Ahmedabad, Gujarat - 382470") @db.VarChar(500)
   state              String   @default("Gujarat")
   district           String   @default("Ahmedabad")
   registrationDate   String   @default("07/08/2024")
@@ -476,19 +481,19 @@ model CompanyProfile {
   altMobile          String?
   companyEmail       String?
   website            String?
-  factoryAddress     String?
+  factoryAddress     String?  @db.Text
   factoryContact     String?
   factoryName        String?   @default("Swarnim AAC Manufacturing Plant & Yard")
-  yardAddress        String?
+  yardAddress        String?  @db.Text
   factoryCity        String?
   factoryDistrict    String?
   factoryState       String?   @default("Gujarat")
   factoryPincode     String?
-  factoryMapsUrl     String?
-  officeAddress      String?
+  factoryMapsUrl     String?  @db.Text
+  officeAddress      String?  @db.Text
   signatoryName      String?
-  logoUrl            String?
-  stampUrl           String?
+  logoUrl            String?  @db.Text
+  stampUrl           String?  @db.Text
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -526,10 +531,26 @@ model CustomerAssignmentHistory {
   fromSalesmanId String?
   toSalesmanId   String?
   assignedById   String?
-  reason         String?
+  reason         String?  @db.Text
   createdAt      DateTime @default(now())
 
   @@index([customerId])
+  @@index([createdAt])
+}
+
+model UserAuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?    @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  details   Json
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([actorId])
+  @@index([action])
   @@index([createdAt])
 }
 

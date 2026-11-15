@@ -35,6 +35,8 @@ import {
   telHref,
   whatsappHref,
   mapsHref,
+  asStringArray,
+  serializeForClient,
 } from "@/lib/utils";
 import { buildWhatsAppMessage } from "@/lib/whatsapp";
 import { confirmOrderAction, dispatchOrderAction, markOrderDoneAction } from "@/lib/actions/orders";
@@ -89,6 +91,8 @@ export default async function StockerOrderDetailPage({
   ]);
 
   if (!order) notFound();
+
+  const clientOrder = serializeForClient(order);
 
   const primaryProductId =
     order.productId ||
@@ -690,7 +694,7 @@ export default async function StockerOrderDetailPage({
           {/* Shared Loading Staff & Truck Staging Form (Available after confirmation) */}
           {order.status !== OrderStatus.PENDING && (
             <TruckStagingForm
-              order={order as any}
+              order={clientOrder as any}
               staffList={staffList}
               userRole={session.role as any}
               currentUserId={session.id}
@@ -701,7 +705,7 @@ export default async function StockerOrderDetailPage({
           {/* Shared Delivery Challan Documentation (Available after confirmation) */}
           {order.status !== OrderStatus.PENDING && (
             <DeliveryChallanPanel
-              order={order as any}
+              order={clientOrder as any}
               userRole={session.role as any}
             />
           )}
@@ -823,7 +827,7 @@ export default async function StockerOrderDetailPage({
       {/* =========================================================================
           100% FULL-WIDTH: WEIGHBRIDGE SLIP, VEHICLE DETAILS & DRIVER WHATSAPP
       ========================================================================= */}
-      <StaffWeighbridgeVehiclePanel order={order} />
+      <StaffWeighbridgeVehiclePanel order={clientOrder as any} />
 
       {/* =========================================================================
           100% FULL-WIDTH: ORDER CHANGE HISTORY (AUDIT)
@@ -851,7 +855,7 @@ export default async function StockerOrderDetailPage({
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-xs text-slate-500 font-semibold">Modified Fields:</span>
-                  {hist.changedFields.map((f) => (
+                  {asStringArray(hist.changedFields).map((f) => (
                     <span key={f} className="rounded-md bg-teal-100 text-teal-800 text-[11px] font-bold px-2 py-0.5">
                       {f}
                     </span>

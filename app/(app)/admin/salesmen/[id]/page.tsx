@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { SalesmanDetailView } from "@/components/salesman-detail-view";
+import { serializeForClient } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -138,7 +139,7 @@ export default async function AdminSalesmanDetailPage({
   return (
     <div className="space-y-6">
       <SalesmanDetailView
-        salesman={{
+        salesman={serializeForClient({
           id: salesman.id,
           name: salesman.name,
           salesmanCode: salesman.salesmanCode,
@@ -148,11 +149,11 @@ export default async function AdminSalesmanDetailPage({
           address: salesman.deliveryAddress || salesman.billingAddress || null,
           remarks: salesman.remarks,
           createdAt: salesman.createdAt,
-        }}
-        customers={customerItems}
-        orders={orderItems}
-        history={historyItems}
-        otherSalesmen={otherSalesmen}
+        })}
+        customers={serializeForClient(customerItems)}
+        orders={serializeForClient(orderItems)}
+        history={serializeForClient(historyItems)}
+        otherSalesmen={serializeForClient(otherSalesmen)}
       />
     </div>
   );

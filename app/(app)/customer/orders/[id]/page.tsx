@@ -28,6 +28,7 @@ import {
   mapsHref,
   canViewOrderPricing,
   calculateOrderPrice,
+  asStringArray,
 } from "@/lib/utils";
 import { DownloadOrderSummaryButton } from "@/components/download-order-summary-btn";
 import { OpenLocationButton } from "@/components/open-location-button";
@@ -619,7 +620,7 @@ export default async function CustomerOrderDetailPage({
                   <span className="text-slate-400 text-[11px]">{formatDateTime(h.createdAt)}</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {h.changedFields.map((f) => (
+                  {asStringArray(h.changedFields).map((f) => (
                     <span key={f} className="rounded-md bg-teal-100 text-teal-800 text-[10px] font-bold px-2 py-0.5">
                       {f}
                     </span>

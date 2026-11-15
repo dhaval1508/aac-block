@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { PlusCircle } from "lucide-react";
 import { SalesmanOrdersView, SalesmanOrderItem } from "@/components/salesman-orders-view";
+import { serializeForClient } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export default async function SalesmanOrdersPage({
       </div>
 
       <SalesmanOrdersView
-        orders={orderItems}
+        orders={serializeForClient(orderItems)}
         initialCustomerId={customer}
       />
     </div>

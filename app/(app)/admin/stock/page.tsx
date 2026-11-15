@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { getStockBySize, getMortarStock } from "@/lib/data";
 import { StockManager } from "@/components/stock-manager";
 import { resolveDateRange, buildPrismaDateFilter } from "@/lib/date-utils";
+import { serializeForClient } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -49,37 +50,39 @@ export default async function AdminStockPage({
     }),
   ]);
 
-  const serializedMovements = movements.map((m) => ({
-    id: m.id,
-    type: m.type,
-    quantityDelta: m.quantityDelta,
-    cbmDelta: m.cbmDelta != null ? Number(m.cbmDelta) : null,
-    referenceNo: m.referenceNo,
-    note: m.note,
-    purchasePrice: m.purchasePrice ? Number(m.purchasePrice) : null,
-    sellingPrice: m.sellingPrice ? Number(m.sellingPrice) : null,
-    supplier: m.supplier,
-    entryDate: m.entryDate ? m.entryDate.toISOString() : null,
-    createdAt: m.createdAt.toISOString(),
-    updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
-    product: {
-      id: m.product.id,
-      name: m.product.name,
-      category: m.product.category,
-      sizeLabel: m.product.sizeLabel,
-      dimensions: m.product.dimensions,
-      bagWeightKg: m.product.bagWeightKg ? Number(m.product.bagWeightKg) : null,
-      cbmPerBlock: m.product.cbmPerBlock ? Number(m.product.cbmPerBlock) : 0,
-    },
-    order: m.order ? { id: m.order.id, orderNo: m.order.orderNo } : null,
-    createdBy: m.createdBy ? { name: m.createdBy.name } : null,
-  }));
+  const serializedMovements = serializeForClient(
+    movements.map((m) => ({
+      id: m.id,
+      type: m.type,
+      quantityDelta: m.quantityDelta,
+      cbmDelta: m.cbmDelta != null ? Number(m.cbmDelta) : null,
+      referenceNo: m.referenceNo,
+      note: m.note,
+      purchasePrice: m.purchasePrice ? Number(m.purchasePrice) : null,
+      sellingPrice: m.sellingPrice ? Number(m.sellingPrice) : null,
+      supplier: m.supplier,
+      entryDate: m.entryDate ? m.entryDate.toISOString() : null,
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
+      product: {
+        id: m.product.id,
+        name: m.product.name,
+        category: m.product.category,
+        sizeLabel: m.product.sizeLabel,
+        dimensions: m.product.dimensions,
+        bagWeightKg: m.product.bagWeightKg ? Number(m.product.bagWeightKg) : null,
+        cbmPerBlock: m.product.cbmPerBlock ? Number(m.product.cbmPerBlock) : 0,
+      },
+      order: m.order ? { id: m.order.id, orderNo: m.order.orderNo } : null,
+      createdBy: m.createdBy ? { name: m.createdBy.name } : null,
+    }))
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <StockManager
-        products={products}
-        mortarStock={mortarStock}
+        products={serializeForClient(products)}
+        mortarStock={serializeForClient(mortarStock)}
         movements={serializedMovements}
         role="ADMIN"
         error={error}

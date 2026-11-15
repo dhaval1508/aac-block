@@ -120,7 +120,7 @@ export async function verifyGstNumber(rawGstin: string): Promise<GstVerification
   // 1. Check if it matches Company Profile
   try {
     const company = await prisma.companyProfile.findFirst({
-      where: { gstin: { equals: gstin, mode: "insensitive" } },
+      where: { gstin: { equals: gstin } },
     });
     if (company) {
       return {
@@ -144,7 +144,7 @@ export async function verifyGstNumber(rawGstin: string): Promise<GstVerification
   try {
     const matchedUser = await prisma.user.findFirst({
       where: {
-        gstin: { equals: gstin, mode: "insensitive" },
+        gstin: { equals: gstin },
       },
       select: {
         name: true,

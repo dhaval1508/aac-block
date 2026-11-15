@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { SalesmanCustomersTable, SalesmanCustomerItem } from "@/components/salesman-customers-table";
+import { serializeForClient } from "@/lib/utils";
 import { UserPlus, Send, PlusCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +90,7 @@ export default async function SalesmanCustomersPage() {
         </div>
       </div>
 
-      <SalesmanCustomersTable customers={customerItems} />
+      <SalesmanCustomersTable customers={serializeForClient(customerItems)} />
     </div>
   );
 }

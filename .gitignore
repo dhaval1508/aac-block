@@ -43,6 +43,7 @@ prisma/migrations_backup*
 # database dumps and backups
 *.dump
 *.sql
+*.zip
 !prisma/migrations/**/*.sql
 *.tar
 *.bak
@@ -53,6 +54,9 @@ scripts/test-output-live/
 *.log
 scratch/
 archive/
+
+.vercel
+.env*
 
 .vercel
 .env*

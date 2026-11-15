@@ -37,6 +37,7 @@ import {
   ORDER_STATUS_CLASS,
   ORDER_STATUS_LABEL,
   calculateOrderPrice,
+  serializeForClient,
 } from "@/lib/utils";
 import { resolveDateRange, buildPrismaDateFilter } from "@/lib/date-utils";
 import { DateRangeFilter } from "@/components/date-range-filter";
@@ -152,11 +153,11 @@ export default async function AdminOrdersPage({
   if (q.trim()) {
     const term = q.trim();
     whereClause.OR = [
-      { orderNo: { contains: term, mode: "insensitive" } },
-      { customer: { name: { contains: term, mode: "insensitive" } } },
-      { customer: { companyName: { contains: term, mode: "insensitive" } } },
-      { transport: { truckNumber: { contains: term, mode: "insensitive" } } },
-      { transport: { driverName: { contains: term, mode: "insensitive" } } },
+      { orderNo: { contains: term } },
+      { customer: { name: { contains: term } } },
+      { customer: { companyName: { contains: term } } },
+      { transport: { truckNumber: { contains: term } } },
+      { transport: { driverName: { contains: term } } },
     ];
   }
 
@@ -206,6 +207,8 @@ export default async function AdminOrdersPage({
       orderBy: { name: "asc" },
     }),
   ]);
+
+  const plainOrders = serializeForClient(orders);
 
   const countMap: Record<string, number> = {};
   for (const c of statusGroups) {
@@ -438,7 +441,7 @@ export default async function AdminOrdersPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {orders.map((o) => (
+              {plainOrders.map((o) => (
                 <AdminOrderRow key={o.id} order={o as any} />
               ))}
             </tbody>
@@ -447,7 +450,7 @@ export default async function AdminOrdersPage({
 
         {/* Mobile / Tablet Responsive Cards View */}
         <div className="lg:hidden divide-y divide-slate-100 min-w-0">
-          {orders.map((o) => {
+          {plainOrders.map((o) => {
             const isEmail = (s?: string | null) => Boolean(s && s.includes("@"));
             const rawCustName = o.customer?.name?.trim();
             const rawCompName = o.customer?.companyName?.trim();
@@ -464,108 +467,116 @@ export default async function AdminOrdersPage({
             const pricing = calculateOrderPrice(o);
 
             return (
-              <Link
+              <div
                 key={o.id}
-                href={`/admin/orders/${o.id}`}
-                className="block p-3.5 sm:p-4 hover:bg-slate-50 transition-colors min-w-0"
+                className="p-3.5 sm:p-4 hover:bg-slate-50 transition-colors min-w-0"
               >
-                <div className="flex items-start justify-between gap-2 min-w-0">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                      <span className="font-black text-sm text-[#13789B] font-mono">{o.orderNo}</span>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                          ORDER_STATUS_CLASS[o.status]
-                        }`}
-                      >
-                        {getStatusIcon(o.status)}
-                        <span>{ORDER_STATUS_LABEL[o.status]}</span>
+                {/* Order Link and Maps button must stay siblings — never nest <a> in <a> */}
+                <Link
+                  href={`/admin/orders/${o.id}`}
+                  className="block min-w-0"
+                >
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <span className="font-black text-sm text-[#13789B] font-mono">{o.orderNo}</span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                            ORDER_STATUS_CLASS[o.status]
+                          }`}
+                        >
+                          {getStatusIcon(o.status)}
+                          <span>{ORDER_STATUS_LABEL[o.status]}</span>
+                        </span>
+                        {o.gstBillingSelected === true ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                            <ShieldCheck className="h-3 w-3" />
+                            <span>GST Bill</span>
+                          </span>
+                        ) : o.gstBillingSelected === false ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                            <FileText className="h-3 w-3" />
+                            <span>No GST</span>
+                          </span>
+                        ) : null}
+                        {o.createdByRole === "SALESMAN" ? (
+                          <span className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                            Sales: {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
+                            Customer Order
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 font-bold text-xs text-navy truncate" title={primaryName}>
+                        {primaryName}
+                      </p>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <p className="font-black text-sm text-navy">
+                        {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
+                      </p>
+                      <span className="text-[10px] text-slate-400 italic block">
+                        ≈ {formatNumber(o.quantity)} Blocks
                       </span>
-                      {o.gstBillingSelected === true ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                          <ShieldCheck className="h-3 w-3" />
-                          <span>GST Bill</span>
-                        </span>
-                      ) : o.gstBillingSelected === false ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                          <FileText className="h-3 w-3" />
-                          <span>No GST</span>
-                        </span>
-                      ) : null}
-                      {o.createdByRole === "SALESMAN" ? (
-                        <span className="rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
-                          Sales: {o.createdByNameSnapshot || o.salesman?.name || "Salesman"}
-                        </span>
+                      {pricing.isPriceAdded ? (
+                        <div className="mt-1">
+                          <span className="font-black text-sm text-emerald-700 block font-mono">
+                            {pricing.formattedTotal}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium block">
+                            {pricing.formattedRate}
+                          </span>
+                        </div>
                       ) : (
-                        <span className="rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#13789B]">
-                          Customer Order
+                        <span className="text-[11px] text-slate-400 italic font-medium block mt-1">
+                          Price Not Added
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 font-bold text-xs text-navy truncate" title={primaryName}>
-                      {primaryName}
-                    </p>
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <p className="font-black text-sm text-navy">
-                      {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
-                    </p>
-                    <span className="text-[10px] text-slate-400 italic block">
-                      ≈ {formatNumber(o.quantity)} Blocks
-                    </span>
-                    {pricing.isPriceAdded ? (
-                      <div className="mt-1">
-                        <span className="font-black text-sm text-emerald-700 block font-mono">
-                          {pricing.formattedTotal}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium block">
-                          {pricing.formattedRate}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic font-medium block mt-1">
-                        Price Not Added
-                      </span>
-                    )}
+                  <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
+                    <div className="min-w-0 col-span-2">
+                      <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Material Items</span>
+                      <p className="font-bold text-navy truncate">
+                        {o.items && o.items.length > 0
+                          ? o.items.map((it) => `${it.productName || it.product?.name} (${it.totalCbm ? `${Number(it.totalCbm).toFixed(2)} CBM` : `${it.quantity} Bags`})`).join(" · ")
+                          : (o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "AAC Blocks")}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Jointing Morter (40 KG)</span>
+                      <p className="font-bold text-navy truncate">{o.adhesiveBags ?? 0} Bags</p>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Vehicle</span>
+                      <p className="font-bold text-navy truncate">
+                        {o.transport?.truckNumber || "Unassigned"}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Order Date</span>
+                      <p className="font-bold text-navy truncate">{formatDate(o.createdAt)}</p>
+                    </div>
                   </div>
+                </Link>
+
+                <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 gap-2 min-w-0">
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                    <span className="truncate">📍 {o.deliveryAddress}</span>
+                    <OpenLocationButton address={o.deliveryAddress} variant="badge" />
+                  </div>
+                  <Link
+                    href={`/admin/orders/${o.id}`}
+                    className="font-bold text-[#13789B] flex items-center gap-0.5 shrink-0"
+                  >
+                    Manage →
+                  </Link>
                 </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 min-w-0">
-                  <div className="min-w-0 col-span-2">
-                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Material Items</span>
-                    <p className="font-bold text-navy truncate">
-                      {o.items && o.items.length > 0
-                        ? o.items.map((it) => `${it.productName || it.product?.name} (${it.totalCbm ? `${Number(it.totalCbm).toFixed(2)} CBM` : `${it.quantity} Bags`})`).join(" · ")
-                        : (o.product?.sizeLabel ? formatBlockSizeName(o.product.sizeLabel) : "AAC Blocks")}
-                    </p>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Block Jointing Morter (40 KG)</span>
-                    <p className="font-bold text-navy truncate">{o.adhesiveBags ?? 0} Bags</p>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Vehicle</span>
-                    <p className="font-bold text-navy truncate">
-                      {o.transport?.truckNumber || "Unassigned"}
-                    </p>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] uppercase text-slate-400 font-semibold block truncate">Order Date</span>
-                    <p className="font-bold text-navy truncate">{formatDate(o.createdAt)}</p>
-                  </div>
               </div>
-
-              <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 gap-2 min-w-0">
-                <div className="flex items-center gap-1 min-w-0 flex-1">
-                  <span className="truncate">📍 {o.deliveryAddress}</span>
-                  <OpenLocationButton address={o.deliveryAddress} variant="badge" />
-                </div>
-                <span className="font-bold text-[#13789B] flex items-center gap-0.5 shrink-0">
-                  Manage →
-                </span>
-              </div>
-            </Link>
             );
           })}
         </div>

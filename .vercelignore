@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.hostinger.example
+hostinger-import.sql
+hostinger-app-deploy.zip
+hostinger-standalone.zip
+hostinger-prebuilt.zip
+deploy-hostinger
+node_modules
+.next
+archive
+scratch
+.git
+.vscode

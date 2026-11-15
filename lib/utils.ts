@@ -35,9 +35,64 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** Normalize Prisma Json (used for MySQL string arrays) into string[]. */
+export function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 export function toNumber(value: { toString(): string } | number | null | undefined) {
   if (value == null) return 0;
   return Number(value);
+}
+
+/** True for Prisma Decimal / decimal.js-like values (ctor name may be minified). */
+function isDecimalLike(value: unknown): boolean {
+  if (value == null || typeof value !== "object") return false;
+  if (value instanceof Date) return false;
+  if (Array.isArray(value)) return false;
+  const v = value as {
+    constructor?: { name?: string };
+    toFixed?: unknown;
+    toNumber?: unknown;
+    d?: unknown;
+    s?: unknown;
+    e?: unknown;
+  };
+  if (v.constructor?.name === "Decimal") return true;
+  // Prisma runtime Decimal (often minified ctor name like "i")
+  return (
+    typeof v.toFixed === "function" &&
+    typeof v.toNumber === "function" &&
+    typeof v.s === "number" &&
+    typeof v.e === "number" &&
+    Array.isArray(v.d)
+  );
+}
+
+/**
+ * Deep-convert Prisma results into plain JSON-safe values for Client Components.
+ * Must walk manually — JSON.stringify calls Decimal.toJSON() first (→ string),
+ * which skips our Decimal→number conversion and still fails RSC if left as Decimal.
+ * Decimal → number, Date → ISO string, BigInt → number.
+ */
+export function serializeForClient<T>(value: T): T {
+  const walk = (input: unknown): unknown => {
+    if (input == null) return input;
+    if (typeof input === "bigint") return Number(input);
+    if (typeof input !== "object") return input;
+    if (input instanceof Date) return input.toISOString();
+    if (isDecimalLike(input)) {
+      return Number((input as { toString(): string }).toString());
+    }
+    if (Array.isArray(input)) return input.map(walk);
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(input as Record<string, unknown>)) {
+      out[key] = walk(val);
+    }
+    return out;
+  };
+  return walk(value) as T;
 }
 
 export function initials(name: string) {

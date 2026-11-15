@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { Role } from "@prisma/client";
 import { UsersManager, type ManagedUser, type CustomerInvitationItem } from "@/components/users-manager";
+import { serializeForClient } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +33,16 @@ export default async function AdminUsersPage({
         salesmanCode: true,
         companyName: true,
         gstin: true,
+        billingAddress: true,
+        deliveryAddress: true,
         city: true,
         state: true,
-        deliveryAddress: true,
+        pincode: true,
+        avatarUrl: true,
+        lastLoginAt: true,
         remarks: true,
         createdAt: true,
+        updatedAt: true,
         salesmanId: true,
         salesman: { select: { id: true, name: true, salesmanCode: true } },
         _count: {
@@ -77,8 +83,8 @@ export default async function AdminUsersPage({
       ) : null}
 
       <UsersManager
-        users={allUsers as ManagedUser[]}
-        invitations={pendingInvitations as CustomerInvitationItem[]}
+        users={serializeForClient(allUsers) as ManagedUser[]}
+        invitations={serializeForClient(pendingInvitations) as CustomerInvitationItem[]}
         salesmen={salesmenList}
         currentUserId={session.id}
       />

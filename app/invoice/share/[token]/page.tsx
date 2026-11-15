@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { TaxInvoiceView } from "@/components/tax-invoice";
 import { getCompanyProfile } from "@/lib/company-profile";
+import { serializeForClient } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,12 @@ export default async function PublicInvoiceSharePage({
       : null,
   };
 
-  return <TaxInvoiceView order={serializedOrder} companyProfile={companyProfile} isPublic={true} />;
+  return (
+    <TaxInvoiceView
+      order={serializeForClient(serializedOrder)}
+      companyProfile={serializeForClient(companyProfile)}
+      isPublic={true}
+    />
+  );
 }
 

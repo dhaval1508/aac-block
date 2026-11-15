@@ -499,12 +499,15 @@ export default async function StaffDashboardPage({
           const isShortage = o.loadedQuantity > 0 && o.loadedQuantity < o.quantity;
           const isQueueItem = tab === "queue" || o.status === OrderStatus.CONFIRMED;
           return (
-            <Link
+            <div
               key={o.id}
-              href={`/staff/orders/${o.id}`}
-              className={`group block rounded-3xl border bg-white p-5 shadow-sm transition-all hover:shadow-md ${
+              className={`group rounded-3xl border bg-white p-5 shadow-sm transition-all hover:shadow-md ${
                 isQueueItem ? "border-amber-200 hover:border-amber-400" : "border-slate-200 hover:border-[#1E72A8]"
               }`}
+            >
+            <Link
+              href={`/staff/orders/${o.id}`}
+              className="block min-w-0"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
@@ -624,12 +627,6 @@ export default async function StaffDashboardPage({
                   <span className="text-slate-600 truncate max-w-md">
                     📍 <strong>Site:</strong> {o.deliveryAddress}
                   </span>
-                  <OpenLocationButton
-                    address={o.deliveryAddress}
-                    latitude={o.latitude ? Number(o.latitude) : null}
-                    longitude={o.longitude ? Number(o.longitude) : null}
-                    variant="badge"
-                  />
                   {o.dcNumber && (
                     <span className="rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-mono font-bold text-purple-800">
                       Challan: {o.dcNumber}
@@ -646,6 +643,15 @@ export default async function StaffDashboardPage({
                 </div>
               </div>
             </Link>
+              <div className="mt-2">
+                <OpenLocationButton
+                  address={o.deliveryAddress}
+                  latitude={o.latitude ? Number(o.latitude) : null}
+                  longitude={o.longitude ? Number(o.longitude) : null}
+                  variant="badge"
+                />
+              </div>
+            </div>
           );
         })}
 

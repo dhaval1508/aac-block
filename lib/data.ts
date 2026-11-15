@@ -1,5 +1,6 @@
 import { OrderStatus, Role, StockType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { serializeForClient } from "@/lib/utils";
 
 export async function getStockSummary() {
   const [allMovements, stockInMovements, stockOutMovements] = await Promise.all([
@@ -60,26 +61,33 @@ export async function getStockBySize() {
     },
   });
 
-  return products.map((p) => {
-    const cbmPerBlock = Number(p.cbmPerBlock) || 0.018;
-    const currentCbm = p.movements.reduce((acc, m) => {
-      if (m.cbmDelta != null && Number(m.cbmDelta) !== 0) {
-        return acc + Number(m.cbmDelta);
-      }
-      return acc + m.quantityDelta * cbmPerBlock;
-    }, 0);
-    const currentStock = cbmPerBlock > 0 ? Math.round(currentCbm / cbmPerBlock) : 0;
+  return serializeForClient(
+    products.map((p) => {
+      const cbmPerBlock = Number(p.cbmPerBlock) || 0.018;
+      const currentCbm = p.movements.reduce((acc, m) => {
+        if (m.cbmDelta != null && Number(m.cbmDelta) !== 0) {
+          return acc + Number(m.cbmDelta);
+        }
+        return acc + m.quantityDelta * cbmPerBlock;
+      }, 0);
+      const currentStock = cbmPerBlock > 0 ? Math.round(currentCbm / cbmPerBlock) : 0;
+      const { movements: _movements, ...product } = p;
 
-    return {
-      ...p,
-      price: Number(p.price),
-      gstRate: Number(p.gstRate),
-      cbmPerBlock,
-      blocksPerCbm: Number(p.blocksPerCbm),
-      currentCbm: Number(currentCbm.toFixed(4)),
-      currentStock,
-    };
-  });
+      return {
+        ...product,
+        price: Number(p.price),
+        gstRate: Number(p.gstRate),
+        cbmPerBlock,
+        blocksPerCbm: Number(p.blocksPerCbm),
+        bagWeightKg: p.bagWeightKg != null ? Number(p.bagWeightKg) : null,
+        coverageSqft: p.coverageSqft != null ? Number(p.coverageSqft) : null,
+        consumptionRate: p.consumptionRate != null ? Number(p.consumptionRate) : null,
+        jointThicknessMm: p.jointThicknessMm != null ? Number(p.jointThicknessMm) : null,
+        currentCbm: Number(currentCbm.toFixed(4)),
+        currentStock,
+      };
+    })
+  );
 }
 
 export async function getMortarStock() {

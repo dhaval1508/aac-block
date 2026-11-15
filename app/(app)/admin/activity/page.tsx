@@ -37,7 +37,7 @@ export default async function AdminActivityPage({
       where: {
         ...(dateFilter ? { createdAt: dateFilter } : {}),
         NOT: {
-          title: { contains: "Payment", mode: "insensitive" },
+          title: { contains: "Payment" },
         },
       },
       take: 120,

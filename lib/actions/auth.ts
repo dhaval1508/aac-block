@@ -48,7 +48,7 @@ export async function loginAction(formData: FormData) {
       throw err;
     }
     console.error("Database connection error during login:", err);
-    redirect("/login?error=" + encodeURIComponent("Unable to reach database. Please make sure PostgreSQL is running."));
+    redirect("/login?error=" + encodeURIComponent("Unable to reach database. Please make sure MySQL is running."));
   }
 
   if (!user || !user.active) {
@@ -59,6 +59,14 @@ export async function loginAction(formData: FormData) {
   if (!ok) {
     redirect("/login?error=Invalid%20email%20or%20password");
   }
+
+  // Update last login timestamp
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  }).catch((err) => {
+    console.error("Failed to update lastLoginAt:", err);
+  });
 
   await createSession({
     id: user.id,
@@ -123,6 +131,14 @@ export async function registerCustomerAction(formData: FormData) {
       state,
       pincode,
     },
+  });
+
+  // Update last login timestamp
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  }).catch((err) => {
+    console.error("Failed to update lastLoginAt:", err);
   });
 
   await createSession({

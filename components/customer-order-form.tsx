@@ -33,7 +33,7 @@ import {
   DeliveryLocationPicker,
   DeliveryLocationData,
 } from "@/components/delivery-location-picker";
-import { CompanyProfileData, DEFAULT_COMPANY_PROFILE } from "@/lib/company-profile";
+import { CompanyProfileData, DEFAULT_COMPANY_PROFILE } from "@/lib/company-profile-types";
 
 export type ProductItem = {
   id: string;

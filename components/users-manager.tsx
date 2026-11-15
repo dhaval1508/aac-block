@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -24,11 +25,21 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Eye,
+  Edit,
+  KeyRound,
+  Filter,
+  ArrowUpDown,
+  Calendar,
+  Sparkles,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime, initials } from "@/lib/utils";
 import { toggleUserAction, deleteUserAction } from "@/lib/actions/users";
 import { AddStaffModal } from "@/components/add-staff-modal";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { UserProfileModal } from "@/components/user-profile-modal";
+import { EditUserModal } from "@/components/edit-user-modal";
+import { ResetPasswordModal } from "@/components/reset-password-modal";
 
 export type ManagedUser = {
   id: string;
@@ -40,11 +51,16 @@ export type ManagedUser = {
   salesmanCode?: string | null;
   companyName?: string | null;
   gstin?: string | null;
+  billingAddress?: string | null;
+  deliveryAddress?: string | null;
   city?: string | null;
   state?: string | null;
-  deliveryAddress?: string | null;
+  pincode?: string | null;
+  avatarUrl?: string | null;
+  lastLoginAt?: Date | string | null;
   remarks?: string | null;
   createdAt: Date | string;
+  updatedAt?: Date | string;
   salesmanId?: string | null;
   salesman?: {
     id: string;
@@ -78,6 +94,8 @@ export type CustomerInvitationItem = {
 
 export type RoleFilterOption = "ALL" | "ADMIN" | "SALESMAN" | "CUSTOMER" | "STAFF";
 export type StatusFilterOption = "ALL" | "ACTIVE" | "DEACTIVATED";
+export type DateFilterOption = "ALL" | "7D" | "30D" | "THIS_MONTH" | "THIS_YEAR";
+export type SortOption = "NEWEST" | "OLDEST" | "NAME_ASC" | "NAME_DESC" | "ROLE" | "ORDERS";
 export type TabOption = "ALL" | "SALESMAN" | "STAFF" | "CUSTOMER" | "INVITATIONS";
 
 interface UsersManagerProps {
@@ -98,12 +116,18 @@ export function UsersManager({
   const [activeTab, setActiveTab] = useState<TabOption>("ALL");
   const [roleFilter, setRoleFilter] = useState<RoleFilterOption>("ALL");
   const [statusFilter, setStatusFilter] = useState<StatusFilterOption>("ALL");
+  const [dateFilter, setDateFilter] = useState<DateFilterOption>("ALL");
+  const [sortOption, setSortOption] = useState<SortOption>("NEWEST");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
+  // Modals state
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [modalDefaultRole, setModalDefaultRole] = useState<"STAFF" | "SALESMAN" | "CUSTOMER" | "ADMIN">("STAFF");
+  const [selectedUserForProfile, setSelectedUserForProfile] = useState<ManagedUser | null>(null);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<ManagedUser | null>(null);
+  const [selectedUserForPasswordReset, setSelectedUserForPasswordReset] = useState<ManagedUser | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; role: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -118,7 +142,7 @@ export function UsersManager({
 
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => setNotification(null), 4000);
+      const timer = setTimeout(() => setNotification(null), 4500);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -126,7 +150,7 @@ export function UsersManager({
   // Reset pagination on filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, roleFilter, statusFilter, activeTab]);
+  }, [search, roleFilter, statusFilter, dateFilter, sortOption, activeTab]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -140,6 +164,9 @@ export function UsersManager({
           message: `Account "${deleteTarget.name}" (${deleteTarget.role}) archived successfully.`,
         });
         setDeleteTarget(null);
+        if (selectedUserForProfile?.id === deleteTarget.id) {
+          setSelectedUserForProfile(null);
+        }
       } else {
         setNotification({
           type: "error",
@@ -156,11 +183,74 @@ export function UsersManager({
     }
   };
 
+  const handleToggleUserStatus = async (user: ManagedUser) => {
+    if (user.id === currentUserId) {
+      setNotification({
+        type: "error",
+        message: "You cannot disable your own active Super Admin account.",
+      });
+      return;
+    }
+
+    const actionText = user.active ? "disable" : "enable";
+    if (!window.confirm(`Are you sure you want to ${actionText} login access for "${user.name}"?`)) {
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("id", user.id);
+      // Call action
+      const newActive = !user.active;
+      // Optimistic in-place update
+      setUserList((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, active: newActive } : u))
+      );
+      if (selectedUserForProfile?.id === user.id) {
+        setSelectedUserForProfile((prev) => (prev ? { ...prev, active: newActive } : null));
+      }
+
+      await toggleUserAction(formData);
+
+      setNotification({
+        type: "success",
+        message: `Account "${user.name}" is now ${newActive ? "Active" : "Disabled"}.`,
+      });
+    } catch (err: any) {
+      // Revert if error
+      setUserList((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, active: user.active } : u))
+      );
+      setNotification({
+        type: "error",
+        message: err?.message || "Failed to update account status.",
+      });
+    }
+  };
+
+  const handleProfileUpdated = (updatedUser: ManagedUser, message: string) => {
+    setUserList((prev) =>
+      prev.map((u) => (u.id === updatedUser.id ? { ...u, ...updatedUser } : u))
+    );
+    if (selectedUserForProfile?.id === updatedUser.id) {
+      setSelectedUserForProfile(updatedUser);
+    }
+    setNotification({
+      type: "success",
+      message,
+    });
+  };
+
   // =========================================================================
   // METRICS COMPUTATION (Across entire system)
   // =========================================================================
   const totalUsersCount = userList.length;
-  const adminUsersCount = userList.filter((u) => u.role === "ADMIN").length;
+  const activeUsersCount = userList.filter((u) => u.active).length;
+  const disabledUsersCount = userList.filter((u) => !u.active).length;
+
+  const adminUsers = userList.filter((u) => u.role === "ADMIN");
+  const adminUsersCount = adminUsers.length;
+
   const salesmenUsers = userList.filter((u) => u.role === "SALESMAN");
   const salesmenCount = salesmenUsers.length;
   const activeSalesmenCount = salesmenUsers.filter((u) => u.active).length;
@@ -177,10 +267,12 @@ export function UsersManager({
   const pendingInvitationsCount = invitationList.filter((i) => i.status === "PENDING").length;
 
   // =========================================================================
-  // FILTERED USER LIST
+  // FILTERED & SORTED USER LIST
   // =========================================================================
   const filteredUsers = useMemo(() => {
-    return userList.filter((u) => {
+    const now = new Date();
+
+    const filtered = userList.filter((u) => {
       // 1. Tab filtering
       if (activeTab === "SALESMAN" && u.role !== "SALESMAN") return false;
       if (activeTab === "STAFF" && u.role !== "STAFF" && u.role !== "STOCKER") return false;
@@ -198,10 +290,29 @@ export function UsersManager({
       if (statusFilter === "ACTIVE" && !u.active) return false;
       if (statusFilter === "DEACTIVATED" && u.active) return false;
 
-      // 4. Search query
+      // 4. Registration Date filter
+      if (dateFilter !== "ALL") {
+        const uDate = new Date(u.createdAt);
+        if (dateFilter === "7D") {
+          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (uDate < sevenDaysAgo) return false;
+        } else if (dateFilter === "30D") {
+          const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          if (uDate < thirtyDaysAgo) return false;
+        } else if (dateFilter === "THIS_MONTH") {
+          if (uDate.getMonth() !== now.getMonth() || uDate.getFullYear() !== now.getFullYear()) {
+            return false;
+          }
+        } else if (dateFilter === "THIS_YEAR") {
+          if (uDate.getFullYear() !== now.getFullYear()) return false;
+        }
+      }
+
+      // 5. Universal Search Query
       if (search.trim()) {
         const q = search.toLowerCase().trim();
         const matchesName = u.name.toLowerCase().includes(q);
+        const matchesId = u.id.toLowerCase().includes(q);
         const matchesMobile = u.mobile.includes(q);
         const matchesEmail = u.email.toLowerCase().includes(q);
         const matchesCode = u.salesmanCode ? u.salesmanCode.toLowerCase().includes(q) : false;
@@ -212,6 +323,7 @@ export function UsersManager({
 
         return (
           matchesName ||
+          matchesId ||
           matchesMobile ||
           matchesEmail ||
           matchesCode ||
@@ -224,7 +336,32 @@ export function UsersManager({
 
       return true;
     });
-  }, [userList, activeTab, roleFilter, statusFilter, search]);
+
+    // 6. Sorting
+    filtered.sort((a, b) => {
+      switch (sortOption) {
+        case "NEWEST":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "OLDEST":
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case "NAME_ASC":
+          return a.name.localeCompare(b.name);
+        case "NAME_DESC":
+          return b.name.localeCompare(a.name);
+        case "ROLE":
+          return a.role.localeCompare(b.role);
+        case "ORDERS": {
+          const aOrders = (a._count?.customerOrders || 0) + (a._count?.salesmanOrders || 0);
+          const bOrders = (b._count?.customerOrders || 0) + (b._count?.salesmanOrders || 0);
+          return bOrders - aOrders;
+        }
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [userList, activeTab, roleFilter, statusFilter, dateFilter, sortOption, search]);
 
   // Filtered Invitations
   const filteredInvitations = useMemo(() => {
@@ -267,12 +404,18 @@ export function UsersManager({
             Customer
           </span>
         );
-      case "STAFF":
       case "STOCKER":
-      default:
         return (
           <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold">
             <Boxes className="h-3 w-3 text-amber-600" />
+            Stocker
+          </span>
+        );
+      case "STAFF":
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 text-[10px] font-bold">
+            <Boxes className="h-3 w-3 text-slate-600" />
             Loading & Stock Staff
           </span>
         );
@@ -320,11 +463,11 @@ export function UsersManager({
               User & Access Control Center
             </h1>
             <span className="rounded-full bg-[#13789B]/10 px-2.5 py-0.5 text-xs font-bold text-[#13789B]">
-              {totalUsersCount} Total Users · All Roles Active
+              {totalUsersCount} Total Users · {activeUsersCount} Active · {disabledUsersCount} Disabled
             </span>
           </div>
           <p className="mt-1 text-xs sm:text-sm text-slate-500">
-            Create, manage and monitor Super Admins, Sales Representatives, Clients, and Loading & Stock Staff.
+            Provision, inspect complete profiles, edit user permissions, and audit security actions.
           </p>
         </div>
 
@@ -350,100 +493,102 @@ export function UsersManager({
             className="flex items-center gap-1.5 rounded-2xl bg-[#13789B] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#0F627F] transition-all cursor-pointer"
           >
             <UserPlus className="h-4 w-4" />
-            <span>+ Add New User</span>
+            <span>+ Add User Account</span>
           </button>
         </div>
       </div>
 
       {/* =========================================================================
-          TOP METRIC KPI CARDS (6 Comprehensive Metrics Across All 4 Roles)
+          SUMMARY METRIC CARDS
       ========================================================================= */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-6 min-w-0">
-        {/* Total Users */}
-        <div className="card p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-l-4 border-l-[#111827] min-w-0">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 min-w-0">
+        {/* All Accounts */}
+        <div className="card rounded-3xl bg-white border border-slate-200 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase text-slate-500 truncate block">All Accounts</span>
-            <Users className="h-4 w-4 text-navy shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">All Accounts</span>
+            <Users className="h-4 w-4" />
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-navy truncate">{totalUsersCount}</p>
-          <span className="text-[10px] text-slate-400 truncate block">Unlimited accounts</span>
+          <div className="mt-2 text-2xl font-black text-navy">{totalUsersCount}</div>
+          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            <span>{activeUsersCount} active · {disabledUsersCount} disabled</span>
+          </div>
         </div>
 
         {/* Super Admins */}
-        <div className="card p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-l-4 border-l-purple-600 min-w-0">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase text-slate-500 truncate block">Super Admins</span>
-            <Shield className="h-4 w-4 text-purple-600 shrink-0" />
+        <div className="card rounded-3xl bg-white border border-slate-200 p-4 shadow-xs">
+          <div className="flex items-center justify-between text-purple-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Super Admins</span>
+            <Shield className="h-4 w-4" />
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-purple-700 truncate">{adminUsersCount}</p>
-          <span className="text-[10px] text-slate-400 truncate block">Privileged access</span>
+          <div className="mt-2 text-2xl font-black text-navy">{adminUsersCount}</div>
+          <div className="mt-1 text-[11px] text-purple-700 font-semibold">Privileged access</div>
         </div>
 
         {/* Salesmen */}
-        <div className="card p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-l-4 border-l-sky-500 min-w-0">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase text-slate-500 truncate block">Salesmen</span>
-            <UserCheck className="h-4 w-4 text-[#13789B] shrink-0" />
+        <div className="card rounded-3xl bg-white border border-slate-200 p-4 shadow-xs">
+          <div className="flex items-center justify-between text-[#13789B]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Salesmen</span>
+            <UserCheck className="h-4 w-4" />
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-[#13789B] truncate">{salesmenCount}</p>
-          <span className="text-[10px] text-emerald-600 font-semibold truncate block">
-            {activeSalesmenCount} active representatives
-          </span>
+          <div className="mt-2 text-2xl font-black text-navy">{salesmenCount}</div>
+          <div className="mt-1 text-[11px] text-emerald-600 font-semibold">{activeSalesmenCount} active representatives</div>
         </div>
 
-        {/* Loading & Stock Staff */}
-        <div className="card p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-l-4 border-l-amber-500 min-w-0">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase text-slate-500 truncate block">Loading & Stock</span>
-            <Boxes className="h-4 w-4 text-amber-500 shrink-0" />
+        {/* Loading & Stock */}
+        <div className="card rounded-3xl bg-white border border-slate-200 p-4 shadow-xs">
+          <div className="flex items-center justify-between text-amber-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Loading & Stock</span>
+            <Boxes className="h-4 w-4" />
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-amber-700 truncate">{staffCount}</p>
-          <span className="text-[10px] text-slate-400 truncate block">
-            {activeStaffCount} active crew
-          </span>
+          <div className="mt-2 text-2xl font-black text-navy">{staffCount}</div>
+          <div className="mt-1 text-[11px] text-amber-700 font-semibold">{activeStaffCount} active crew</div>
         </div>
 
-        {/* Customers */}
-        <div className="card p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-l-4 border-l-emerald-500 min-w-0">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase text-slate-500 truncate block">Clients & Builders</span>
-            <Building2 className="h-4 w-4 text-emerald-600 shrink-0" />
+        {/* Clients & Builders */}
+        <div className="card rounded-3xl bg-white border border-slate-200 p-4 shadow-xs">
+          <div className="flex items-center justify-between text-emerald-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Clients & Builders</span>
+            <Building2 className="h-4 w-4" />
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-emerald-700 truncate">{customersCount}</p>
-          <span className="text-[10px] text-slate-400 truncate block">
-            {totalCustomerOrders} orders placed
-          </span>
+          <div className="mt-2 text-2xl font-black text-navy">{customersCount}</div>
+          <div className="mt-1 text-[11px] text-slate-500">{totalCustomerOrders} orders placed</div>
         </div>
 
-        {/* Pending Invitations */}
-        <div className="card p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-l-4 border-l-teal-500 min-w-0">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-bold uppercase text-slate-500 truncate block">WhatsApp Invites</span>
-            <Send className="h-4 w-4 text-teal-600 shrink-0" />
+        {/* WhatsApp Invites */}
+        <div className="card rounded-3xl bg-white border border-slate-200 p-4 shadow-xs">
+          <div className="flex items-center justify-between text-teal-600">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">WhatsApp Invites</span>
+            <Send className="h-4 w-4" />
           </div>
-          <p className="mt-1 text-xl sm:text-2xl font-black text-teal-700 truncate">{pendingInvitationsCount}</p>
-          <span className="text-[10px] text-slate-400 truncate block">Pending links</span>
+          <div className="mt-2 text-2xl font-black text-navy">{pendingInvitationsCount}</div>
+          <div className="mt-1 text-[11px] text-teal-700 font-semibold">Pending links</div>
         </div>
       </div>
 
       {/* =========================================================================
-          DIRECTORY SECTION TABS
+          TAB SELECTION
       ========================================================================= */}
       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-b border-slate-200 pb-2 min-w-0">
-        {[
-          { key: "ALL", label: `All Users (${totalUsersCount})`, icon: Users },
-          { key: "SALESMAN", label: `Salesmen (${salesmenCount})`, icon: UserCheck },
-          { key: "STAFF", label: `Loading & Stock Staff (${staffCount})`, icon: Boxes },
-          { key: "CUSTOMER", label: `Customers & Builders (${customersCount})`, icon: Building2 },
-          { key: "INVITATIONS", label: `Pending WhatsApp Invites (${pendingInvitationsCount})`, icon: Send },
-        ].map((tab) => (
+        {(
+          [
+            { key: "ALL", label: `All Users (${totalUsersCount})`, icon: Users },
+            { key: "SALESMAN", label: `Salesmen (${salesmenCount})`, icon: UserCheck },
+            { key: "STAFF", label: `Loading & Stock Staff (${staffCount})`, icon: Boxes },
+            { key: "CUSTOMER", label: `Customers & Builders (${customersCount})`, icon: Building2 },
+            { key: "INVITATIONS", label: `Pending WhatsApp Invites (${pendingInvitationsCount})`, icon: Send },
+          ] as const
+        ).map((tab) => (
           <button
             key={tab.key}
             type="button"
-            onClick={() => setActiveTab(tab.key as TabOption)}
-            className={`flex items-center gap-1.5 rounded-2xl px-3 sm:px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
+            onClick={() => {
+              setActiveTab(tab.key);
+              setCurrentPage(1);
+            }}
+            className={`flex items-center gap-1.5 rounded-2xl px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold transition-all cursor-pointer ${
               activeTab === tab.key
-                ? "bg-[#111827] text-white shadow-xs"
+                ? "bg-navy text-white shadow-xs"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -454,7 +599,7 @@ export function UsersManager({
       </div>
 
       {/* =========================================================================
-          TOOLBAR: SEARCH, ROLE FILTERS (Exact Section 2 Specification), STATUS
+          TOOLBAR: SEARCH, ROLE FILTERS, STATUS, DATE & SORTING
       ========================================================================= */}
       <div className="card rounded-3xl bg-white border border-slate-200 p-3.5 sm:p-4 shadow-xs space-y-3 min-w-0">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 min-w-0">
@@ -465,14 +610,14 @@ export function UsersManager({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, email, mobile, company, GSTIN, salesman ID, or city..."
+              placeholder="Search by name, email, mobile, ID, company, GSTIN, salesman..."
               className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-2 pl-10 pr-4 text-xs font-medium text-navy placeholder:text-slate-400 focus:bg-white focus:border-[#13789B] focus:outline-none transition-colors"
             />
           </div>
 
-          {/* Role Filter & Status Filter Controls */}
+          {/* Controls: Role, Status, Sort & Date Filters */}
           <div className="flex flex-wrap items-center gap-2 min-w-0">
-            {/* Role Filter Pills: All Roles | Super Admin | Salesman | Customer | Loading & Stock Staff */}
+            {/* Role Filter Pills */}
             <div className="flex flex-wrap items-center gap-1 rounded-2xl bg-slate-100 p-1 border border-slate-200 text-xs">
               {(
                 [
@@ -498,7 +643,7 @@ export function UsersManager({
               ))}
             </div>
 
-            {/* Status Filter: All Status | Active | Deactivated */}
+            {/* Status Filter */}
             <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 border border-slate-200 text-xs">
               {(
                 [
@@ -521,18 +666,55 @@ export function UsersManager({
                 </button>
               ))}
             </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 border border-slate-200 text-xs">
+              <span className="px-1 text-slate-400 font-bold flex items-center">
+                <ArrowUpDown className="h-3.5 w-3.5 mr-0.5" />
+              </span>
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as SortOption)}
+                className="bg-transparent text-xs font-bold text-navy outline-none cursor-pointer pr-1"
+              >
+                <option value="NEWEST">Joined (Newest First)</option>
+                <option value="OLDEST">Joined (Oldest First)</option>
+                <option value="NAME_ASC">Name (A → Z)</option>
+                <option value="NAME_DESC">Name (Z → A)</option>
+                <option value="ROLE">Role</option>
+                <option value="ORDERS">Orders Count</option>
+              </select>
+            </div>
+
+            {/* Registration Date Filter */}
+            <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 border border-slate-200 text-xs">
+              <span className="px-1 text-slate-400 font-bold flex items-center">
+                <Calendar className="h-3.5 w-3.5 mr-0.5" />
+              </span>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value as DateFilterOption)}
+                className="bg-transparent text-xs font-bold text-navy outline-none cursor-pointer pr-1"
+              >
+                <option value="ALL">All Time</option>
+                <option value="7D">Past 7 Days</option>
+                <option value="30D">Past 30 Days</option>
+                <option value="THIS_MONTH">This Month</option>
+                <option value="THIS_YEAR">This Year</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* =========================================================================
-          TAB 1 TO 4: USER ACCOUNTS DIRECTORY (Desktop Table + Mobile Cards)
+          USER ACCOUNTS DIRECTORY (Desktop Table + Mobile Cards)
       ========================================================================= */}
       {activeTab !== "INVITATIONS" && (
         <div className="card rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden min-w-0">
-          {/* Desktop Table */}
+          {/* Desktop Table View */}
           <div className="hidden lg:block overflow-x-auto min-w-0">
-            <table className="w-full text-left text-xs min-w-[880px]">
+            <table className="w-full text-left text-xs min-w-[980px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 uppercase tracking-wider font-bold">
                   <th className="py-3 px-4">Account User</th>
@@ -547,26 +729,34 @@ export function UsersManager({
               <tbody className="divide-y divide-slate-100">
                 {paginatedUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50/80 transition-colors group">
-                    {/* User Details */}
+                    {/* User Details (Clickable to open profile) */}
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#13789B]/10 text-[#13789B] font-black text-xs shrink-0">
-                          {u.name.charAt(0).toUpperCase()}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserForProfile(u)}
+                        className="flex items-center gap-2.5 text-left group-hover:opacity-90 cursor-pointer"
+                      >
+                        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#13789B]/10 text-[#13789B] font-black text-xs shrink-0 border border-[#13789B]/20 overflow-hidden">
+                          {u.avatarUrl ? (
+                            <img src={u.avatarUrl} alt={u.name} className="h-full w-full object-cover" />
+                          ) : (
+                            initials(u.name)
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <span className="font-bold text-navy block truncate">{u.name}</span>
+                          <span className="font-bold text-navy hover:text-[#13789B] transition block truncate">
+                            {u.name}
+                          </span>
                           {u.salesmanCode && (
                             <span className="font-mono text-[10px] font-bold text-[#13789B] block">
-                              ID: {u.salesmanCode}
+                              Code: {u.salesmanCode}
                             </span>
                           )}
-                          {u.remarks && (
-                            <span className="text-[10px] text-slate-400 italic block truncate max-w-[180px]">
-                              {u.remarks}
-                            </span>
-                          )}
+                          <span className="font-mono text-[10px] text-slate-400 block truncate max-w-[170px]">
+                            ID: {u.id}
+                          </span>
                         </div>
-                      </div>
+                      </button>
                     </td>
 
                     {/* Assigned Role */}
@@ -585,7 +775,7 @@ export function UsersManager({
                         <span className="truncate">{u.email}</span>
                       </div>
                       {u.city && (
-                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                        <span className="text-[10px] text-slate-500 block mt-0.5 truncate max-w-[180px]">
                           📍 {u.city}, {u.state || "Gujarat"}
                         </span>
                       )}
@@ -598,57 +788,54 @@ export function UsersManager({
                           <span className="inline-block rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
                             {u._count.assignedCustomers} Assigned Customers
                           </span>
-                          <span className="text-[10px] text-slate-500 block mt-0.5">
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
                             {u._count.salesmanOrders} orders placed
                           </span>
                         </div>
                       ) : u.role === "CUSTOMER" ? (
                         <div>
-                          <p className="font-bold text-navy text-[11px] truncate max-w-[160px]">
-                            {u.companyName || <span className="text-slate-400 italic font-normal">No Company</span>}
-                          </p>
+                          <span className="font-bold text-navy text-[11px] block truncate max-w-[180px]">
+                            {u.companyName || u.name}
+                          </span>
                           {u.salesman ? (
-                            <span className="text-[10px] text-[#13789B] font-semibold block truncate">
-                              Salesman: {u.salesman.name}
+                            <span className="text-[10px] text-slate-500 block">
+                              Salesman: <span className="font-semibold text-slate-700">{u.salesman.name}</span>
                             </span>
                           ) : (
                             <span className="text-[10px] text-slate-400 italic block">Direct Client</span>
                           )}
-                          <Link
-                            href={`/admin/orders?q=${encodeURIComponent(u.name)}`}
-                            className="text-[10px] font-bold text-[#13789B] hover:underline"
-                          >
+                          <span className="text-[10px] font-bold text-[#13789B] block">
                             {u._count.customerOrders} orders →
-                          </Link>
-                        </div>
-                      ) : u.role === "STAFF" || u.role === "STOCKER" ? (
-                        <div>
-                          <span className="inline-block rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                            Yard Operations
-                          </span>
-                          <span className="text-[10px] text-slate-500 block mt-0.5">
-                            {u._count.assignedOrders} assigned loading tasks
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[11px] font-bold text-purple-700">
-                          Full ERP Administration
-                        </span>
+                        <div>
+                          <span className="text-slate-600 text-xs font-semibold block">
+                            {u.role === "ADMIN" ? "Super Admin" : "Loading Operations"}
+                          </span>
+                          {u.lastLoginAt ? (
+                            <span className="text-[10px] text-slate-400 block">
+                              Active: {formatDate(u.lastLoginAt)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic block">No login recorded</span>
+                          )}
+                        </div>
                       )}
                     </td>
 
                     {/* Joined Date */}
-                    <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
+                    <td className="py-3 px-4 text-slate-500 font-medium">
                       {formatDate(u.createdAt)}
                     </td>
 
-                    {/* Status */}
+                    {/* Login Access Status */}
                     <td className="py-3 px-4 text-center">
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                           u.active
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-slate-200 text-slate-600"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-rose-50 text-rose-700 border border-rose-200"
                         }`}
                       >
                         {u.active ? (
@@ -663,56 +850,72 @@ export function UsersManager({
                       </span>
                     </td>
 
-                    {/* Actions */}
+                    {/* Actions: View, Edit, Password Reset, Toggle, Delete */}
                     <td className="py-3 px-4 text-right">
-                      {u.id !== currentUserId ? (
-                        <div className="inline-flex items-center gap-1.5">
-                          {u.role === "SALESMAN" && (
-                            <Link
-                              href={`/admin/salesmen/${u.id}`}
-                              className="rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-2.5 py-1 text-xs font-bold text-slate-700 transition"
-                              title="Manage Salesman Portfolio"
-                            >
-                              Manage
-                            </Link>
-                          )}
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        {/* View Profile */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserForProfile(u)}
+                          className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-2.5 py-1 text-xs font-bold text-slate-700 transition cursor-pointer"
+                          title="Open Complete User Profile"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>View</span>
+                        </button>
 
-                          <form
-                            action={toggleUserAction}
-                            onSubmit={(e) => {
-                              const action = u.active ? "disable" : "enable";
-                              if (!window.confirm(`Are you sure you want to ${action} login access for ${u.name}?`)) {
-                                e.preventDefault();
-                              }
-                            }}
-                          >
-                            <input type="hidden" name="id" value={u.id} />
+                        {/* Edit User */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserForEdit(u)}
+                          className="inline-flex items-center gap-1 rounded-xl bg-sky-50 text-[#13789B] hover:bg-[#13789B] hover:text-white px-2.5 py-1 text-xs font-bold transition border border-sky-200 cursor-pointer"
+                          title="Edit User Details & Permissions"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        {/* Password Reset */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUserForPasswordReset(u)}
+                          className="inline-flex items-center justify-center rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-500 hover:text-white p-1 text-xs font-bold transition border border-amber-200 cursor-pointer"
+                          title="Reset User Password"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </button>
+
+                        {/* Status Toggle & Delete (Protected for current user) */}
+                        {u.id !== currentUserId ? (
+                          <>
                             <button
-                              type="submit"
+                              type="button"
+                              onClick={() => handleToggleUserStatus(u)}
                               className={`rounded-xl px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
                                 u.active
                                   ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
                                   : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
                               }`}
+                              title={u.active ? "Disable login access" : "Enable login access"}
                             >
                               {u.active ? "Disable" : "Enable"}
                             </button>
-                          </form>
 
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget({ id: u.id, name: u.name, role: u.role })}
-                            className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
-                            title="Safely Archive / Delete Account"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 font-semibold italic">
-                          Current Admin
-                        </span>
-                      )}
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget({ id: u.id, name: u.name, role: u.role })}
+                              className="inline-flex items-center justify-center rounded-xl bg-rose-50 p-1 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                              title="Safely Archive / Delete Account"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-purple-700 font-bold px-1.5 py-0.5 rounded-lg bg-purple-50 border border-purple-200">
+                            You
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -722,7 +925,7 @@ export function UsersManager({
                     <td colSpan={7} className="py-12 text-center text-slate-400">
                       <Users className="mx-auto h-10 w-10 text-slate-300 mb-2" />
                       <p className="font-bold text-sm text-slate-600">No users match the selected filters.</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Try clearing your search query or role filter.</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Try clearing your search query or adjusting role/date filters.</p>
                     </td>
                   </tr>
                 )}
@@ -730,107 +933,114 @@ export function UsersManager({
             </table>
           </div>
 
-          {/* Mobile Card View */}
+          {/* Mobile / Tablet Cards View */}
           <div className="lg:hidden divide-y divide-slate-100 min-w-0">
             {paginatedUsers.map((u) => (
-              <div key={u.id} className="p-3.5 space-y-2.5 hover:bg-slate-50/60 transition-colors">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#13789B]/10 text-[#13789B] font-black text-xs shrink-0">
-                      {u.name.charAt(0).toUpperCase()}
+              <div key={u.id} className="p-3.5 sm:p-4 space-y-2.5 min-w-0">
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserForProfile(u)}
+                    className="flex items-center gap-2.5 min-w-0 text-left"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#13789B]/10 text-[#13789B] font-black text-sm shrink-0 border border-[#13789B]/20 overflow-hidden">
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt={u.name} className="h-full w-full object-cover" />
+                      ) : (
+                        initials(u.name)
+                      )}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-navy text-xs truncate">{u.name}</p>
-                      {u.salesmanCode && (
-                        <span className="font-mono text-[10px] font-bold text-[#13789B] block">
-                          ID: {u.salesmanCode}
-                        </span>
-                      )}
-                      <div className="mt-0.5">{getRoleBadge(u.role)}</div>
+                      <span className="font-bold text-navy text-sm block truncate">{u.name}</span>
+                      <span className="font-mono text-[10px] text-slate-400 block truncate">ID: {u.id}</span>
                     </div>
-                  </div>
+                  </button>
 
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold shrink-0 ${
-                      u.active
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-slate-200 text-slate-600"
-                    }`}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {getRoleBadge(u.role)}
+                    <span
+                      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        u.active
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-rose-50 text-rose-700 border border-rose-200"
+                      }`}
+                    >
+                      {u.active ? "Active" : "Disabled"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-2xl">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Mobile</span>
+                    <span className="font-mono font-bold text-slate-800">{u.mobile}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Joined</span>
+                    <span className="font-medium text-slate-700">{formatDate(u.createdAt)}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Email</span>
+                    <span className="text-[11px] text-slate-700 truncate block">{u.email}</span>
+                  </div>
+                </div>
+
+                {/* Mobile Action Buttons */}
+                <div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserForProfile(u)}
+                    className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-3 py-1.5 text-xs font-bold text-slate-700 transition"
                   >
-                    {u.active ? "Active" : "Disabled"}
-                  </span>
-                </div>
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>View Profile</span>
+                  </button>
 
-                <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2 text-xs">
-                  <div className="min-w-0">
-                    <span className="text-[10px] text-slate-400 font-semibold block truncate">Phone & City</span>
-                    <span className="text-slate-700 text-[11px] font-mono block truncate">{u.mobile}</span>
-                    <span className="text-slate-500 text-[10px] block truncate">{u.city || "Gujarat"}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] text-slate-400 font-semibold block truncate">Role Details</span>
-                    {u.role === "SALESMAN" ? (
-                      <span className="text-[#13789B] font-bold text-[10px] block truncate">
-                        {u._count.assignedCustomers} clients · {u._count.salesmanOrders} orders
-                      </span>
-                    ) : u.role === "CUSTOMER" ? (
-                      <span className="text-emerald-700 font-bold text-[10px] block truncate">
-                        {u.companyName || "Client"} ({u._count.customerOrders} orders)
-                      </span>
-                    ) : (
-                      <span className="text-slate-600 text-[10px] block truncate">
-                        {u.role === "ADMIN" ? "Super Admin" : "Loading Operations"}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserForEdit(u)}
+                    className="inline-flex items-center gap-1 rounded-xl bg-sky-50 text-[#13789B] hover:bg-[#13789B] hover:text-white px-3 py-1.5 text-xs font-bold transition border border-sky-200"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    <span>Edit</span>
+                  </button>
 
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <span className="text-[10px] text-slate-400 truncate max-w-[150px]">{u.email}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserForPasswordReset(u)}
+                    className="inline-flex items-center gap-1 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-500 hover:text-white px-2 py-1.5 text-xs font-bold transition border border-amber-200"
+                    title="Reset Password"
+                  >
+                    <KeyRound className="h-3.5 w-3.5" />
+                  </button>
+
                   {u.id !== currentUserId ? (
-                    <div className="flex items-center gap-1.5">
-                      {u.role === "SALESMAN" && (
-                        <Link
-                          href={`/admin/salesmen/${u.id}`}
-                          className="rounded-xl bg-slate-100 hover:bg-[#13789B] hover:text-white px-2.5 py-1 text-xs font-bold text-slate-700 transition"
-                        >
-                          Manage
-                        </Link>
-                      )}
-
-                      <form
-                        action={toggleUserAction}
-                        onSubmit={(e) => {
-                          const action = u.active ? "disable" : "enable";
-                          if (!window.confirm(`Are you sure you want to ${action} login access for ${u.name}?`)) {
-                            e.preventDefault();
-                          }
-                        }}
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleUserStatus(u)}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                          u.active
+                            ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                        }`}
                       >
-                        <input type="hidden" name="id" value={u.id} />
-                        <button
-                          type="submit"
-                          className={`rounded-xl px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
-                            u.active
-                              ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
-                              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                          }`}
-                        >
-                          {u.active ? "Disable" : "Enable"}
-                        </button>
-                      </form>
+                        {u.active ? "Disable" : "Enable"}
+                      </button>
 
                       <button
                         type="button"
                         onClick={() => setDeleteTarget({ id: u.id, name: u.name, role: u.role })}
-                        className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                        className="inline-flex items-center justify-center rounded-xl bg-rose-50 p-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 border border-rose-200 transition"
                         title="Delete account"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                    </div>
+                    </>
                   ) : (
-                    <span className="text-[10px] text-slate-400 font-semibold italic">Current Admin</span>
+                    <span className="text-[10px] text-purple-700 font-bold px-2 py-1 rounded-lg bg-purple-50 border border-purple-200">
+                      Logged in Admin
+                    </span>
                   )}
                 </div>
               </div>
@@ -838,141 +1048,110 @@ export function UsersManager({
 
             {paginatedUsers.length === 0 && (
               <div className="py-8 text-center text-slate-400">
-                <p className="font-bold text-xs">No matching user accounts found.</p>
+                <Users className="mx-auto h-8 w-8 text-slate-300 mb-1" />
+                <p className="font-bold text-xs text-slate-600">No users match filters</p>
               </div>
             )}
           </div>
 
           {/* Pagination Footer */}
           {totalPages > 1 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-                className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-navy hover:bg-slate-50 transition disabled:opacity-40 cursor-pointer"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                <span>Previous</span>
-              </button>
-
-              <div className="text-xs font-semibold text-slate-500">
-                Page <span className="font-bold text-navy">{currentPage}</span> of{" "}
-                <span className="font-bold text-navy">{totalPages}</span> ({filteredUsers.length} total)
+            <div className="border-t border-slate-200 bg-slate-50/70 p-3 sm:p-4 flex items-center justify-between text-xs text-slate-500">
+              <div>
+                Showing <span className="font-bold text-navy">{(currentPage - 1) * pageSize + 1}</span> to{" "}
+                <span className="font-bold text-navy">{Math.min(currentPage * pageSize, filteredUsers.length)}</span> of{" "}
+                <span className="font-bold text-navy">{filteredUsers.length}</span> registered users
               </div>
 
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-                className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-navy hover:bg-slate-50 transition disabled:opacity-40 cursor-pointer"
-              >
-                <span>Next</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-navy hover:bg-slate-50 transition disabled:opacity-40 cursor-pointer"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <span>Previous</span>
+                </button>
+                <span className="px-2 font-bold text-slate-700">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-navy hover:bg-slate-50 transition disabled:opacity-40 cursor-pointer"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* =========================================================================
-          TAB 5: PENDING WHATSAPP INVITATIONS DIRECTORY
+          TAB 5: PENDING WHATSAPP INVITATIONS
       ========================================================================= */}
       {activeTab === "INVITATIONS" && (
         <div className="card rounded-3xl bg-white border border-slate-200 shadow-xs overflow-hidden min-w-0">
-          <div className="p-4 sm:p-5 border-b border-slate-100">
-            <h2 className="text-sm font-black text-navy flex items-center gap-2">
-              <Send className="h-4 w-4 text-emerald-600" />
-              Salesman Customer WhatsApp Invitations
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Secure onboarding invitation links sent by Salesmen to customers. Tokens automatically link the customer upon signup.
-            </p>
-          </div>
-
           <div className="overflow-x-auto min-w-0">
-            <table className="w-full text-left text-xs min-w-[750px]">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 uppercase tracking-wider font-bold">
                   <th className="py-3 px-4">Invited Customer</th>
-                  <th className="py-3 px-4">Inviting Salesman</th>
-                  <th className="py-3 px-4">Invitation Status</th>
-                  <th className="py-3 px-4">Generated Date</th>
-                  <th className="py-3 px-4">Expires On</th>
-                  <th className="py-3 px-4 text-right">Invitation Link</th>
+                  <th className="py-3 px-4">Mobile</th>
+                  <th className="py-3 px-4">Invited By Salesman</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Sent Date</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredInvitations.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4 font-bold text-navy">{inv.customerName}</td>
+                    <td className="py-3 px-4 font-mono text-slate-700">{inv.mobile}</td>
                     <td className="py-3 px-4">
-                      <span className="font-bold text-navy block">{inv.customerName}</span>
-                      <span className="text-[11px] font-mono text-slate-500">{inv.mobile}</span>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <span className="font-bold text-[#13789B] block">{inv.salesman.name}</span>
+                      <span className="font-semibold text-slate-900">{inv.salesman.name}</span>
                       {inv.salesman.salesmanCode && (
-                        <span className="text-[10px] font-mono text-slate-400">
+                        <span className="font-mono text-[10px] text-slate-400 block">
                           {inv.salesman.salesmanCode}
                         </span>
                       )}
                     </td>
-
                     <td className="py-3 px-4">
                       <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
                           inv.status === "PENDING"
-                            ? "bg-amber-100 text-amber-800"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
                             : inv.status === "ACCEPTED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-slate-200 text-slate-600"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-slate-100 text-slate-600 border border-slate-200"
                         }`}
                       >
-                        {inv.status === "PENDING" ? (
-                          <>
-                            <Clock className="h-3 w-3 text-amber-600" /> Pending Signup
-                          </>
-                        ) : inv.status === "ACCEPTED" ? (
-                          <>
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Registered
-                          </>
-                        ) : (
-                          inv.status
-                        )}
+                        {inv.status}
                       </span>
                     </td>
-
-                    <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
-                      {formatDate(inv.createdAt)}
-                    </td>
-
-                    <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
-                      {formatDate(inv.expiresAt)}
-                    </td>
-
+                    <td className="py-3 px-4 text-slate-500">{formatDate(inv.createdAt)}</td>
                     <td className="py-3 px-4 text-right">
-                      {inv.status === "PENDING" ? (
-                        <a
-                          href={`/invite/${inv.token}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 text-xs font-bold transition border border-emerald-200"
-                        >
-                          <span>Open Link</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 italic">Complete</span>
-                      )}
+                      <a
+                        href={`https://wa.me/91${inv.mobile.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 text-xs font-bold hover:bg-emerald-100 transition"
+                      >
+                        <Send className="h-3 w-3" /> Resend
+                      </a>
                     </td>
                   </tr>
                 ))}
 
                 {filteredInvitations.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-slate-400">
-                      No customer invitations match the current query.
+                    <td colSpan={6} className="py-8 text-center text-slate-400">
+                      No invitations found matching filters.
                     </td>
                   </tr>
                 )}
@@ -983,8 +1162,9 @@ export function UsersManager({
       )}
 
       {/* =========================================================================
-          ADD USER MODAL (Supports all 4 roles)
+          MODALS
       ========================================================================= */}
+      {/* 1. Add User / Staff Modal */}
       {addModalOpen && (
         <AddStaffModal
           onClose={() => setAddModalOpen(false)}
@@ -993,14 +1173,45 @@ export function UsersManager({
         />
       )}
 
-      {/* =========================================================================
-          CONFIRM DELETE MODAL
-      ========================================================================= */}
+      {/* 2. User Profile Modal */}
+      {selectedUserForProfile && (
+        <UserProfileModal
+          user={selectedUserForProfile}
+          currentUserId={currentUserId}
+          onClose={() => setSelectedUserForProfile(null)}
+          onEdit={(u) => setSelectedUserForEdit(u)}
+          onResetPassword={(u) => setSelectedUserForPasswordReset(u)}
+          onToggleStatus={(u) => handleToggleUserStatus(u)}
+          onDelete={(u) => setDeleteTarget({ id: u.id, name: u.name, role: u.role })}
+        />
+      )}
+
+      {/* 3. Edit User Modal */}
+      {selectedUserForEdit && (
+        <EditUserModal
+          user={selectedUserForEdit}
+          salesmen={salesmen}
+          currentUserId={currentUserId}
+          onClose={() => setSelectedUserForEdit(null)}
+          onSuccess={handleProfileUpdated}
+        />
+      )}
+
+      {/* 4. Reset Password Modal */}
+      {selectedUserForPasswordReset && (
+        <ResetPasswordModal
+          user={selectedUserForPasswordReset}
+          onClose={() => setSelectedUserForPasswordReset(null)}
+          onSuccess={(msg) => setNotification({ type: "success", message: msg })}
+        />
+      )}
+
+      {/* 5. Confirm Delete Modal */}
       <ConfirmDeleteModal
         isOpen={Boolean(deleteTarget)}
-        title="Archive User Account"
-        itemName={deleteTarget ? `${deleteTarget.name} (${deleteTarget.role})` : ""}
-        message="Are you sure you want to archive this user account? Historical orders, site records and dispatches will be preserved."
+        title="Archive / Delete User Account"
+        itemName={deleteTarget?.name}
+        message={`Are you sure you want to deactivate and archive ${deleteTarget?.name} (${deleteTarget?.role})? This will revoke active logins while safely preserving historical dispatches, invoices, and accounting records.`}
         isDeleting={isDeleting}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}

@@ -707,3 +707,4 @@ export function renderOrderSummaryHtml(params: {
 </body>
 </html>`;
 }
+

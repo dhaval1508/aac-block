@@ -1,0 +1,24 @@
+Do NOT upload these to Hostinger:
+
+node_modules/          (run npm install on server)
+.next/                 (created by npm run build on server)
+.git/
+.vercel/
+archive/
+scratch/
+scripts/               (local/test scripts only)
+hostinger-import.sql
+*.zip
+.env.local
+.env.backup
+tsconfig.tsbuildinfo
+playwright-report/
+test-results/
+.vscode/
+
+DO upload:
+package.json, package-lock.json
+app/, components/, lib/, prisma/, public/, types/
+middleware.ts, next.config.ts, tsconfig.json
+tailwind/postcss/eslint configs
+.env  (create on server with Hostinger MySQL credentials)

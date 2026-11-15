@@ -34,10 +34,10 @@ export default async function StockerOrdersPage({
 
   if (q.trim()) {
     whereClause.OR = [
-      { orderNo: { contains: q.trim(), mode: "insensitive" } },
-      { customer: { name: { contains: q.trim(), mode: "insensitive" } } },
-      { customer: { companyName: { contains: q.trim(), mode: "insensitive" } } },
-      { transport: { truckNumber: { contains: q.trim(), mode: "insensitive" } } },
+      { orderNo: { contains: q.trim() } },
+      { customer: { name: { contains: q.trim() } } },
+      { customer: { companyName: { contains: q.trim() } } },
+      { transport: { truckNumber: { contains: q.trim() } } },
     ];
   }
 

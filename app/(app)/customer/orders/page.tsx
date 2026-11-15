@@ -62,13 +62,13 @@ export default async function CustomerOrdersPage({
   if (q.trim()) {
     const query = q.trim();
     where.OR = [
-      { orderNo: { contains: query, mode: "insensitive" } },
-      { invoiceNo: { contains: query, mode: "insensitive" } },
-      { deliveryAddress: { contains: query, mode: "insensitive" } },
-      { product: { name: { contains: query, mode: "insensitive" } } },
-      { product: { sizeLabel: { contains: query, mode: "insensitive" } } },
-      { transport: { truckNumber: { contains: query, mode: "insensitive" } } },
-      { transport: { driverName: { contains: query, mode: "insensitive" } } },
+      { orderNo: { contains: query } },
+      { invoiceNo: { contains: query } },
+      { deliveryAddress: { contains: query } },
+      { product: { name: { contains: query } } },
+      { product: { sizeLabel: { contains: query } } },
+      { transport: { truckNumber: { contains: query } } },
+      { transport: { driverName: { contains: query } } },
     ];
   }
 
@@ -176,59 +176,66 @@ export default async function CustomerOrdersPage({
       {/* Orders List */}
       <div className="space-y-3">
         {orders.map((o) => (
-          <Link
+          <div
             key={o.id}
-            href={`/customer/orders/${o.id}`}
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:bg-slate-50 hover:border-[#1e72a8]/50"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:bg-slate-50 hover:border-[#1e72a8]/50"
           >
-            <div className="space-y-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-black text-navy text-base">{o.orderNo}</span>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                    ORDER_STATUS_CLASS[o.status]
-                  }`}
-                >
-                  {ORDER_STATUS_LABEL[o.status]}
-                </span>
-                {o.invoiceNo ? (
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-mono font-bold text-slate-700">
-                    {o.invoiceNo}
+            <Link
+              href={`/customer/orders/${o.id}`}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0"
+            >
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-black text-navy text-base">{o.orderNo}</span>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                      ORDER_STATUS_CLASS[o.status]
+                    }`}
+                  >
+                    {ORDER_STATUS_LABEL[o.status]}
                   </span>
+                  {o.invoiceNo ? (
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-mono font-bold text-slate-700">
+                      {o.invoiceNo}
+                    </span>
+                  ) : null}
+                </div>
+
+                <p className="text-xs font-semibold text-slate-700">
+                  {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} blocks`} <span className="text-slate-400 italic">(≈ {formatNumber(o.quantity)} blocks)</span> {o.product ? `· ${formatBlockSizeName(o.product.sizeLabel)} (${o.product.dimensions})` : ""} · {o.adhesiveBags ?? 0} Bags Block Jointing Morter (40 KG)
+                </p>
+
+                <p className="text-[11px] text-slate-400">
+                  Booked: {formatDate(o.createdAt)} • Delivery Site: {o.deliveryAddress}
+                </p>
+
+                {o.transport ? (
+                  <div className="mt-1 flex items-center gap-2 text-xs text-indigo-700 font-semibold bg-indigo-50/60 rounded-lg px-2.5 py-1 inline-flex">
+                    <Truck className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Truck: {o.transport.truckNumber} • Driver: {o.transport.driverName} ({o.transport.driverMobile})
+                    </span>
+                  </div>
                 ) : null}
               </div>
 
-              <p className="text-xs font-semibold text-slate-700">
-                {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} blocks`} <span className="text-slate-400 italic">(≈ {formatNumber(o.quantity)} blocks)</span> {o.product ? `· ${formatBlockSizeName(o.product.sizeLabel)} (${o.product.dimensions})` : ""} · {o.adhesiveBags ?? 0} Bags Block Jointing Morter (40 KG)
-              </p>
-
-              <div className="flex items-center gap-2 flex-wrap text-[11px] text-slate-400">
-                <span>Booked: {formatDate(o.createdAt)} • Delivery Site: {o.deliveryAddress}</span>
-                <OpenLocationButton address={o.deliveryAddress} variant="badge" />
-              </div>
-
-              {o.transport ? (
-                <div className="mt-1 flex items-center gap-2 text-xs text-indigo-700 font-semibold bg-indigo-50/60 rounded-lg px-2.5 py-1 inline-flex">
-                  <Truck className="h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    Truck: {o.transport.truckNumber} • Driver: {o.transport.driverName} ({o.transport.driverMobile})
-                  </span>
+              <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                <div className="text-left sm:text-right">
+                  <p className="text-base font-black text-navy font-mono">
+                    {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
+                  </p>
+                  <p className="text-[11px] text-slate-400 italic">
+                    ≈ {formatNumber(o.quantity)} Blocks
+                  </p>
                 </div>
-              ) : null}
-            </div>
-
-            <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-              <div className="text-left sm:text-right">
-                <p className="text-base font-black text-navy font-mono">
-                  {o.totalCbm ? `${Number(o.totalCbm).toFixed(3)} CBM` : `${formatNumber(o.quantity)} units`}
-                </p>
-                <p className="text-[11px] text-slate-400 italic">
-                  ≈ {formatNumber(o.quantity)} Blocks
-                </p>
+                <ChevronRight className="h-5 w-5 text-slate-400 shrink-0" />
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-400 shrink-0" />
+            </Link>
+
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <OpenLocationButton address={o.deliveryAddress} variant="badge" />
             </div>
-          </Link>
+          </div>
         ))}
 
         {orders.length === 0 ? (
