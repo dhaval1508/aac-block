@@ -31,7 +31,8 @@ export async function middleware(request: NextRequest) {
   const isPublic =
     PUBLIC_EXACT.includes(pathname) ||
     pathname.startsWith("/invite") ||
-    pathname.startsWith("/invoice/share");
+    pathname.startsWith("/invoice/share") ||
+    pathname.startsWith("/order-qr");
 
   const token = request.cookies.get("acc_session")?.value;
   const secret = process.env.AUTH_SECRET;
