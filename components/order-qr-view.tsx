@@ -225,33 +225,75 @@ export function OrderQrView({ order, companyProfile, qrDetails }: OrderQrViewPro
               </div>
             </div>
 
-            <div className="flex flex-col sm:items-end text-left sm:text-right">
+            <div className="flex flex-col sm:items-end text-left sm:text-right shrink-0">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-800">
                 <QrCode className="h-3.5 w-3.5 text-[#13789B]" />
                 <span>OFFICIAL ORDER MANIFEST</span>
               </span>
-              <span className="text-[11px] text-slate-400 font-mono mt-1">
-                Ref ID: {order.id.slice(0, 14)}...
+              <span className="text-[11px] text-slate-500 font-mono mt-1 font-semibold">
+                Order #{order.orderNo}
               </span>
             </div>
           </div>
 
-          {/* Quick Helpline banner */}
-          <div className="mt-4 pt-1 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-              <span className="truncate max-w-xl text-[11px]">
-                Factory & Yard: {companyProfile.yardAddress || companyProfile.factoryAddress || "Swarnim AAC Manufacturing Plant, Kapadvanj - Kheda, Gujarat"}
-              </span>
+          {/* Plant & Yard Complete Address & Dispatch Helpline */}
+          <div className="mt-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 p-3.5 sm:p-4 space-y-3 text-xs">
+            {/* Factory & Yard Address - Fully rendered without truncation */}
+            <div className="flex items-start gap-2.5">
+              <MapPin className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-slate-700 break-words">
+                <strong className="text-slate-900 font-bold block sm:inline sm:mr-1">
+                  Factory & Yard:
+                </strong>
+                <span>
+                  {(() => {
+                    const yard =
+                      companyProfile.yardAddress ||
+                      companyProfile.factoryAddress ||
+                      "Near Khakhariya-1, Bhathiji Temple, Chikhload to Fagvel Road, Kapadvanj, Dist. Kheda";
+                    const pin = companyProfile.factoryPincode || "387620";
+                    const state = companyProfile.factoryState || "Gujarat";
+                    if (yard.includes(pin)) return yard;
+                    if (yard.toLowerCase().includes(state.toLowerCase())) {
+                      return `${yard} - ${pin}`;
+                    }
+                    return `${yard}, ${state} - ${pin}`;
+                  })()}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 font-mono text-[11px]">
-              <a
-                href={telHref(companyProfile.companyMobile || "+917698787476")}
-                className="hover:text-[#13789B] font-bold inline-flex items-center gap-1"
-              >
-                <Phone className="h-3 w-3" />
-                <span>Dispatch: {companyProfile.companyMobile || "+91 7698787476"}</span>
-              </a>
+
+            {/* Reg. Office & Quick Contact Action Buttons */}
+            <div className="pt-2.5 border-t border-slate-200/70 flex flex-col md:flex-row md:items-center justify-between gap-3 text-[11px] text-slate-500">
+              {companyProfile.officeAddress && (
+                <div className="flex items-start gap-2 min-w-0 flex-1">
+                  <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  <span className="break-words leading-relaxed text-slate-600">
+                    <strong className="text-slate-800">Reg. Office:</strong> {companyProfile.officeAddress}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {companyProfile.factoryMapsUrl && (
+                  <a
+                    href={companyProfile.factoryMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#13789B] hover:border-[#13789B]/40 transition shadow-2xs"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Factory Map</span>
+                  </a>
+                )}
+                <a
+                  href={telHref(companyProfile.companyMobile || "+919998100167")}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#13789B]/10 border border-[#13789B]/25 px-3 py-1.5 text-xs font-bold text-[#13789B] hover:bg-[#13789B]/20 transition shadow-2xs"
+                >
+                  <Phone className="h-3.5 w-3.5 text-[#13789B]" />
+                  <span>Dispatch: {companyProfile.companyMobile || "+91 9998100167"}</span>
+                </a>
+              </div>
             </div>
           </div>
         </header>
@@ -475,7 +517,7 @@ export function OrderQrView({ order, companyProfile, qrDetails }: OrderQrViewPro
               {/* Billing Address */}
               <div>
                 <span className="text-[10px] uppercase text-slate-400 font-bold block">Registered Billing Address</span>
-                <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">
+                <p className="text-xs text-slate-700 mt-0.5 leading-relaxed break-words">
                   {order.customer?.billingAddress || order.deliveryAddress}
                 </p>
               </div>
@@ -517,11 +559,11 @@ export function OrderQrView({ order, companyProfile, qrDetails }: OrderQrViewPro
             <div className="space-y-3 text-xs">
               <div>
                 <span className="text-[10px] uppercase text-slate-400 font-bold block">Destination Unloading Address</span>
-                <p className="text-xs font-bold text-slate-800 mt-0.5 leading-relaxed">
+                <p className="text-xs font-bold text-slate-800 mt-0.5 leading-relaxed break-words">
                   {order.formattedAddress || order.deliveryAddress}
                 </p>
                 {(order.city || order.state || order.pincode) && (
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-[11px] text-slate-500 mt-0.5 break-words">
                     {[order.city, order.district, order.state, order.pincode].filter(Boolean).join(", ")}
                   </p>
                 )}
