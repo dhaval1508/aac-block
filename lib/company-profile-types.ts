@@ -60,3 +60,4 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfileData = {
   contactPerson: "Factory Administration",
   signatoryName: "Authorized Signatory",
 };
+

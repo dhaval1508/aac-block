@@ -188,3 +188,4 @@ export function ResetPasswordModal({ user, onClose, onSuccess }: ResetPasswordMo
     </div>
   );
 }
+

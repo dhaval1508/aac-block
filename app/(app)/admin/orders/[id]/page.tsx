@@ -51,6 +51,7 @@ import { OpenLocationButton } from "@/components/open-location-button";
 import { StaffWeighbridgeVehiclePanel } from "@/components/staff-weighbridge-vehicle-panel";
 import { TruckStagingForm } from "@/components/truck-staging-form";
 import { DeliveryChallanPanel } from "@/components/delivery-challan-panel";
+import { OrderQrPanel } from "@/components/order-qr-panel";
 import { AdminDeleteOrderButton } from "@/components/admin-delete-order-button";
 import { OrderLifecycleTracker } from "@/components/order-lifecycle-tracker";
 import { LogisticsDispatchChecklist } from "@/components/logistics-dispatch-checklist";
@@ -90,6 +91,11 @@ export default async function AdminOrderDetailPage({
         },
         events: { orderBy: { createdAt: "asc" } },
         payments: { orderBy: { paidAt: "desc" }, include: { createdBy: true } },
+        qrCode: {
+          include: {
+            _count: { select: { scanLogs: true } },
+          },
+        },
       },
     }),
     prisma.user.findMany({
@@ -850,6 +856,16 @@ export default async function AdminOrderDetailPage({
 
           {/* 4. DISPATCH DOCUMENTATION & DELIVERY CHALLAN */}
           <DeliveryChallanPanel order={clientOrder as any} userRole="ADMIN" />
+
+          {/* 5. DIGITAL ORDER QR CODE & VERIFICATION CONTROL */}
+          <OrderQrPanel
+            orderId={order.id}
+            orderNo={order.orderNo}
+            customerName={order.customer?.name}
+            qrToken={order.qrCode?.token}
+            qrStatus={order.qrCode?.status}
+            scanCount={order.qrCode?._count?.scanLogs || 0}
+          />
         </div>
       </div>
 

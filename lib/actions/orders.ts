@@ -12,6 +12,7 @@ import { dispatchNotification } from "@/lib/push-dispatcher";
 import { formatNumber, formatBlockSizeName, isGoogleMapsUrl } from "@/lib/utils";
 import { getNextDeliveryChallanNumber } from "@/lib/delivery-challan";
 import { verifyGstNumber } from "@/lib/gst";
+import { generateSecureQrToken } from "@/lib/qr";
 
 function isRedirectError(error: any): boolean {
   if (!error || typeof error !== "object") return false;
@@ -600,6 +601,14 @@ export async function placeCustomerOrderAction(formData: FormData) {
                   createdById: session.id,
                 },
               },
+              qrCode: {
+                create: {
+                  token: generateSecureQrToken(),
+                  status: "ACTIVE",
+                  createdById: session.id,
+                  createdByName: session.name,
+                },
+              },
             },
           });
 
@@ -783,6 +792,19 @@ export async function confirmOrderAction(formData: FormData) {
     const invoiceNo = await nextInvoiceNo();
     const shareToken = crypto.randomBytes(24).toString("hex");
     const actorRoleLabel = session.role === "ADMIN" ? "Super Admin" : "Loading & Stock Staff";
+
+    const existingQr = await tx.orderQrCode.findUnique({ where: { orderId } });
+    if (!existingQr) {
+      await tx.orderQrCode.create({
+        data: {
+          orderId,
+          token: generateSecureQrToken(),
+          status: "ACTIVE",
+          createdById: session.id,
+          createdByName: session.name,
+        },
+      });
+    }
 
     await tx.order.update({
       where: { id: orderId },

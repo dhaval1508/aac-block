@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   PlayCircle,
   Send,
+  QrCode,
 } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import { cn, ROLE_LABEL } from "@/lib/utils";
@@ -47,6 +48,7 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
           items: [
             { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
             { href: "/admin/orders", label: "All Orders", icon: ShoppingCart, badge: pendingCount },
+            { href: "/admin/orders/qr-center", label: "Order QR Center", icon: QrCode },
             { href: "/admin/salesmen", label: "Salesmen Management", icon: Users },
           ],
         },
@@ -129,6 +131,7 @@ function getNavGroupsForRole(role: SessionUser["role"], pendingCount = 0): NavGr
 
 function getPageTitle(pathname: string): { title: string; category: string } {
   if (pathname.includes("/admin/dashboard")) return { title: "Super Admin Dashboard", category: "Operations" };
+  if (pathname.includes("/admin/orders/qr-center")) return { title: "Order QR Control Center", category: "Operations" };
   if (pathname.includes("/admin/orders")) return { title: "Order Management", category: "Operations" };
   if (pathname.includes("/admin/salesmen")) return { title: "Salesmen Management", category: "Administration" };
   if (pathname.includes("/admin/stock")) return { title: "Stock In / Out Inventory", category: "Yard Management" };
@@ -406,6 +409,25 @@ export function AppShell({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
                   Management & Audit
                 </span>
+                <Link
+                  href="/admin/orders/qr-center"
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl p-3 text-xs font-bold transition-all",
+                    pathname.startsWith("/admin/orders/qr-center")
+                      ? "bg-[#13789B] text-white shadow-xs"
+                      : "bg-slate-50 text-navy hover:bg-slate-100"
+                  )}
+                >
+                  <QrCode className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block truncate">Order QR Code Center</span>
+                    <span className={cn("text-[10px] font-medium block truncate", pathname.startsWith("/admin/orders/qr-center") ? "text-white/80" : "text-slate-400")}>
+                      QR generation, mobile scanning, stickers & audit
+                    </span>
+                  </div>
+                </Link>
+
                 <Link
                   href="/admin/users"
                   onClick={() => setMoreOpen(false)}

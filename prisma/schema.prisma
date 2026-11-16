@@ -46,6 +46,12 @@ enum StockType {
   OUT
 }
 
+enum QrStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
 model User {
   id              String          @id @default(cuid())
   role            Role            @default(CUSTOMER)
@@ -217,6 +223,7 @@ model Order {
   payments        Payment[]
   movements       StockMovement[]
   messageLogs     MessageLog[]
+  qrCode          OrderQrCode?
 
   @@index([status])
   @@index([customerId])
@@ -553,4 +560,60 @@ model UserAuditLog {
   @@index([action])
   @@index([createdAt])
 }
+
+model OrderQrCode {
+  id            String            @id @default(cuid())
+  orderId       String            @unique
+  order         Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  token         String            @unique
+  tokenHash     String?
+  status        QrStatus          @default(ACTIVE)
+  accessPolicy  String            @default("PUBLIC_READONLY") // "PUBLIC_READONLY" | "RESTRICTED"
+  passcode      String?
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  revokedById   String?
+  revokedReason String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  shareLogs     OrderQrShareLog[]
+  scanLogs      OrderQrScanLog[]
+
+  @@index([orderId])
+  @@index([token])
+  @@index([status])
+}
+
+model OrderQrShareLog {
+  id          String      @id @default(cuid())
+  qrCodeId    String
+  qrCode      OrderQrCode @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+  channel     String      // "WHATSAPP" | "EMAIL" | "COPY_LINK" | "DIRECT_SHARE"
+  recipient   String?
+  sentById    String?
+  sentByName  String?
+  status      String      @default("SUCCESS") // "SUCCESS" | "FAILED"
+  notes       String?
+  createdAt   DateTime    @default(now())
+
+  @@index([qrCodeId])
+  @@index([createdAt])
+}
+
+model OrderQrScanLog {
+  id          String      @id @default(cuid())
+  qrCodeId    String
+  qrCode      OrderQrCode @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+  scannedAt   DateTime    @default(now())
+  result      String      @default("SUCCESS") // "SUCCESS" | "REVOKED" | "EXPIRED" | "DENIED"
+  ipAddress   String?
+  userAgent   String?     @db.Text
+
+  @@index([qrCodeId])
+  @@index([scannedAt])
+}
+
 

@@ -24,6 +24,7 @@ import {
   XCircle,
   AlertCircle,
   IndianRupee,
+  QrCode,
 } from "lucide-react";
 import { OrderStatus } from "@prisma/client";
 import {
@@ -36,6 +37,7 @@ import {
 } from "@/lib/utils";
 import { OpenLocationButton } from "@/components/open-location-button";
 import { DeleteOrderModal } from "@/components/delete-order-modal";
+import { OrderQrModal } from "@/components/order-qr-modal";
 
 function getStatusIcon(status: OrderStatus) {
   switch (status) {
@@ -127,6 +129,7 @@ interface AdminOrderRowProps {
 export function AdminOrderRow({ order }: AdminOrderRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const items = order.items && order.items.length > 0 ? order.items : [];
   const hasMultipleItems = items.length > 1;
@@ -171,6 +174,15 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
         {/* 1. Order ID & Date */}
         <td className="py-3.5 px-3.5 align-top whitespace-nowrap">
           <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => setShowQrModal(true)}
+              title="Order QR Code, Share & Print"
+              className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[#13789B] hover:bg-teal-50 hover:border-teal-200 transition-colors cursor-pointer"
+            >
+              <QrCode className="h-3.5 w-3.5 shrink-0" />
+            </button>
+
             <Link
               href={`/admin/orders/${order.id}`}
               className="font-black text-sm text-[#13789B] group-hover:underline block font-mono tracking-tight"
@@ -365,6 +377,15 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
         {/* 7. Actions (Sticky right) */}
         <td className="py-3.5 px-3.5 text-right align-top whitespace-nowrap sticky right-0 bg-white/95 backdrop-blur-xs group-hover:bg-slate-50/95 transition-colors shadow-[-6px_0_12px_rgba(0,0,0,0.03)] min-w-[110px]">
           <div className="flex items-center justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowQrModal(true)}
+              title="Order QR Code, Share & Print"
+              className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[#13789B] hover:bg-teal-50 hover:border-teal-200 transition-colors cursor-pointer"
+            >
+              <QrCode className="h-3.5 w-3.5 shrink-0" />
+            </button>
+
             <Link
               href={`/admin/orders/${order.id}`}
               className="inline-flex items-center gap-1 rounded-xl bg-[#13789B] hover:bg-[#0f607d] text-white px-3 py-1.5 text-xs font-bold transition-all shadow-xs group/btn cursor-pointer whitespace-nowrap"
@@ -454,6 +475,16 @@ export function AdminOrderRow({ order }: AdminOrderRowProps) {
           }}
           onClose={() => setShowDeleteModal(false)}
           returnPath="/admin/orders"
+        />
+      )}
+
+      {/* Order QR Code & Sharing Modal */}
+      {showQrModal && (
+        <OrderQrModal
+          orderId={order.id}
+          orderNo={order.orderNo}
+          customerName={primaryCustomerName}
+          onClose={() => setShowQrModal(false)}
         />
       )}
     </>
