@@ -581,3 +581,4 @@ export async function recordOrderQrScan(token: string, userAgent?: string, ipAdd
     orderId: qr.orderId,
   };
 }
+

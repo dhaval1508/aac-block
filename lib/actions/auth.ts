@@ -16,28 +16,50 @@ export async function loginAction(formData: FormData) {
   const next = String(formData.get("next") ?? "").trim();
 
   if (!email || !password) {
-    redirect("/login?error=Missing%20email%20or%20password");
+    redirect("/login?error=" + encodeURIComponent("Please enter both email/mobile and password"));
   }
 
   let user: any;
   try {
+    // 1. Direct match on email
     user = await prisma.user.findUnique({ where: { email } });
+
+    // 2. Mobile lookup (handles 10 digits, +91 country prefix, spaces/hyphens)
     const cleanDigits = email.replace(/\D/g, "");
-    if (!user && cleanDigits.length === 10) {
-      user = await prisma.user.findFirst({ where: { mobile: cleanDigits } });
+    const tenDigits = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+
+    if (!user && tenDigits.length === 10) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { mobile: tenDigits },
+            { mobile: `+91${tenDigits}` },
+            { mobile: `91${tenDigits}` },
+            { email: `${tenDigits}@swarnim.customer` },
+            { email: `${tenDigits}@swarnimdemo.com` },
+            { email: `${tenDigits}@accblock.local` },
+          ],
+        },
+      });
     }
+
+    // 3. Domain aliases (@accblock.local <-> @swarnimdemo.com)
     if (!user && email.endsWith("@accblock.local")) {
       const aliasEmail = email.replace("@accblock.local", "@swarnimdemo.com");
       user = await prisma.user.findUnique({ where: { email: aliasEmail } });
     } else if (!user && email.endsWith("@swarnimdemo.com")) {
       const aliasEmail = email.replace("@swarnimdemo.com", "@accblock.local");
       user = await prisma.user.findUnique({ where: { email: aliasEmail } });
-    } else if (!user && !email.includes("@")) {
+    }
+
+    // 4. Raw username / handle lookup
+    if (!user && !email.includes("@")) {
       user = await prisma.user.findFirst({
         where: {
           OR: [
             { email: `${email}@accblock.local` },
             { email: `${email}@swarnimdemo.com` },
+            { email: `${email}@swarnim.customer` },
             { mobile: email },
           ],
         },
@@ -48,16 +70,20 @@ export async function loginAction(formData: FormData) {
       throw err;
     }
     console.error("Database connection error during login:", err);
-    redirect("/login?error=" + encodeURIComponent("Unable to reach database. Please make sure MySQL is running."));
+    redirect("/login?error=" + encodeURIComponent("Unable to reach authentication service. Please try again."));
   }
 
-  if (!user || !user.active) {
-    redirect("/login?error=Invalid%20email%20or%20password");
+  if (!user) {
+    redirect("/login?error=" + encodeURIComponent("Invalid email/mobile or password"));
   }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
-    redirect("/login?error=Invalid%20email%20or%20password");
+    redirect("/login?error=" + encodeURIComponent("Invalid email/mobile or password"));
+  }
+
+  if (!user.active) {
+    redirect("/login?error=" + encodeURIComponent("Your account has been deactivated. Please contact your administrator."));
   }
 
   // Update last login timestamp
@@ -75,7 +101,14 @@ export async function loginAction(formData: FormData) {
     role: user.role,
   });
 
-  if (next && next.startsWith("/") && next !== "/") {
+  const PUBLIC_EXACT = ["/login", "/register", "/forgot-password", "/reset-password"];
+  const safeNext =
+    next &&
+    next.startsWith("/") &&
+    !next.startsWith("//") &&
+    !PUBLIC_EXACT.some((p) => next.startsWith(p));
+
+  if (safeNext) {
     redirect(next);
   }
 
@@ -281,5 +314,6 @@ export async function changePasswordAction(formData: FormData) {
 
 export async function logoutAction() {
   await clearSession();
+  revalidatePath("/", "layout");
   redirect("/login");
 }

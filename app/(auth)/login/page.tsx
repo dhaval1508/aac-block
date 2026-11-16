@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; success?: string }>;
 }) {
   const params = await searchParams;
 
@@ -28,7 +28,11 @@ export default async function LoginPage({
         </div>
 
         {/* Single Universal Login Form */}
-        <LoginForm error={params.error} next={params.next} />
+        <LoginForm
+          error={params.error}
+          next={params.next}
+          success={params.success}
+        />
 
         {/* PWA Install */}
         <div className="mt-6 pt-4 border-t border-slate-100">

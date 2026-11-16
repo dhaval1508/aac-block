@@ -60,8 +60,15 @@ export async function middleware(request: NextRequest) {
 
   // Logged in and accessing public auth pages
   if (valid && PUBLIC_EXACT.includes(pathname)) {
+    const nextParam = request.nextUrl.searchParams.get("next");
+    const safeNext =
+      nextParam &&
+      nextParam.startsWith("/") &&
+      !nextParam.startsWith("//") &&
+      !PUBLIC_EXACT.some((p) => nextParam.startsWith(p));
+
     const url = request.nextUrl.clone();
-    url.pathname = roleHome(userRole ?? "CUSTOMER");
+    url.pathname = safeNext ? nextParam : roleHome(userRole ?? "CUSTOMER");
     url.search = "";
     return NextResponse.redirect(url);
   }

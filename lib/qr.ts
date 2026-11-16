@@ -100,3 +100,4 @@ export function formatOrderQrWhatsAppText(params: {
 
   return lines.join("\n");
 }
+

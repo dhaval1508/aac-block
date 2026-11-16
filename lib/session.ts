@@ -26,24 +26,45 @@ export async function createSession(user: SessionUser) {
     .setExpirationTime("7d")
     .sign(secret());
 
-  const jar = await cookies();
-  jar.set(COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  try {
+    const jar = await cookies();
+    jar.set(COOKIE, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  } catch {
+    // Graceful fallback when invoked outside a Next.js request store (e.g. CLI/tests)
+  }
 }
 
 export async function clearSession() {
-  const jar = await cookies();
-  jar.delete(COOKIE);
+  try {
+    const jar = await cookies();
+    jar.delete(COOKIE);
+    jar.set(COOKIE, "", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 0,
+      expires: new Date(0),
+    });
+  } catch {
+    // Graceful fallback when invoked outside a Next.js request store
+  }
 }
 
 export async function getSession(): Promise<SessionUser | null> {
-  const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
+  let token: string | undefined;
+  try {
+    const jar = await cookies();
+    token = jar.get(COOKIE)?.value;
+  } catch {
+    return null;
+  }
   if (!token) return null;
 
   try {

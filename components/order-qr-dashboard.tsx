@@ -524,3 +524,4 @@ export function OrderQrDashboard({ orders: initialOrders, stats: initialStats }:
     </div>
   );
 }
+
